@@ -1,0 +1,52 @@
+#!/bin/bash
+# synchronize with FreeFileSync first, for performance reasons files are not compared
+
+src="$1"
+dst="$2"
+if [ ! -d "$src/" ]; then
+    echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
+    exit 1
+fi
+if [ ! -d "$dst/" ]; then
+    echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
+    exit 1
+fi
+echo -n "Do you really want to apply all the dates of files in
+    $src
+to their respective files in
+    $dst
+? [y/N] "
+read answer
+if [ ! "$answer" == 'y' ]; then
+    exit 1
+fi
+
+nFiles=$(find "$src" | wc -l)
+counter=$(mktemp)
+echo '0' > "$counter"
+find "$src" -execdir bash -c '
+    fsrc=$(cat <<"EOF"
+{}
+EOF
+    )
+    if [[ "$(pwd)/$fsrc" == *"|"* ]]; then
+        echo -e "\e[31mFile name \"$(pwd)/$fsrc\" contains |, which is not allowed because sed rule uses it.\e[0m"
+    else
+        fdst="$( echo "$(pwd)/$fsrc" | sed '"'s|$src|$dst|;'"')"
+        #echo touch -r "$fsrc" "$fdst"
+        touch -r "$fsrc" "$fdst"
+    fi
+
+    # status bar
+    nFiles='$nFiles'
+    nFilesProcessed=$(cat '"$counter"')
+    nFilesProcessed=$((nFilesProcessed+1))
+    echo $nFilesProcessed > '"$counter"'
+    if [ "$((nFilesProcessed % 10))" -eq 0 ] || [ $nFilesProcessed -eq $nFiles ]; then
+        barlen=40
+        curPer=$((barlen*nFilesProcessed/nFiles))
+        printf "Progress: [%.*s%.*s] ($nFilesProcessed / $nFiles)\r"        \
+            "$curPer"            "========================================" \
+            "$((barlen-curPer))" "                                        "
+    fi
+' \; && echo ''
