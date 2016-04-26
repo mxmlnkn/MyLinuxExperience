@@ -1,0 +1,72 @@
+#!/bin/bash
+# cleanes filename of files in current folder and its subdirectories
+# no target directory or file argument possible at the moment
+
+
+cleanFilename() {
+    # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
+    #    / \ * ? < > |
+    #    \x22->\x27 makes: double quote -> single quote
+    #    pipestroke -> hyphen
+    #    double quote -> single quote
+    #    .html.mht -> .mht
+    #    delete leading and trailing spaces
+    # Change HTML-Codes:
+    #    &#039; -> '
+    #    here is how to correct html codes in existing folder names:
+    #       find /media/m -type d -execdir bash -c 'if grep -q "&#039;" <(echo '"'{}'"'); then newname=$(printf "%s" '"'{}'"' | sed "s/&#039;/'"'"'/g"); echo mv "{}"; echo " -> $newname"; mv "{}" "$newname"; fi' \;
+    # Use printf instead of echo to make it work for file names starting with e.g. '-e'
+    printf '%s' "$1" | sed -r '
+        s/[|/\]/-/g;
+        s/\x22/\x27/g;
+        s/\.html\.mht/\.mht/g;
+        s/[*?<>:$]/_/g;
+        s/ +$//g;
+        s/^ +//g;
+        s/\.+$//;
+        s/&#039;/'"'"'/g;
+        s|&lt;||g;
+        s|&gt;||g
+    '
+}
+
+##################################### Main #####################################
+
+dryrun=0
+dir=.
+while [ "$1" != "" ]; do
+  case $1 in
+    "-r" | "--dry-run")
+      dryrun=1
+      ;;
+    *)  # default case (neither one of the options from above, nor empty)
+        if [ ${1:0:1} == '-' ]; then
+            echo "Wrong parameters specified! (\$1=$1)"
+            exit 1
+        else
+            dir="$1"
+            break
+        fi
+        ;;
+  esac
+  shift
+done
+
+
+export -f cleanFilename
+find "$dir" -type f -execdir bash -c '
+    # use here-doc in order to not have any undefined behavior caused by
+    # special characters
+    name=$(basename "$(cat << "EOF"
+{}
+EOF
+    )" )
+    newname=$(cleanFilename "$name")
+    if [ "$name" != "$newname" ]; then
+        echo "rename: $(pwd)/$name"
+        echo " -> to: $(pwd)/$newname"
+        if [ ! "'$dryrun'" -eq 1 ]; then
+            mv "$name" "$newname"
+        fi
+    fi
+' \;
