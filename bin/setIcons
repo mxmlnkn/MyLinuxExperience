@@ -1,0 +1,312 @@
+#!/bin/bash
+
+# Note that a restart of nemo may be necessary sometimes
+
+
+# writes to stderr in order to use stdout for return values for subfunctions
+echoerr() { echo "$@" 1>&2; }
+
+getExtension() {
+    local extension
+    extension="$1"
+    extension=${extension##*.}
+    extension=${extension,,}  # to lowercase
+    echo "$extension"
+}
+
+# Searches in the current directory for a candidate to use as a thumbnail.
+# .ico have highest priority, after that the first (sorted by name) image
+# which is not animated will be used for a thumbnail
+findThumbnailImage() {
+    local file extension width
+
+    # -a to also include hidden files, especially .folder.ico which this script generates
+    file=$(command ls -a -v | grep -e '.ico$' | head -1)
+    if [ ! -z "$file" ] && [ -f "$file" ] && $(identify "$file" | grep -q 'ICO'); then
+        echo "$file"
+        return 0
+    fi
+
+    # -v natural sort in order to put 'test.jpg' before 'test_003.jpg' which wouldn't be the case normally as the file extension would be included in the sorting algorithm thereby putting 'test.jpg' to the last position
+    # use 'command ls instead of ls, in order to get non-colored output if something like 'alias ls=ls --color' is set
+    for file in $(command ls -v); do
+
+        if [ ! -f "$file" ]; then
+            #echoerr -e "\e[93m'$1': First found file '$file' is not a file"'!'"\e[0m"
+            continue
+        fi
+        extension=$(getExtension "$file")
+        if [ ! "$extension" == "jpg" ] && [ ! "$extension" == "png" ] && [ ! "$extension" == "gif" ]; then
+            #echoerr -e "\e[93m'$1': First found file '$file' is not a valid image"'!'"\e[0m"
+            continue
+        fi
+
+        # test if gif is animated, note that in old versions animated gifs would have resulted in this error:
+        #   setIcons: line 48: [: 850850850850850850850850850850850850850850850850850850850850850850850850850850850: integer expression expected
+        # where line 48 was 'if [ "$width" -gt "$height" ]' this is because width as returned by convert would be all widths of the consecutive frames concatenated, in this example 27 frames each 850px wide
+        # Trying to converte an animated gid to icon-temp.png would convert them to icon-tmp-0.png and so on, thereby polluting the folders. Clean this with:
+        #   find /media/m/ -name 'icon-tmp*.png' -execdir bash -c 'echo "$(pwd)/{}"' \;
+        if [ "$extension" == "gif" ] && [ $(identify "$file" | wc -l) -gt 1 ] ; then
+            #echoerr -e "\e[33m'$1': File is animated, won't be used for thumbnail"'!'"\e[0m"
+            continue
+        fi
+
+        width=$(convert "$file" -format "%w" info: 2>/dev/null)
+        if [ -z "$width" ]; then
+            # if it isn't an image, then width won't be available
+            #echoerr -e "\e[93m'$1': First found file '$file' doesn't have a valid width"'!'"\e[0m"
+            continue
+        fi
+
+        # if all tests successfull then break lop and return found candidate
+        echo "$file"
+        break
+    done
+}
+
+getLargestSide() {
+    local width height size
+    width=$(convert "$file" -format "%w" info:)
+    height=$(convert "$file" -format "%h" info:)
+    if [ "$width" -gt "$height" ]; then
+        size=$width
+    else
+        size=$height
+    fi
+    echo $size
+}
+
+convertToThumbnail() {
+    # convert to png first, because jpg->ico will result in:
+    # convert: no decode delegate for this image format `JPG' @ error/constitute.c/ReadImage/501.
+    # also fill with trasparency to 1:1 aspect ratio
+
+    local size=$(getLargestSide "$1")
+    echo convert "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
+    convert "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
+    convert 'icon-tmp.png' -define icon:auto-resize=256,128,64,48,32,16 -compress none '.folder.ico'
+    rm  'icon-tmp.png'
+    # About needed icon resolutions, see:
+    #   http://www.axialis.com/tutorials/tutorial-vistaicons.html#t8
+    #   http://stackoverflow.com/questions/3236115/which-icon-sizes-should-my-windows-applications-icon-include
+    # Note that I actually had 48x48 missing, which resulted in (weirdly some, but not all) icons not being displayed in 'Large Icons', but being displayed in the 'Details' setting
+
+    # forward exit code, if file exists, then conversion was successfull
+    test -f '.folder.ico'
+}
+
+isCygwin() {
+    uname -a | grep -q -i 'cygwin';
+}
+
+# ls -yz >> command.log 2>&1
+# #  Capture result of illegal options "yz" in file "command.log."
+# #  Because stderr is redirected to the file,
+# #+ any error messages will also be there.
+#
+# #  Note, however, that the following does *not* give the same result.
+# ls -yz 2>&1 >> command.log
+# #  Outputs an error message, but does not write to file.
+# #  More precisely, the command output (in this case, null)
+# #+ writes to the file, but the error message goes only to stdout.
+#
+# #  If redirecting both stdout and stderr,
+# #+ the order of the commands makes a difference.
+# command &> /dev/null
+# # also works in bash, but is not part of POSIX
+
+commandExists() {
+    # http://stackoverflow.com/questions/592620/check-if-a-program-exists-from-a-bash-script
+    command -v "$1" > /dev/null 2>&1;
+}
+
+isNtfs() {
+    #http://unix.stackexchange.com/questions/21799/how-can-i-determine-the-fs-type-of-my-current-working-directory
+    #fsname=mount | grep "^$(df -Pk . | head -n 2 | tail -n 1 | cut -f 1 -d ' ') " | cut -f 5 -d ' '
+    df -t ntfs -t fuseblk "$1" > /dev/null 2>&1
+}
+
+checkPrerequisites() {
+    if isCygwin && isNtfs . && ! commandExists attrib; then
+       echo -e "\e[31m[$(pwd)] For some reason the windows command 'attrib' isn't available. Maybe you actually aren't using Cygwin, or you use a very very new Windows version or maybe your Cygwin PATH variable doesn't include '/cygdrive/c/Windows/system32/'.\e[0m"
+       exit 1
+    fi
+    if ! commandExists convert; then
+       echo -e "\e[31m[$(pwd)] The command 'convert' is not available, please install ImageMagick, if you want to set colder icons to the first image found. Set existing icons in the folder will still work.\e[0m"
+    fi
+    if ! isCygwin && isNtfs . && ! commandExists setfattr; then
+       echo -e "\e[31m[$(pwd)] The command 'setfattr' is not available, please install ntfs-3g-2010.6.16AR.1 or later and attr (or try 'apt-cache search getfattr' if that doesn't work). The script should still work, but the set icons won't be visible in Windows, because both the folder and the desktop.ini need to have certain extended NTFS attributes"'!'"\e[0m"
+    fi
+}
+
+# setfattr -h -v 0x00000001 -n system.ntfs_attrib_be target-file
+# http://wiki.bash-hackers.org/commands/builtin/let
+# http://tldp.org/LDP/abs/html/numerical-constants.html
+# https://msdn.microsoft.com/en-us/library/windows/desktop/gg258117%28v=vs.85%29.aspx
+(( FILE_ATTRIBUTE_READONLY            = 0x1     ))
+(( FILE_ATTRIBUTE_HIDDEN              = 0x2     ))
+(( FILE_ATTRIBUTE_SYSTEM              = 0x4     ))
+(( FILE_ATTRIBUTE_DIRECTORY           = 0x10    ))
+(( FILE_ATTRIBUTE_ARCHIVE             = 0x20    ))
+(( FILE_ATTRIBUTE_DEVICE              = 0x40    ))
+(( FILE_ATTRIBUTE_NORMAL              = 0x80    ))
+(( FILE_ATTRIBUTE_TEMPORARY           = 0x100   ))
+(( FILE_ATTRIBUTE_SPARSE_FILE         = 0x200   ))
+(( FILE_ATTRIBUTE_REPARSE_POINT       = 0x400   ))
+(( FILE_ATTRIBUTE_COMPRESSED          = 0x800   ))
+(( FILE_ATTRIBUTE_OFFLINE             = 0x1000  ))
+(( FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 0x2000  ))
+(( FILE_ATTRIBUTE_ENCRYPTED           = 0x4000  ))
+(( FILE_ATTRIBUTE_INTEGRITY_STREAM    = 0x8000  ))
+(( FILE_ATTRIBUTE_VIRTUAL             = 0x10000 ))
+(( FILE_ATTRIBUTE_NO_SCRUB_DATA       = 0x20000 ))
+
+setNtfsFlag() {
+    flag=$1
+    file=$2
+    # !!! check correctness of flag and file
+    if isNtfs . && commandExists setfattr; then
+        # getfattr -h -e hex -n system.ntfs_attrib_be source-file
+        #  folders seem to be: system.ntfs_attrib_be=0x00000030
+        # a customized icon folder has: system.ntfs_attrib_be=0x00000031
+        # desktop.ini has: system.ntfs_attrib_be=0x00000002
+        # note: there exists system.ntfs_attrib_be and system.ntfs_attrib
+        #  big endian and lower endian respectively. So watch out!
+        #
+        # http://jp-andre.pagesperso-orange.fr/extend-attr.html#ntfsattributes
+        # http://linux.die.net/man/1/setfattr
+        # http://superuser.com/questions/321109/is-there-a-linux-tool-for-changing-dos-windows-file-attributes
+        # https://gist.github.com/Explorer09/ac4bf6838c271a9968b3
+
+        attr_hex=$(getfattr -e hex -n system.ntfs_attrib_be "$file" | sed -rn 's/system\.ntfs_attrib_be=(0x[0-9A-F]+)/\1/p')
+        attr_hex=$(($attr_hex | $flag))   # will be in decimal
+        attr_hex=$(printf '%#010x' "$attr_hex")            # make into hex again
+        if [ $? -eq 0 ]; then   # if attr_hex is a valid number
+            setfattr -v $attr_hex -n system.ntfs_attrib_be "$file"
+        fi
+    fi
+}
+
+makeHidden() {
+    if isCygwin && commandExists attrib; then
+        attrib +H "$1"
+    else
+        setNtfsFlag $FILE_ATTRIBUTE_HIDDEN "$1"
+    fi
+}
+
+makeReadOnly() {
+    if isCygwin && commandExists attrib; then
+        attrib +R "$1"
+    else
+        setNtfsFlag $FILE_ATTRIBUTE_READONLY "$1"
+    fi
+}
+
+
+setCustomFolderIcon() {
+    local folder
+    folder=$(dirname "$1")
+    # The properties of a working custom icon folder under Windows are:
+    #   attrib .
+    #       A    R       .
+    #   attrib desktop.ini
+    #           H        desktop.ini
+    # vs. non-working:
+    #   attrib .
+    #       A  S         .
+    #   attrib desktop.ini
+    #       A  SH        desktop.ini
+    # => make it work:
+    #   attrib +A -S +R .
+    #   attrib -A -S +H desktop.ini
+    if [ -f 'desktop.ini' ]; then
+        echo -e "\e[35m[$(pwd)] There already exists a 'desktop.ini'. As there is no append or modify function implemented, this script would need to overwrite it. If you want that, use the -f option. Not changing 'desktop.ini' for now!\e[0m"
+    else
+        printf "[.ShellClassInfo]\r\nConfirmFileOp=0\r\nIconResource=$1\r\nIconIndex=0\r\n" > 'desktop.ini'
+        makeReadOnly .
+        makeHidden desktop.ini
+    fi
+    if commandExists gvfs-set-attribute; then
+        # test if it already has icon
+        if gvfs-info -a 'metadata::*' "$folder" | grep -q 'custom-icon'; then
+        #    echo -e "\e[35m[$(pwd)] '$1' already has an icon set.\e[0m"
+            exit 2
+        fi
+        # gvfs-info --query-writable .
+
+        gvfs-set-attribute . metadata::custom-icon "$1"
+        # can be undone with: gvfs-set-attribute . -t unset metadata::custom-icon
+    fi
+}
+
+
+######################## Main ########################
+
+
+if [ -z "$1" ]; then
+    echo -n "Command line: setIcons FILE [-f|x]
+  -f creates a new icon, even if a .folder.ico or desktop.ini already exists
+  -x deletes all custom-icon settings done by this script.
+Note that this also deletes 'desktop.ini' files not created by this script!
+The argument order very much matters!
+
+Example:
+  - Set automatic icons for all folders in the curred directory:
+
+        find . -mindepth 1 -maxdepth 1 -execdir $0 \"{}\" \\;
+
+  - As creating icons from images can take quite a while you can speed up the process by running it in parallel:
+
+        find . -type d -print0 | xargs -0 -P 3 -I {} setIcons \"{}\" -f
+"
+    exit 0
+fi
+
+olddir="$(pwd)"
+if [ ! -d "$1" ]; then
+    # Fuck history expansion with exclamation mark -.-. Note that
+    # \! won't be interpreted as history expension, but it will still print
+    # the backslash -.-.
+    # http://unix.stackexchange.com/questions/33339/cant-use-exclamation-mark-in-bash
+    # http://superuser.com/questions/133780/in-bash-how-do-i-escape-an-exclamation-mark
+    echo -e "\e[31m[$(pwd)] '$1' is not a folder"'!'"\e[0m"
+    exit 1
+fi
+cd -- "$1"
+
+# if force, then delete all preexisting
+if [ "$2" == '-f' ] || [ "$2" == '-x' ]; then
+    rm -f 'desktop.ini' '.folder.ico'
+    if ! isCygwin; then
+        gvfs-set-attribute . -t unset metadata::custom-icon
+    fi
+    if [ "$2" == '-x' ]; then
+        exit 0
+    fi
+fi
+
+checkPrerequisites
+file=$(findThumbnailImage)
+if [ -z "$file" ]; then
+    exit 1
+fi
+echo -e "\e[32m[$(pwd)] Changing icon to '$file'\e[0m"
+
+
+# note that file is the found file. If the file was not an icon, then we first
+# need to convert it to one, e.g. named '.folder.ico'
+# "$(getExtension \"$file\")" is wrong! simple " are allowed, because they are surrounded by $()
+if [ "$(getExtension "$file")" != 'ico' ]; then
+    if ! commandExists convert; then exit 1; fi
+    if ! convertToThumbnail "$file"; then
+        echo -e "\e[31m[$(pwd)] Couldn't convert '$file' to '.folder.ico'!\e[0m"
+        exit 3
+    fi
+    file='.folder.ico'
+    makeHidden "$file"
+fi
+
+setCustomFolderIcon "$file"
+
+cd -- "$olddir"
