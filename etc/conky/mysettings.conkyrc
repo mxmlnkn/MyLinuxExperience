@@ -1,0 +1,172 @@
+-- These are LUA-style comments!
+--
+-- E.g. start with
+-- /opt/conky/build/src/conky -c "$HOME/etc/conky/mysettings.conkyrc" 2>&1 > "$HOME/conky.log" 2>&1 > "$HOME/conky.log"
+--
+-- http://conky.sourceforge.net/config_settings.html
+-- http://conky.sourceforge.net/variables.html
+--
+-- @TODO: use LUA to merge Download and Upload Panel like in Netbalancer by using different colors
+-- @TODO: sometimes upspeedgraph has spikes (100MB/s) which will make it impossible to see anything for the next 2m. Behavior like in speedometer would be better, they either use log-scale or they use graph-ellipses
+-- @Note: all halfgraphs are 120px wide! (would like variable for this -.-)
+
+
+conky.config = {
+
+	background = true,          -- if true, Conky will be forked to background when started
+	double_buffer = true,       -- eliminates flicker
+
+	alignment = 'bottom_right', -- where to count from when specifiying gap_x,y
+	gap_x = 20,                 -- distance in pixels from alignment
+	gap_y = 60,
+
+	draw_borders = false,       -- draws simple non-rounded one-colored borders around widget
+	border_width = 6,           -- no effect if draw_borders set teo no
+	border_inner_margin = 0,    -- if not 0, then goto 0 will jump before default beginning of line
+    --default_outline_color white
+    --default_shade_color white
+    --draw_graph_borders yes
+    --draw_outline no
+	draw_shades = false,        -- default would draw bad shades for text -.- looking like the tast shifted by 1 line and in black
+    --default_color white         -- for (graph) border and background
+
+	cpu_avg_samples = 2,        -- conky setting
+	net_avg_samples = 2,
+	no_buffers = true,          -- Subtract (file system) buffers from used memory?
+	out_to_console = false,
+	out_to_stderr = false,
+    --extra_newline no
+
+	own_window = true,
+	own_window_type = 'normal',
+    --own_window_transparent yes  # if yes, show background (isn't actually transparent, as it won't show underlying other windows, only the wallpaper, always ...
+    --own_window_colour 000000   # no effect if own_window_transparent yes
+	own_window_argb_visual = true,
+	own_window_argb_value = 130,-- (transparent) 0..255 (opaque) is ignored if own_window_transparent yes !
+	own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+
+	minimum_width = 170, minimum_height = 0,-- default is roughly 100px when tested, so this is necessary
+    --stippled_borders 0
+	update_interval = 1,        -- in seconds
+	uppercase = false,          -- default is no (?)
+	use_spacer = 'none',
+
+	show_graph_scale = false,   -- shows scale in upper left corner of graphs, if no custom scale specified
+	show_graph_range = false,   -- shows e.g. "2m" for the network graph's horizontal axis
+
+	use_xft = true,             -- antialiased fonts
+	xftalpha = 0.1,
+	font = 'Droid Sans:size=8',
+	color0 = 'white',
+	color1 = '#EAEAEA',
+    --color2 FFA300               -- orange
+	color2 = '#0ABFFF',         -- turquese
+	color3 = 'grey',
+
+	pad_percents = 3,
+	temperature_unit = 'celsius',
+	top_cpu_separate = false,   -- if false, use sum of cpu usage over all cores
+
+    --interface eth0   -- user variable to set which interface to listen to
+    -- ^ doesn't work, use LUA ...
+};
+
+conky.text = [[
+${voffset -8}\
+#-------------------------------------------------------------------------------
+#                                   CPU
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}Processor$color
+${color2}${voffset -5}${hr 1}$color
+# cpu0 is Total Usage
+#${color2}CPU ${color0}
+${color0}${cpubar cpu0 10,210}${alignr}${cpu cpu0}%
+#${cpugraph cpu0 50,300}${voffset -19}
+#${font}${voffset -37}${color0}${goto 258}${freq_g (2)}GHz${voffset 35}
+${cpugraph cpu1 25,120}${cpugraph cpu2 25,120}${voffset 6}
+${font}${voffset -37}${color0}${goto 78}${freq_g 1}GHz ${goto 198}${freq_g 2}GHz${voffset 5}
+${cpugraph cpu3 25,120}${cpugraph cpu4 25,120}${voffset 6}
+${font}${voffset -37}${color0}${goto 78}${freq_g 3}GHz ${goto 198}${freq_g 4}GHz${voffset 10}
+# top processes hogging CPU time: top_time (cumulative time) may be more interesting ...
+${color2}${voffset 5}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
+${top name 1}${goto 115}${top pid 1}${goto 160}${top cpu 1}${goto 205}${top mem 1}
+${top name 2}${goto 115}${top pid 2}${goto 160}${top cpu 2}${goto 205}${top mem 2}
+${top name 3}${goto 115}${top pid 3}${goto 160}${top cpu 3}${goto 205}${top mem 3}
+${top name 4}${goto 115}${top pid 4}${goto 160}${top cpu 4}${goto 205}${top mem 4}
+#-------------------------------------------------------------------------------
+#                                   GPU
+#-------------------------------------------------------------------------------
+# commands to try: scroll, tail
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}GPU$color
+${color2}${voffset -5}${hr 1}$color
+${color2}GPU Temp${goto 70}${color0}${nvidia temp}C${goto 125}${color2}Fan Speed${goto 195}${color0}${execi 10 nvidia-settings -q [fan:0]/GPUCurrentFanSpeed -t} %
+${color2}GPU Clock${goto 70}${color0}${nvidia gpufreq} MHz${goto 125}${color2}Mem Clock${goto 195}${color0}${nvidia memfreq} MHz
+${color2}Mem Used${goto 70}${color0}${execi 10 nvidia-settings -q [gpu:0]/UsedDedicatedGPUMemory -t} / ${exec nvidia-settings -q [gpu:0]/TotalDedicatedGPUMemory -t} MiB
+#-------------------------------------------------------------------------------
+#                                  Memory
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}Memory$color
+${color2}${voffset -5}${hr 1}$color
+#${color2}Memory used$color${alignr}${mem} / ${memmax}
+${color0}${membar 10,110}${alignr}${mem} / ${memmax}  [${memperc}%]
+${color2}${voffset 5}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
+${top_mem name 1}${goto 115}${top_mem pid 1}${goto 160}${top_mem cpu 1}${goto 205}${top_mem mem 1}
+${top_mem name 2}${goto 115}${top_mem pid 2}${goto 160}${top_mem cpu 2}${goto 205}${top_mem mem 2}
+${top_mem name 3}${goto 115}${top_mem pid 3}${goto 160}${top_mem cpu 3}${goto 205}${top_mem mem 3}
+${top_mem name 4}${goto 115}${top_mem pid 4}${goto 160}${top_mem cpu 4}${goto 205}${top_mem mem 4}
+#-------------------------------------------------------------------------------
+#                                  Logging
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}Syslog$color
+${color2}${voffset -5}${hr 1}$color
+${voffset 5}${execi 10 tail -n 4 /var/log/syslog | fold -w 47}
+#-------------------------------------------------------------------------------
+#                                  Logging
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}Authentication Log$color
+${color2}${voffset -5}${hr 1}$color
+${voffset 5}${execi 10 tail -n 4 /var/log/auth.log | fold -w 47}
+#-------------------------------------------------------------------------------
+#                                    HDD
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}HDD$color
+${color2}${voffset -5}${hr 1}$color
+${execpi 10 ~/etc/conky/list_mounted.sh}
+#-------------------------------------------------------------------------------
+#                                  Network
+#-------------------------------------------------------------------------------
+${color2}${voffset 2}${hr 1}$color
+${color2}${alignc}Network$color
+${color2}${voffset -5}${hr 1}$color
+#
+# public ip address
+# this command creates traffic permanently, not good :S
+${color2}Public IP${color0}${alignr}${execi 3600 wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1}
+# Arguably this may not find the public IP, if behind a NAT or Router, but what use would the IP have then
+#${color2}Public${color0}${alignr}${LANG=c ifconfig eth0 | grep "inet addr" | awk -F: '{print $2}' | awk '{print $1}'}
+#
+#${color2}${voffset 5}Hostname: $color$alignr$nodename
+######## wlan0 #########
+${if_up wlan0}\
+${color2}wlan0: $color$alignr${addr wlan0}
+${color2}SSID: ${color}${wireless_essid wlan0}${alignr}\
+#conky[5596]: segfault at 0 ip 00000000004541a2 sp 00007ffc214c8db8 error 4 in conky[400000+d3000]
+${wireless_bitrate} ${color2}Quality: ${color}${wireless_link_bar} ${wireless_link_qual} [${wireless_link_qual_perc}%]
+${color2}Down: $color${downspeedf wlan0} kiB/s ${alignr}${color2}Up:$color ${upspeedf wlan0} kiB/s${voffset -3}
+${downspeedgraph wlan0 50,120} ${alignr}${upspeedgraph wlan0 50,120}$color
+${voffset -6}${color2}Total:$color ${totaldown wlan0} ${alignr}${color2}Total:$color ${totalup wlan0}${voffset 5}
+${endif}\
+######## eth0 ########
+${if_up eth0}\
+${color2}eth0: $color$alignr${addr eth0}
+${color2}Down: $color${downspeedf eth0} kiB/s ${alignr}${color2}Up:$color ${upspeedf eth0} kiB/s${voffset -3}
+${downspeedgraph eth0 50,120} ${alignr}${upspeedgraph eth0 50,120}$color
+${voffset -6}${color2}Total:$color ${totaldown eth0} ${alignr}${color2}Total:$color ${totalup eth0}\
+${endif}\
+]];
