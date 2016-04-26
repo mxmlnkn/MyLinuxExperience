@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+#~/bin/findwallsized
+#   findwallsized [ path-to-search [ target-for-finds [ min-width [ min height ] ] ] ]
+# e.g. start with:
+#   findwallsized . ./wallsized
+
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "findwallsized [ path-to-search [ target-for-finds [ min-width [ min height ] ] ] ]"
+fi
+
+if [ -z "$1" ]; then src='.'          ; else src="$1"; fi
+if [ -z "$2" ]; then dst='./wallsized'; else dst="$2"; fi
+if [ -f "$dst" ]; then
+    echo -e "\e[31mA file with the name '$dst', which is to be used as the target folder of found files, already exists"'!'"\e[0m";
+    exit 1
+fi
+
+readNumber() {
+    local defaultValue inputValue
+    defaultValue="$1"
+    inputValue="$2"
+    if [ -z "$inputValue" ]; then
+        echo "$defaultValue"
+    elif [[ "$inputValue" =~ [0-9]+ ]]; then
+        echo "$inputValue"
+    else
+        echo -e "\e[31mSpecified value '$inputValue' is not a valid number"'!'"\e[0m";
+        exit 1
+    fi
+}
+minWidth=$(readNumber 1920 "$3")
+minHeight=$(readNumber 1080 "$4")
+
+mkdir -p "$dst"
+nFiles=$(find "$src" -type f -not \( -path "$dst" -prune \) | wc -l)
+counter=$(mktemp)
+echo '0' > "$counter"
+find "$src" -type f -not \( -path "$dst" -prune \) -print0 | xargs -0 -I {} -P 4 bash -c '
+    fpath=$(cat <<EOF
+{}
+EOF
+    )
+    ext=${fpath##*.}
+    if [ "${ext,,}" == "png" ] || [ "${ext,,}" == "jpg" ] || [ "${ext,,}" == "bmp" ]; then
+        xy=( $(identify -format "%[fx:w] %[fx:h]\n" "$fpath" 2>/dev/null ) )
+        if [ ! -z "$xy" ]; then
+            if [ "${xy[0]}" -ge '"$minWidth"' ] && [ "${xy[1]}" -ge '"$minHeight"' ]; then
+                cp --preserve=timestamps "$fpath" '"$dst"'/
+                #chmod --reference="$fpath" "'"$dst"'/$(basename "$fpath")"
+            fi
+        fi
+    fi
+
+    # status bar
+    nFiles='$nFiles'
+    nFilesProcessed=$(cat '"$counter"')
+    nFilesProcessed=$((nFilesProcessed+1))
+    echo $nFilesProcessed > '"$counter"'
+    if [ "$((nFilesProcessed % 1))" -eq 0 ] || [ $nFilesProcessed -eq $nFiles ]; then
+        barlen=40
+        curPer=$((barlen*nFilesProcessed/nFiles))
+        printf "Progress: [%.*s%.*s] ($nFilesProcessed / $nFiles)\r"        \
+            "$curPer"            "========================================" \
+            "$((barlen-curPer))" "                                        "
+    fi
+'
