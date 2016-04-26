@@ -1,0 +1,24 @@
+#!/bin/bash
+
+folder="$1"
+if [ -z "$folder" ]; then folder=.; fi
+if [ ! -d "$folder" ]; then
+    echo -e "\e[31mGiven path '.' not found or is not a directory"'!'"\e[0m"
+fi
+
+find "$folder" -iname '*.m3u' -execdir bash -c '
+    file="$(cat <<EOF
+{}
+EOF
+    )"
+    echo "$file"
+    if ! grep -q "$(echo -ne "\xEF\xBB\xBF")" "$file"; then
+        echo -ne "\xEF\xBB\xBF" > "${file%.*}"
+    fi
+    echo -e "$(sed "s|\\\\|\/|g;
+                    s/%/\\\\x/g" "$file" )" |
+        sed "s|.*$(echo "$(basename "$(pwd)")" |
+        sed "s/\[/\\\\[/g" )/||" >> "${file%.*}"
+    rm "$file"
+    mv "${file%.*}" "$file"
+' \;
