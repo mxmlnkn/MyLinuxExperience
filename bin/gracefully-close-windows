@@ -1,0 +1,30 @@
+#!/bin/bash
+# gracefully-close-windows
+
+# Get all Window IDs (doesn't work for tray only programs), send close
+# signal and wait for windows to close
+
+stringContains() {
+    #echo "    String to test: $1"
+    #echo "    Substring to test for: $2"
+    [ -z "${1##*$2*}" ] && [ ! -z "$1" ]
+}
+getWinIds(){ wmctrl -l | grep -vwE "Desktop$|xfce4-panel$" | cut -f1 -d' '; }
+
+winids="NON-EMPT-INIT"
+windowsCloseSent=()
+while [ "$winids" != "" ]; do
+    winids=$(getWinIds)
+    for winid in $winids; do
+        if ! stringContains "${windowsCloseSent[*]}" "$winid"; then
+            wmctrl -ic "$winid"
+            windowsCloseSent+=( "$winid" )
+        fi
+    done
+    sleep 0.1;
+done
+
+#sudo veracrypt -d
+pkill java hexchat pidgin veracrypt thunderbird conky
+sync
+

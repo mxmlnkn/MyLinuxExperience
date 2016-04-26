@@ -1,0 +1,8 @@
+#!/bin/bash
+# graceful-logout
+
+# This script shows a dialog listing all .desktop links in ~/.config/grafecul-logout/
+# which then call gracefully-close-windows and xfce4-session-logout with
+# different parameters
+
+yad --undecorated --center --icons --item-width="60" --single-click --read-dir="$HOME/.config/graceful-logout" --width="300" --height="250" --field=Option:CHK FALSE --field=Text2:LBL --button="Cancel:1"
