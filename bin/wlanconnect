@@ -1,0 +1,30 @@
+#!/bin/bash
+# Create config files with
+
+sudo service network-manager stop
+sudo service wicd stop
+sudo pkill wpa
+sudo pkill wicd
+sudo pkill dhclient
+
+if ! sudo ip link | grep -q 'wlan0.*UP'; then
+    sudo ip link set wlan0 up
+    sleep 0.25
+fi
+
+networks=( 'configname' )
+for curnet in ${networks[*]}; do
+    if sudo iw wlan0 scan | grep -q "$curnet"; then
+        # nothing yet
+        echo "Connecting to WLAN-SSID: $curnet"
+        sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c /etc/wpa_supplicant/$curnet.conf > /var/log/no    hup/wpasupp-$curnet.log &"
+        sleep 0.25
+    fi
+done
+
+# only start this if no ip given. somehow check given ip
+sudo bash -c 'nohup dhclient -4 wlan0 > /var/log/nohup/dhclient.log &'
+#sleep 0.25
+#echo "Trying to look up google.de to check connection"
+#nslookup google.de
+
