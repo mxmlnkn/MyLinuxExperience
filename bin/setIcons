@@ -240,14 +240,12 @@ setCustomFolderIcon() {
     fi
 }
 
-
-######################## Main ########################
-
-
-if [ -z "$1" ]; then
-    echo -n "Command line: setIcons FILE [-f|x]
-  -f creates a new icon, even if a .folder.ico or desktop.ini already exists
-  -x deletes all custom-icon settings done by this script.
+printHelpMessage() {
+    echo -n "Command line: setIcons [-f] [-x] [-h] [-r] <folder>
+  -h  prints this help message
+  -f  creates a new icon, even if a .folder.ico or desktop.ini already exists
+  -r  recursively sets icons also for all subdirectories
+  -x  deletes all custom-icon settings done by this script.
 Note that this also deletes 'desktop.ini' files not created by this script!
 The argument order very much matters!
 
@@ -260,28 +258,61 @@ Example:
 
         find . -type d -print0 | xargs -0 -P 3 -I {} setIcons \"{}\" -f
 "
-    exit 0
-fi
+}
 
-olddir="$(pwd)"
-if [ ! -d "$1" ]; then
+######################## Main ########################
+
+remove=0
+force=0
+folder=.
+while [ "$1" != "" ]; do
+  case $1 in
+    "-h" | "--help")
+        printHelpMessage
+        ;;
+    "-f" | "--force")
+        force=1
+        ;;
+    "-r" | "--recursive")
+        recursive=1
+        ;;
+    "-x" | "--remove-icons")
+        remove=1
+        ;;
+    *)  # default case (neither one of the options from above, nor empty)
+        if [ ${1:0:1} == '-' ]; then
+            echo "Wrong parameters specified! (\$1=$1)"
+            exit 1
+        else
+            folder="$1"
+            break
+        fi
+        ;;
+  esac
+  shift
+done
+if [ ! -d "$folder" ]; then
     # Fuck history expansion with exclamation mark -.-. Note that
     # \! won't be interpreted as history expension, but it will still print
     # the backslash -.-.
     # http://unix.stackexchange.com/questions/33339/cant-use-exclamation-mark-in-bash
     # http://superuser.com/questions/133780/in-bash-how-do-i-escape-an-exclamation-mark
     echo -e "\e[31m[$(pwd)] '$1' is not a folder"'!'"\e[0m"
+    printHelpMessage
     exit 1
 fi
-cd -- "$1"
 
-# if force, then delete all preexisting
-if [ "$2" == '-f' ] || [ "$2" == '-x' ]; then
+#find . -type d -print0 | xargs -0 -P 3 -I {} setIcons \"{}\" -f
+olddir="$(pwd)"
+cd -- "$folder"
+
+# if force, then delete all pre-existing
+if [ $force -eq 1 ] || [ $remove -eq 1 ]; then
     rm -f 'desktop.ini' '.folder.ico'
     if ! isCygwin; then
         gvfs-set-attribute . -t unset metadata::custom-icon
     fi
-    if [ "$2" == '-x' ]; then
+    if [ $remove -eq 1 ]; then
         exit 0
     fi
 fi
