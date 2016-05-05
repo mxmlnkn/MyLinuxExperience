@@ -1,0 +1,99 @@
+#!/bin/bash
+# spawn drop in terminals
+getLastWid() {
+    sleep 0.4s
+    wid=$(wmctrl -lp | 'grep' " Terminal " | awk '{print strtonum($1),$0;}' |
+          'sort' -n | 'tail' -1 | 'sed' -nE 's|^([0-9a-f]+) .*|\1|p')
+}
+getBorderWidth() {
+    # see this bug: https://github.com/jordansissel/xdotool/issues/115
+    # this bug also affects absolute values, that's why this is needed
+    # this function causes a flicker, therefore it shouldn't be called
+    # more than once!
+    local X Y X0 Y0
+    eval $(xdotool getwindowgeometry --shell $1 | command grep '[XY]=')
+    X0=$X
+    Y0=$Y
+    xdotool windowmove --relative $1 0 0
+    eval $(xdotool getwindowgeometry --shell $1)
+    bw=$((X-X0))
+    bh=$((Y-Y0))
+    xdotool windowmove $1 $((X0-bw)) $((Y0-bh))
+    # bw and bh aren't exactly borders. They are
+    # corrections to the values returned by getwindowgeometry in
+    # comparison to the values expected by windowmove!
+    #
+    # This border_width is actually twice the border width which
+    # makes this bug even more weird.
+    # The border height is twice the top-border, NOT top + bottom border
+    # (top is 30px while bottom is 8px, so I would expect a value of 38,
+    #  but bh is actually 60 ... can't get more weird than this)
+    # If these are not equal it is difficult to find out each
+    # In my case the lower border is as high as the sid borders are wider
+    #   => bw = 16
+    #      bh = 60
+    # leftBorder=8, rightBorder=8, bottomBorder=8, topBorder=30 (tested!)
+    #
+    # After moving the window to 0,0 the coordinates being spewed out
+    # will be 16,60. In order to now stack a second window with the
+    # same geometry perfectly below this we would have to use these
+    # coordinates:
+    #     (0,0+HEIGHT-bh+bh/2+bw/2)
+}
+
+script=$(mktemp) #"$HOME/etc/dropInTerminals"
+cat > "$script" <<"EOF"
+#!/bin/bash
+
+sw=1920 # screen width
+sh=1080 # screen height
+ph=35   # panel height (assumed it is at the bottom)
+script=$0; pos=$1; wid=$2; bw=$3; bh=$4; firstUse=$5
+
+# test if window is still open, if not close xdotool
+if ! wmctrl -lp | 'grep' -q -i "$(echo "obase=16;$wid" | bc)"; then
+    pkill -i -f "xdotool behave_screen_edge.*$wid"
+    exit 1
+fi
+
+# choose target coordinates, where to move window and also to manually evalute clicks
+eval $(xdotool getwindowgeometry --shell $wid)  # sets HEIGHT, WIDTH
+ww=$((WIDTH+bw/2))       # window width
+wh=$((HEIGHT+bh/2+bw/2)) # window height
+case $pos in
+    left1)  x=0; y=$((sh-ph-wh-1-wh))          ; ;;
+    left2)  x=0; y=$((sh-ph-wh-1))             ; ;;
+    top)    x=$((sw/2-ww/2)); y=0              ; ;;
+    right1) x=$((sw-ww)); y=$((sh-ph-wh-1-wh)) ; ;;
+    right2) x=$((sw-ww)); y=$((sh-ph-wh-1))    ; ;;
+esac
+
+# on first use only move windows to their correct positions and hide them
+if [ ! -z "$firstUse" ] && [ $firstUse == 1 ]; then
+    xdotool behave_screen_edge ${pos%*[0-9]} exec "$script" $pos $wid $bw $bh &
+    xdotool windowmove $wid $x $y windowminimize $wid
+    exit 0
+fi
+
+# evaluate mouse location now and exit if not correct
+eval $(xdotool getmouselocation --shell | command grep '[XY]=')
+case $pos in
+    left1|left2)   if [ $Y -lt $y ] || [ $Y -ge $((y+HEIGHT)) ]; then exit; fi; ;;
+    right1|right2) if [ $Y -lt $((y+HEIGHT/2)) ] || [ $Y -ge $((y+HEIGHT)) ]; then exit; fi; ;;
+    top)           if [ $X -lt $x ] || [ $X -ge $((x+WIDTH )) ]; then exit; fi; ;;
+esac
+
+#actually move and activate window and hide it, if it already is active
+if [ $wid == $(xdotool getactivewindow) ]; then
+    xdotool windowminimize $wid
+else
+    xdotool windowmove $wid $x $y windowactivate $wid
+fi
+EOF
+chmod u+x "$script"
+
+xfce4-terminal --working-directory="$HOME" & getLastWid && getBorderWidth $wid  && "$script" left1  $wid $bw $bh 1
+xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" left2  $wid $bw $bh 1
+#xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" right1 $wid $bw $bh 1
+xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" right2 $wid $bw $bh 1
+#xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" top    $wid $bw $bh 1
