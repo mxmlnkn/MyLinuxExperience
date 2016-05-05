@@ -1,0 +1,262 @@
+#!/bin/bash
+
+getArchiveCommand() {
+    if [ ! -f "$1" ] ; then exit 1; fi
+    case "$1" in
+        *.7z)      echo '7z'      ;;
+        *.bz2)     echo 'bzip2'   ;;
+        *.exe)     echo 'cabextract' ;;
+        *.gz)      echo 'gzip'    ;;
+        *.lzma)    echo 'lzma'    ;;
+        *.tar.lrz) echo 'lrztar'  ;;
+        *.tar.bz2) echo 'tar'     ;;
+        *.tar.gz)  echo 'tar'     ;;
+        *.tar.xz)  echo 'tar'     ;;
+        *.tar)     echo 'tar'     ;;
+        *.tbz2)    echo 'tar'     ;;
+        *.tgz)     echo 'tar'     ;;
+        *.rar)     echo 'rar'     ;;
+        *.zip)     echo 'zip'     ;;
+        *.xz)      echo 'xz'      ;;
+        *)  # How to find out the mime-types file reports:
+            #  echo "hello" > test
+            #    tar  -cf world.tar world
+            #    bzip2 -k world.tar
+            #    gzip  -k world.tar
+            #    xz    -k world.tar
+            #    lzma  -k world
+            #    bzip2 -k world
+            #    gzip  -k world
+            #    7z   a world.7z  world
+            #    rar  a world.rar world
+            #    zip -u world.zip world
+            #  for file in *.*; do file --mime-type "$file"; done
+            #    world.7z     : application/x-7z-compressed
+            #    world.lzma   : application/octet-stream
+            #    world.rar    : application/x-rar
+            #    world.tar    : application/x-tar
+            #    world.bz2    : application/x-bzip2
+            #    world.tar.bz2: application/x-bzip2
+            #    world.gz     : application/gzip
+            #    world.tar.gz : application/gzip
+            #    world.tar.xz : application/x-xz
+            #    world.zip    : application/zip
+            # Note that the .gz files are not differing from the .tar.gz or
+            # .tgz files obviously. We need to look into them and see
+            # if they only contain a single .tar archive
+            mimi=$(file --mime-type "$1" | 'sed' 's|^.* : application/||')
+            case "$mimi" in
+                x-7z-compressed) echo '7z'    ;;
+                octet-stream)    echo 'lzma'  ;;
+                x-rar)           echo 'rar'   ;;
+                x-bzip2)         echo 'bzip2' ;;
+                gzip)            echo 'gzip'  ;;
+                x-xz)            echo 'xz'    ;;
+                zip)             echo 'zip'   ;;
+            esac
+    esac
+}
+
+
+singleFileInArchive() {
+    # test if archive contains single file or single folder so we can
+    # extract it without polluting the working folder, but also without
+    # creating unnecessary folders
+    case $(getArchiveCommand "$1") in
+        'tar')
+            # Output is like this (note: may be absolute paths!):
+            #   xarchiver-0.5.2/
+            #   xarchiver-0.5.2/po/
+            #   xarchiver-0.5.2/po/ChangeLog
+            nFiles=$('tar' -tf "$1" | 'wc' -l)
+            firstFile=$('tar' -tf "$1" | 'head' -1)
+            if [ $nFiles -le 1 ]; then
+                echo "$firstFile"
+                return 0
+            else
+                # find out if all are in the same folder
+                if [ ${firstFile[-1]} != '/' ]; then
+                    return 1
+                # Special regex chars in folder may pose a problem!
+                elif [ $('tar' -tf "$1" | 'grep' -c "^$firstFile") -eq $nFiles ]; then
+                    echo "$firstFile" # this is a folder
+                    return 0
+                else
+                    return 1
+                fi
+            fi
+            ;;
+        'rar')
+            # Output of rar l world.rar is like this:
+            #   RAR 5.30 beta 2   Copyright (c) 1993-2015 Alexander Roshal   4 Aug 2015
+            #   Trial version             Type RAR -? for help
+            #
+            #   Archive: world2.rar
+            #   Details: RAR 4
+            #
+            #    Attributes      Size     Date    Time   Name
+            #   ----------- ---------  ---------- -----  ----
+            #    -rw-r--r--         6  2016-05-05 14:51  world
+            #    -rw-r--r--         6  2016-05-05 16:06  oho/world
+            #   ----------- ---------  ---------- -----  ----
+            #                      12                    2
+            #
+            # Output of rar lt world.rar is like this:
+            #   RAR 5.30 beta 2   Copyright (c) 1993-2015 Alexander Roshal   4 Aug 2015
+            #   Trial version             Type RAR -? for help
+            #
+            #   Archive: world2.rar
+            #   Details: RAR 4
+            #
+            #           Name: world
+            #           Type: File
+            #           Size: 6
+            #    Packed size: 16
+            #          Ratio: 266%
+            #          mtime: 2016-05-05 14:51:14,000
+            #     Attributes: -rw-r--r--
+            #          CRC32: 363A3020
+            #        Host OS: Unix
+            #    Compression: RAR 3.0(v29) -m3 -md=128K
+            #
+            #           Name: oho/world
+            #           Type: File
+            #           Size: 6
+            #    Packed size: 16
+            #          Ratio: 266%
+            #          mtime: 2016-05-05 16:06:47,000
+            #     Attributes: -rw-r--r--
+            #          CRC32: 363A3020
+            #        Host OS: Unix
+            #    Compression: RAR 3.0(v29) -m3 -md=128K
+            nFiles=$('rar' lt "$1" | 'grep' -Ec '^[ \t]+Name: ')
+            firstFile=$('rar' lt "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
+            if [ $nFiles -le 1 ]; then
+                echo $firstFile
+                return 0
+            else
+            {
+                # rar doesn't print folders, so we need to see if first
+                # printed contains a slash and then strip the first folder
+                # form the path, assuming paths are relative
+                if [[ "$firstFile" =~ '[^/].*/.*' ]]; then
+                {
+                    if [ ${firstFile:0:1} == '/' ]; then
+                        echo -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
+                    fi
+                    return 1
+                }
+                # Special regex chars in folder may pose a problem!
+                elif [ $('rar' lt "$1" | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
+                    echo "${firstFile%%/*}/"
+                else
+                    return 1
+                fi
+            }
+            fi
+            ;;
+        'zip')
+            # Output of zipinfo -1 world.zip
+            #   world
+            #   oho/world
+            nFiles=$('zipinfo' -1 "$1" | 'wc' -l)
+            firstFile=$('zipinfo' -1 "$1" | 'head' -1)
+            if [ $nFiles -le 1 ]; then
+                echo $firstFile
+                return 0
+            else
+            {
+                # exact same as rar, see there
+                if [[ "$firstFile" =~ '[^/].*/.*' ]]; then
+                {
+                    if [ ${firstFile:0:1} == '/' ]; then
+                        echo -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
+                    fi
+                    return 1
+                }
+                # Special regex chars in folder may pose a problem!
+                elif [ $('zipinfo' -1 "$1" | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
+                    echo "${firstFile%%/*}/"
+                else
+                    return 1
+                fi
+            }
+            fi
+            ;;
+        *)
+            echo -e "\e[31m Listing files not supported for $1"'!'"\e[0m"
+            return 1
+            ;;
+    esac
+}
+
+
+extractHere() {
+    case $(getArchiveCommand "$1") in
+        7z)   7z x         "$1"; return $? ;;
+        bz2)  bunzip2      "$1"; return $? ;;
+        exe)  cabextract   "$1"; return $? ;;
+        gz)   gunzip       "$1"; return $? ;;
+        lzma) unlzma       "$1"; return $? ;;
+        tar)  tar -C . -xf "$1"; return $? ;;
+        rar)  unrar x      "$1"; return $? ;;
+        xz)   unxz         "$1"; return $? ;;
+        zip)  unzip        "$1"; return $? ;;
+        #Z)    uncompress   "$1" ;;
+        #tar.lrz) lrztar -d   "$1" ;;
+    esac
+}
+
+##################################### main #####################################
+
+if [ -z "$1" ]; then
+    # display usage if no parameters given
+    echo "Usage: extract <path/file_name>.<zip|rar|bz2|gz|tar|tbz2|tgz|Z|7z|xz|ex|tar.bz2|tar.gz|tar.xz> ..."
+    exit 1
+fi
+
+# Commented out, beginning of: 'Extract at folder where archive resides in'
+oldPath=$(pwd)
+while [ ! -z "$1" ]; do
+    cd "$oldPath"
+    # just skip folders, makes calls like 'extract *' easier
+    if [ -d "$1" ]; then continue; fi
+    if [ -f "$1" ]; then
+        if [[ "$1" =~ '*/*' ]]; then
+            cd "${1%/*}"
+        fi
+        archive=${1##*/}
+        echo -e "\e[37mExtracting '$archive'\e[0m"
+        if file=$(singleFileInArchive "$archive"); then
+            echo -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
+            if extractHere "$1"; then
+                mkdir -p extracted
+                mv "$archive" './extracted/'
+            else
+                echo -e "\e[31mIt seems were there problems when extracting"'!'"\[0m"
+            fi
+        else
+            # assuming file does not contain any /!
+            folder=${archive%.*}
+            echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
+            if mkdir "$folder" 2>/dev/null || [ $('ls' --almost-all "$folder" | 'wc' -l) -eq 0 ]; then
+                cd "$folder"
+                extractHere "../$1"
+                success=$?
+                cd ..
+                if [ $success -eq 0 ]; then
+                    mkdir -p extracted
+                    mv "$archive" './extracted/'
+                else
+                    echo -e "\e[31mIt seems were there problems when extracting"'!'"\[0m"
+                fi
+            else
+                echo -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
+                shift
+            fi
+        fi
+    else
+        echo -e "\e[31mFile '$1' does not exist, skipping"'!'"\e[0m"
+    fi
+    shift
+done
