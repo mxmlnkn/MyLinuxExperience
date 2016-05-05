@@ -9,24 +9,41 @@ cleanFilename() {
     #    \x22->\x27 makes: double quote -> single quote
     #    pipestroke -> hyphen
     #    double quote -> single quote
-    #    .html.mht -> .mht
-    #    delete leading and trailing spaces
     # Change HTML-Codes:
     #    &#039; -> '
     #    here is how to correct html codes in existing folder names:
     #       find /media/m -type d -execdir bash -c 'if grep -q "&#039;" <(echo '"'{}'"'); then newname=$(printf "%s" '"'{}'"' | sed "s/&#039;/'"'"'/g"); echo mv "{}"; echo " -> $newname"; mv "{}" "$newname"; fi' \;
     # Use printf instead of echo to make it work for file names starting with e.g. '-e'
     printf '%s' "$1" | sed -r '
-        s/[|/\]/-/g;
+        # $! - If its not a end of file.
+        # N  - Append the next line with the pattern space delimited by \n
+        # b  - jump to label
+        :a
+            N
+        $!b a
+        s/\n/ /g
+        # for some reason s/\r//g wouldnt work now :S, that is why it is piped to another sed
+    ' | sed -r '
+        s/[|/\:]/ - /g;
+        s|—|-|g;
         s/\x22/\x27/g;
+        # .html.mht -> .mht
         s/\.html\.mht/\.mht/g;
-        s/[*?<>:$]/_/g;
-        s/ +$//g;
-        s/^ +//g;
+        s/[*?<>$]/_/g;
+        # delete dots at the end of line
         s/\.+$//;
         s/&#039;/'"'"'/g;
         s|&lt;||g;
-        s|&gt;||g
+        s|&gt;||g;
+        s|&amp;| and |g;
+        # delete leading spaces
+        s/^ +//g;
+        # delete white spaces at end of file name
+        s/ +$//g;
+        # delete newlines and returns and other non-printables
+        s/[\x01-\x1F]/ /g;
+        s|\t| |g;
+        s|[ \t]+| |g;
     '
 }
 
@@ -62,7 +79,7 @@ find "$dir" -type f -execdir bash -c '
 EOF
     )" )
     newname=$(cleanFilename "$name")
-    if [ "$name" != "$newname" ]; then
+    if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
         echo "rename: $(pwd)/$name"
         echo " -> to: $(pwd)/$newname"
         if [ ! "'$dryrun'" -eq 1 ]; then
