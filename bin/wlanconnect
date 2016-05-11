@@ -1,29 +1,105 @@
 #!/bin/bash
-# Create config files with
 
-sudo service network-manager stop
-sudo service wicd stop
+networks=( 'WLAN_SSID' ) # files WLAN_SSID.conf must be in searchPaths
+searchPaths=( "$HOME/etc/wpa_supplicant" "/etc/wpa_supplicant" )
+verbose=0
+
+while true ; do
+    case "$1" in
+        -h|--help)
+            echo "Command line: wlanconnect [options]"
+            echo "Options:"
+            echo "-h|--help      show this help"
+            echo "-v|--verbose   print status messages for alle steps"
+            echo "-x|--exit      kill processes started by earlier wlanconnect call"
+            exit 0
+            ;;
+        -x|--exit)
+            #case "$2" in
+            #    "") echo "Required argument to -n not found, ignoring -n"
+            #        shift 1
+            #        ;;
+            #    *)  NCORESPERNODE=$2
+            #        shift 1
+            #        ;;
+            #esac
+            sudo pkill dhclient
+            sudo pkill wpa_supplicant
+            exit 0
+            ;;
+        -v|--verbose)
+            verbose=1
+            shift 1
+            ;;
+        "") # all arguments parsed
+            #echo "Got empty string, interpreting as end of arguments"
+            shift 1
+            break
+            ;;
+        *)  # default case (neither one of the options from above, nor empty)
+            echo "Wrong parameters specified! (\$1=$1)"
+            exit 1
+            ;;
+    esac
+done
+
+if [ ! $verbose -eq 0 ]; then
+    echo "Trying to close Network-Manager and Wicd"
+fi
+if $(service --status-all | grep -q 'network-manager'); then
+    sudo service network-manager stop
+fi
+if service --status-all | grep -q 'wicd'; then
+    sudo service wicd stop
+fi
 sudo pkill wpa
 sudo pkill wicd
 sudo pkill dhclient
 
+if [ ! $verbose -eq 0 ]; then
+    echo "If WLAN adapter down, try to activate it"
+fi
 if ! sudo ip link | grep -q 'wlan0.*UP'; then
     sudo ip link set wlan0 up
     sleep 0.25
 fi
 
-networks=( 'configname' )
+# todo: if fail connect to next network in list
 for curnet in ${networks[*]}; do
-    if sudo iw wlan0 scan | grep -q "$curnet"; then
-        # nothing yet
-        echo "Connecting to WLAN-SSID: $curnet"
-        sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c /etc/wpa_supplicant/$curnet.conf > /var/log/no    hup/wpasupp-$curnet.log &"
+    if [ ! $verbose -eq 0 ]; then
+        echo "Trying to connect to $curnet"
+    fi
+    if sudo iw wlan0 scan | grep -i -q "$curnet"; then
+        confPath=''
+        for dir in ${searchPaths[@]}; do
+            if [ -f "$dir/$curnet.conf" ]; then
+                confPath="$dir/$curnet.conf"
+                break
+            fi
+        done
+        if [ -z "$confPath" ]; then
+            echo "\e[31mCouldn't find '$curnet.conf' in ${searchPaths[@]}\e[0m"
+            exit 1
+        fi
+        echo "Connecting to WLAN-SSID: $(sed -nE 's|ssid=(.*)|\1|p' $confPath)"
+        if [ ! $verbose -eq 0 ]; then
+            # use tee and -d
+            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c '$confPath' -d | tee /var/log/nohup/wpasupp-$curnet.log &"
+        else
+            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c '$confPath' > /var/log/nohup/wpasupp-$curnet.log &"
+        fi
         sleep 0.25
+        break
     fi
 done
 
 # only start this if no ip given. somehow check given ip
-sudo bash -c 'nohup dhclient -4 wlan0 > /var/log/nohup/dhclient.log &'
+# using ipv4 (-4) reduces problems
+if [ ! $verbose -eq 0 ]; then
+    sudo bash -c 'nohup dhclient -4 -v wlan0 | tee /var/log/nohup/dhclient.log &'
+else
+    sudo bash -c 'nohup dhclient -4 -v wlan0 > /var/log/nohup/dhclient.log &'
+fi
 #sleep 0.25
 #echo "Trying to look up google.de to check connection"
 #nslookup google.de

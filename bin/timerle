@@ -1,9 +1,8 @@
 #!/bin/bash
 
 sleep $1
-ffplay -loop 0 -nodisp ~/.config/alarm.wav &> /dev/null &
+ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
 pid=$!
 echo $pid
-xview ~/96eff8082b2988eb8804c2c86f0e7cee.jpg &&
+xview "$HOME/.config/timerle.png" &&
 kill $pid
-
