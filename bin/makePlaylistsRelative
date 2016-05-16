@@ -6,7 +6,8 @@ if [ ! -d "$folder" ]; then
     echo -e "\e[31mGiven path '.' not found or is not a directory"'!'"\e[0m"
 fi
 
-find "$folder" -iname '*.m3u' -execdir bash -c '
+FIND=( find "$folder" -iname '*.m3u' )
+${FIND[@]} -print 0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
     file="$(cat <<EOF
 {}
 EOF
