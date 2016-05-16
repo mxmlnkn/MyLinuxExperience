@@ -1,8 +1,19 @@
 #!/bin/bash
 # synchronize with FreeFileSync first, for performance reasons files are not compared
 
-src="$1"
-dst="$2"
+src=''
+dst=''
+dryrun=0
+while [ -z "$1" ]; do
+    '-r'|'--dry-run')
+        dryrun=1
+        ;;
+    *)
+        if [ -z "$src" ]; then src="$1"
+        elif [ -z "$dst" ]; then dst="$1"
+        else echo -e "\e[34mIgnoring unknown argument '$1'\e[0m"; fi
+        ;;
+done
 if [ ! -d "$src/" ]; then
     echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
     exit 1
@@ -11,6 +22,8 @@ if [ ! -d "$dst/" ]; then
     echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
     exit 1
 fi
+
+# Confirmation
 echo -n "Do you really want to apply all the dates of files in
     $src
 to their respective files in
@@ -21,32 +34,21 @@ if [ ! "$answer" == 'y' ]; then
     exit 1
 fi
 
-nFiles=$(find "$src" | wc -l)
-counter=$(mktemp)
-echo '0' > "$counter"
-find "$src" -execdir bash -c '
+# Actual exec
+find "$src" -print0 | pv -0lps $(find "$src" | wc -l) | xargs -0 -I {} -P 4 bash -c '
     fsrc=$(cat <<"EOF"
 {}
 EOF
     )
     if [[ "$(pwd)/$fsrc" == *"|"* ]]; then
-        echo -e "\e[31mFile name \"$(pwd)/$fsrc\" contains |, which is not allowed because sed rule uses it.\e[0m"
+        echo -e "\e[31mFile name \"$(realpath "$fsrc")\" contains |, which is not allowed because sed rule uses it.\e[0m"
     else
-        fdst="$( echo "$(pwd)/$fsrc" | sed '"'s|$src|$dst|;'"')"
-        #echo touch -r "$fsrc" "$fdst"
-        touch -r "$fsrc" "$fdst"
-    fi
-
-    # status bar
-    nFiles='$nFiles'
-    nFilesProcessed=$(cat '"$counter"')
-    nFilesProcessed=$((nFilesProcessed+1))
-    echo $nFilesProcessed > '"$counter"'
-    if [ "$((nFilesProcessed % 10))" -eq 0 ] || [ $nFilesProcessed -eq $nFiles ]; then
-        barlen=40
-        curPer=$((barlen*nFilesProcessed/nFiles))
-        printf "Progress: [%.*s%.*s] ($nFilesProcessed / $nFiles)\r"        \
-            "$curPer"            "========================================" \
-            "$((barlen-curPer))" "                                        "
+        fdst="$( echo "$(realpath "$fsrc")" | sed '"'s|$src|$dst|;'"')"
+        if [ "$fsrc" -ot "$fdst" ] || [ "$fsrc" -nt "$fdst" ]; then
+            if [ '$dryrun' -eq 1 ]; then
+                echo touch -r "$fsrc" "$fdst"
+            else
+                touch -r "$fsrc" "$fdst"
+            fi
     fi
 ' \; && echo ''

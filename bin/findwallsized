@@ -33,10 +33,8 @@ minWidth=$(readNumber 1920 "$3")
 minHeight=$(readNumber 1080 "$4")
 
 mkdir -p "$dst"
-nFiles=$(find "$src" -type f -not \( -path "$dst" -prune \) | wc -l)
-counter=$(mktemp)
-echo '0' > "$counter"
-find "$src" -type f -not \( -path "$dst" -prune \) -print0 | xargs -0 -I {} -P 4 bash -c '
+FIND=(find "$src" -type f -not \( -path "$dst" -prune \) )
+${FIND[@]} -print 0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
     fpath=$(cat <<EOF
 {}
 EOF
@@ -50,18 +48,5 @@ EOF
                 #chmod --reference="$fpath" "'"$dst"'/$(basename "$fpath")"
             fi
         fi
-    fi
-
-    # status bar
-    nFiles='$nFiles'
-    nFilesProcessed=$(cat '"$counter"')
-    nFilesProcessed=$((nFilesProcessed+1))
-    echo $nFilesProcessed > '"$counter"'
-    if [ "$((nFilesProcessed % 1))" -eq 0 ] || [ $nFilesProcessed -eq $nFiles ]; then
-        barlen=40
-        curPer=$((barlen*nFilesProcessed/nFiles))
-        printf "Progress: [%.*s%.*s] ($nFilesProcessed / $nFiles)\r"        \
-            "$curPer"            "========================================" \
-            "$((barlen-curPer))" "                                        "
     fi
 '

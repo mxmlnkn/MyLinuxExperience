@@ -101,7 +101,7 @@ packagelistsid=(
     cython cython-doc libhdf5-dev libhdf5-doc python-h5py python-h5py-doc python-pip vitables
     trans-de-en ding translate anacron scite rfkill trash-cli strace chm2pdf
     catfish galculator gdmap mysql-server mysql-client cpuburn shred wipe
-    wine64-preloader wine wine64 wine32 libwine:i386
+    wine64-preloader wine wine64 wine32 libwine:i386 pv
 
     # XFCE
     xfce4 xfce4-terminal xfce4-timer-plugin thunar-archive-plugin xfce4-screenshooter xfce4-screenshooter-plugin xfce4-taskmanager xfce4-clipman-plugin xfce4-datetime-plugin xfce4-netload-plugin xfce4-wavelan-plugin xfce4-whiskermenu-plugin xfce4-xkb-plugin xfce4-goodies xfce4-mount-plugin xfce4-mixer xfburn wodim

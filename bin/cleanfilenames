@@ -3,7 +3,8 @@
 # no target directory or file argument possible at the moment
 
 
-cleanFilename() {
+# takes piped input!
+cleanFilenames() {
     # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
     #    / \ * ? < > |
     #    \x22->\x27 makes: double quote -> single quote
@@ -14,7 +15,7 @@ cleanFilename() {
     #    here is how to correct html codes in existing folder names:
     #       find /media/m -type d -execdir bash -c 'if grep -q "&#039;" <(echo '"'{}'"'); then newname=$(printf "%s" '"'{}'"' | sed "s/&#039;/'"'"'/g"); echo mv "{}"; echo " -> $newname"; mv "{}" "$newname"; fi' \;
     # Use printf instead of echo to make it work for file names starting with e.g. '-e'
-    printf '%s' "$1" | sed -r '
+    sed -r '
         # $! - If its not a end of file.
         # N  - Append the next line with the pattern space delimited by \n
         # b  - jump to label
@@ -41,9 +42,13 @@ cleanFilename() {
         # delete white spaces at end of file name
         s/ +$//g;
         # delete newlines and returns and other non-printables
-        s/[\x01-\x1F]/ /g;
+        s/[\x01-\x1F\x7F]/ /g;
         s|\t| |g;
         s|[ \t]+| |g;
+        # convert extensions to lowercase
+        s|(\.[A-Za-z0-9]{3})$|\L\1|;
+        # some other obnoxious extensions
+        s|\.jpeg$|.jpg|;
     '
 }
 
@@ -69,19 +74,21 @@ while [ "$1" != "" ]; do
   shift
 done
 
-
-export -f cleanFilename
-find "$dir" -type f -execdir bash -c '
+export -f cleanFilenames
+FIND=( find "$dir" -type f )
+${FIND[@]} -print0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
     # use here-doc in order to not have any undefined behavior caused by
     # special characters
-    name=$(basename "$(cat << "EOF"
+    path=$(cat << "EOF"
 {}
 EOF
-    )" )
-    newname=$(cleanFilename "$name")
+    )
+    name=$(basename "$path")
+    cd "$(dirname "$path")"
+    newname=$(printf "%s" "$name" | cleanFilenames)
     if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
-        echo "rename: $(pwd)/$name"
-        echo " -> to: $(pwd)/$newname"
+        echo "rename: $(realpath "$name")"
+        echo " -> to: $(realpath "$newname")"
         if [ ! "'$dryrun'" -eq 1 ]; then
             mv "$name" "$newname"
         fi

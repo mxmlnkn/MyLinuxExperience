@@ -29,15 +29,19 @@ findThumbnailImage() {
 
     # -v natural sort in order to put 'test.jpg' before 'test_003.jpg' which wouldn't be the case normally as the file extension would be included in the sorting algorithm thereby putting 'test.jpg' to the last position
     # use 'command ls instead of ls, in order to get non-colored output if something like 'alias ls=ls --color' is set
-    for file in $(command ls -v); do
-
+    while read file; do
+    {
         if [ ! -f "$file" ]; then
-            #echoerr -e "\e[93m'$1': First found file '$file' is not a file"'!'"\e[0m"
+            if [ $verbose -eq 1 ]; then
+                echoerr -e "\e[93m'$1': First found file '$file' is not a file"'!'"\e[0m"
+            fi
             continue
         fi
         extension=$(getExtension "$file")
         if [ ! "$extension" == "jpg" ] && [ ! "$extension" == "png" ] && [ ! "$extension" == "gif" ]; then
-            #echoerr -e "\e[93m'$1': First found file '$file' is not a valid image"'!'"\e[0m"
+            if [ $verbose -eq 1 ]; then
+                echoerr -e "\e[93m'$1': First found file '$file' is not a valid image"'!'"\e[0m"
+            fi
             continue
         fi
 
@@ -47,21 +51,26 @@ findThumbnailImage() {
         # Trying to converte an animated gid to icon-temp.png would convert them to icon-tmp-0.png and so on, thereby polluting the folders. Clean this with:
         #   find /media/m/ -name 'icon-tmp*.png' -execdir bash -c 'echo "$(pwd)/{}"' \;
         if [ "$extension" == "gif" ] && [ $(identify "$file" | wc -l) -gt 1 ] ; then
-            #echoerr -e "\e[33m'$1': File is animated, won't be used for thumbnail"'!'"\e[0m"
+            if [ $verbose -eq 1 ]; then
+                echoerr -e "\e[33m'$1': File is animated, won't be used for thumbnail"'!'"\e[0m"
+            fi
             continue
         fi
 
         width=$(convert "$file" -format "%w" info: 2>/dev/null)
         if [ -z "$width" ]; then
             # if it isn't an image, then width won't be available
-            #echoerr -e "\e[93m'$1': First found file '$file' doesn't have a valid width"'!'"\e[0m"
+            if [ $verbose -eq 1 ]; then
+                echoerr -e "\e[93m'$1': First found file '$file' doesn't have a valid width"'!'"\e[0m"
+            fi
             continue
         fi
 
         # if all tests successfull then break lop and return found candidate
         echo "$file"
         break
-    done
+    }
+    done < <(command ls -v -1)
 }
 
 getLargestSide() {
@@ -264,6 +273,7 @@ Example:
 
 remove=0
 force=0
+verbose=0
 folder=.
 while [ "$1" != "" ]; do
   case $1 in
@@ -276,6 +286,10 @@ while [ "$1" != "" ]; do
     "-r" | "--recursive")
         recursive=1
         ;;
+    "-v" | "--vebrose")
+        verbose=1
+        echo -e "\e[37mVerbosity increased.\e[0m"
+        ;;
     "-x" | "--remove-icons")
         remove=1
         ;;
@@ -285,7 +299,6 @@ while [ "$1" != "" ]; do
             exit 1
         else
             folder="$1"
-            break
         fi
         ;;
   esac
@@ -320,6 +333,7 @@ fi
 checkPrerequisites
 file=$(findThumbnailImage)
 if [ -z "$file" ]; then
+    echo -e "\e[31mCouldn't find suitable thumbnail image in '$(pwd)'\e[0m"
     exit 1
 fi
 echo -e "\e[32m[$(pwd)] Changing icon to '$file'\e[0m"
