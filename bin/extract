@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echoerr() { echo "$@" 1>&2; }
+
 getArchiveCommand() {
     if [ ! -f "$1" ] ; then exit 1; fi
     case "$1" in
@@ -64,6 +66,7 @@ singleFileInArchive() {
     # creating unnecessary folders
     case $(getArchiveCommand "$1") in
         'tar')
+        {
             # Output is like this (note: may be absolute paths!):
             #   xarchiver-0.5.2/
             #   xarchiver-0.5.2/po/
@@ -85,8 +88,10 @@ singleFileInArchive() {
                     return 1
                 fi
             fi
-            ;;
+        }
+        ;;
         'rar')
+        {
             # Output of rar l world.rar is like this:
             #   RAR 5.30 beta 2   Copyright (c) 1993-2015 Alexander Roshal   4 Aug 2015
             #   Trial version             Type RAR -? for help
@@ -136,26 +141,23 @@ singleFileInArchive() {
                 return 0
             else
             {
-                # rar doesn't print folders, so we need to see if first
-                # printed contains a slash and then strip the first folder
-                # form the path, assuming paths are relative
-                if [[ "$firstFile" =~ '[^/].*/.*' ]]; then
+                if [ ${firstFile:0:1} == '/' ]; then
                 {
-                    if [ ${firstFile:0:1} == '/' ]; then
-                        echo -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
-                    fi
+                    echoerr -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
                     return 1
                 }
                 # Special regex chars in folder may pose a problem!
-                elif [ $('rar' lt "$1" | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
+                elif [ $('rar' lt "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
                     echo "${firstFile%%/*}/"
                 else
                     return 1
                 fi
             }
             fi
-            ;;
+        }
+        ;;
         'zip')
+        {
             # Output of zipinfo -1 world.zip
             #   world
             #   oho/world
@@ -182,7 +184,8 @@ singleFileInArchive() {
                 fi
             }
             fi
-            ;;
+        }
+        ;;
         *)
             echo -e "\e[31m Listing files not supported for $1"'!'"\e[0m"
             return 1
@@ -218,18 +221,16 @@ fi
 # Commented out, beginning of: 'Extract at folder where archive resides in'
 oldPath=$(pwd)
 while [ ! -z "$1" ]; do
+    archive=$(basename "$1")
     cd "$oldPath"
+    cd $(dirname "$1")
     # just skip folders, makes calls like 'extract *' easier
-    if [ -d "$1" ]; then continue; fi
-    if [ -f "$1" ]; then
-        if [[ "$1" =~ '*/*' ]]; then
-            cd "${1%/*}"
-        fi
-        archive=${1##*/}
+    if [ -d "$archive" ]; then continue; fi
+    if [ -f "$archive" ]; then
         echo -e "\e[37mExtracting '$archive'\e[0m"
         if file=$(singleFileInArchive "$archive"); then
             echo -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
-            if extractHere "$1"; then
+            if extractHere "$archive"; then
                 mkdir -p extracted
                 mv "$archive" './extracted/'
             else
@@ -241,7 +242,7 @@ while [ ! -z "$1" ]; do
             echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
             if mkdir "$folder" 2>/dev/null || [ $('ls' --almost-all "$folder" | 'wc' -l) -eq 0 ]; then
                 cd "$folder"
-                extractHere "../$1"
+                extractHere "../$archive"
                 success=$?
                 cd ..
                 if [ $success -eq 0 ]; then
@@ -256,7 +257,7 @@ while [ ! -z "$1" ]; do
             fi
         fi
     else
-        echo -e "\e[31mFile '$1' does not exist, skipping"'!'"\e[0m"
+        echo -e "\e[31mFile '$archive' does not exist, skipping"'!'"\e[0m"
     fi
     shift
 done
