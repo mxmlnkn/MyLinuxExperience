@@ -74,15 +74,9 @@ findThumbnailImage() {
 }
 
 getLargestSide() {
-    local width height size
-    width=$(convert "$file" -format "%w" info:)
-    height=$(convert "$file" -format "%h" info:)
-    if [ "$width" -gt "$height" ]; then
-        size=$width
-    else
-        size=$height
-    fi
-    echo $size
+    local w=$(convert "$1" -format "%w" info:)
+    local h=$(convert "$1" -format "%h" info:)
+    if [ "$w" -gt "$h" ]; then echo $w; else echo $h; fi
 }
 
 convertToThumbnail() {

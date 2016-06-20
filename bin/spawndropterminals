@@ -70,7 +70,8 @@ esac
 
 # on first use only move windows to their correct positions and hide them
 if [ ! -z "$firstUse" ] && [ $firstUse == 1 ]; then
-    xdotool behave_screen_edge ${pos%*[0-9]} exec "$script" $pos $wid $bw $bh &
+    # https://github.com/jordansissel/xdotool/issues/120 => 2>/dev/null
+    xdotool behave_screen_edge ${pos%*[0-9]} exec "$script" $pos $wid $bw $bh 2>/dev/null &
     xdotool windowmove $wid $x $y windowminimize $wid
     exit 0
 fi
@@ -85,15 +86,16 @@ esac
 
 #actually move and activate window and hide it, if it already is active
 if [ $wid == $(xdotool getactivewindow) ]; then
-    xdotool windowminimize $wid
+    #xdotool windowminimize $wid
+    true # do nothing
 else
     xdotool windowmove $wid $x $y windowactivate $wid
 fi
 EOF
 chmod u+x "$script"
 
-xfce4-terminal --working-directory="$HOME" & getLastWid && getBorderWidth $wid  && "$script" left1  $wid $bw $bh 1
-xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" left2  $wid $bw $bh 1
+xfce4-terminal --working-directory="$HOME" & getLastWid && getBorderWidth $wid  && "$script" left2  $wid $bw $bh 1
+#xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" left1  $wid $bw $bh 1
 #xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" right1 $wid $bw $bh 1
-xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" right2 $wid $bw $bh 1
+#xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" right2 $wid $bw $bh 1
 #xfce4-terminal --working-directory="$HOME" & getLastWid && "$script" top    $wid $bw $bh 1

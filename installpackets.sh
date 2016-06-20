@@ -32,8 +32,10 @@ packagelistsid=(
     # steam things like glxinfo
     mesa-utils
 
-    filezilla audacity gimp pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince xchm xdotool lynx
-    scite fonts-dejavu-core ttf-unifont unifont-bin fonts-symbola gnome-themes-standard gnome-themes-extras
+    filezilla audacity gimp pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm xdotool lynx
+    scite gnome-themes-standard gnome-themes-extras
+    fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
+
     pavumeter pavucontrol
     # audacious: use appearance->winamp-skin
     # sable-theme builds upon this theme, this is why it's needed
@@ -54,9 +56,9 @@ packagelistsid=(
     # Login Manager
     slim xscreensaver
     # networking: hostapd (Create WiFi Access Point)
-    hostapd iw
+    hostapd iw isc-dhcp-server firmware-atheros firmware-realtek haveged
     # conky/conky-manager prerequesites
-    lm-sensors curl hddtemp dmidecode conky conky-all arandr realpath cpuid
+    lm-sensors xsensors psensor curl hddtemp dmidecode conky conky-all arandr realpath cpuid
     # install new window manager to prevent tearing
     compton
 
@@ -96,7 +98,9 @@ packagelistsid=(
     zlib1g zlib1g-dev openmpi-common libpng-dev libhdf5-openmpi-dev libboost-all-dev
 
     # Tools
-    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-skype
+    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-skype pidgin-plugin-pack pidgin-audacious pidgin-dev
+    # https://launchpad.net/pidgin-character-counting
+    # http://3d.benjamin-thaut.de/?p=12
     powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils
     cython cython-doc libhdf5-dev libhdf5-doc python-h5py python-h5py-doc python-pip vitables
     trans-de-en ding translate anacron scite rfkill trash-cli strace chm2pdf
@@ -108,7 +112,7 @@ packagelistsid=(
     xfwm4-themes gtk3-engines-xfce
 
     # ntfs read write support, necessary for truecrypt volumes !!
-    ntfs-3g attr firmware-realtek xbacklight hibernate mlocate duplicity
+    ntfs-3g attr xbacklight hibernate mlocate duplicity
     firmware-linux-nonfree firmware-linux-free
     # data recovery
     testdisk disktype scalpel

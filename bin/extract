@@ -4,59 +4,64 @@ echoerr() { echo "$@" 1>&2; }
 
 getArchiveCommand() {
     if [ ! -f "$1" ] ; then exit 1; fi
-    case "$1" in
-        *.7z)      echo '7z'      ;;
-        *.bz2)     echo 'bzip2'   ;;
-        *.exe)     echo 'cabextract' ;;
-        *.gz)      echo 'gzip'    ;;
-        *.lzma)    echo 'lzma'    ;;
-        *.tar.lrz) echo 'lrztar'  ;;
-        *.tar.bz2) echo 'tar'     ;;
-        *.tar.gz)  echo 'tar'     ;;
-        *.tar.xz)  echo 'tar'     ;;
-        *.tar)     echo 'tar'     ;;
-        *.tbz2)    echo 'tar'     ;;
-        *.tgz)     echo 'tar'     ;;
-        *.rar)     echo 'rar'     ;;
-        *.zip)     echo 'zip'     ;;
-        *.xz)      echo 'xz'      ;;
-        *)  # How to find out the mime-types file reports:
-            #  echo "hello" > test
-            #    tar  -cf world.tar world
-            #    bzip2 -k world.tar
-            #    gzip  -k world.tar
-            #    xz    -k world.tar
-            #    lzma  -k world
-            #    bzip2 -k world
-            #    gzip  -k world
-            #    7z   a world.7z  world
-            #    rar  a world.rar world
-            #    zip -u world.zip world
-            #  for file in *.*; do file --mime-type "$file"; done
-            #    world.7z     : application/x-7z-compressed
-            #    world.lzma   : application/octet-stream
-            #    world.rar    : application/x-rar
-            #    world.tar    : application/x-tar
-            #    world.bz2    : application/x-bzip2
-            #    world.tar.bz2: application/x-bzip2
-            #    world.gz     : application/gzip
-            #    world.tar.gz : application/gzip
-            #    world.tar.xz : application/x-xz
-            #    world.zip    : application/zip
-            # Note that the .gz files are not differing from the .tar.gz or
-            # .tgz files obviously. We need to look into them and see
-            # if they only contain a single .tar archive
-            mimi=$(file --mime-type "$1" | 'sed' 's|^.* : application/||')
-            case "$mimi" in
-                x-7z-compressed) echo '7z'    ;;
-                octet-stream)    echo 'lzma'  ;;
-                x-rar)           echo 'rar'   ;;
-                x-bzip2)         echo 'bzip2' ;;
-                gzip)            echo 'gzip'  ;;
-                x-xz)            echo 'xz'    ;;
-                zip)             echo 'zip'   ;;
-            esac
-    esac
+    # How to find out the mime-types file reports:
+        #  echo "hello" > test
+        #    tar  -cf world.tar world
+        #    bzip2 -k world.tar
+        #    gzip  -k world.tar
+        #    xz    -k world.tar
+        #    lzma  -k world
+        #    bzip2 -k world
+        #    gzip  -k world
+        #    7z   a world.7z  world
+        #    rar  a world.rar world
+        #    zip -u world.zip world
+        #  for file in *.*; do file --mime-type "$file"; done
+        #    world.7z     : application/x-7z-compressed
+        #    world.lzma   : application/octet-stream
+        #    world.rar    : application/x-rar
+        #    world.tar    : application/x-tar
+        #    world.bz2    : application/x-bzip2
+        #    world.tar.bz2: application/x-bzip2
+        #    world.gz     : application/gzip
+        #    world.tar.gz : application/gzip
+        #    world.tar.xz : application/x-xz
+        #    world.zip    : application/zip
+        # Note that the .gz files are not differing from the .tar.gz or
+        # .tgz files obviously. We need to look into them and see
+        # if they only contain a single .tar archive
+        mimi=$(file --mime-type "$1" | 'sed' 's|^.*: application/||')
+        if [ "$verbose" -eq 1 ] 2>/dev/null; then
+            echo "raw type: $mimi" 1>&2
+        fi
+        case "$mimi" in
+            x-7z-compressed) echo '7z'    ;;
+            octet-stream)    echo 'lzma'  ;;
+            x-rar)           echo 'rar'   ;;
+            x-bzip2)         echo 'bzip2' ;;
+            gzip)            echo 'gzip'  ;;
+            x-xz)            echo 'xz'    ;;
+            zip)             echo 'zip'   ;;
+            *)
+                case "$1" in
+                    *.7z)      echo '7z'      ;;
+                    *.exe)     echo 'cabextract' ;;
+                    *.lzma)    echo 'lzma'    ;;
+                    *.tar.lrz) echo 'lrztar'  ;;
+                    *.tar.bz2) echo 'tar'     ;;
+                    *.tar.gz)  echo 'tar'     ;;
+                    *.tar.xz)  echo 'tar'     ;;
+                    *.tar)     echo 'tar'     ;;
+                    *.tbz2)    echo 'tar'     ;;
+                    *.tgz)     echo 'tar'     ;;
+                    *.bz2)     echo 'bzip2'   ;;
+                    *.gz)      echo 'gzip'    ;;
+                    *.rar)     echo 'rar'     ;;
+                    *.zip)     echo 'zip'     ;;
+                    *.xz)      echo 'xz'      ;;
+                esac
+                ;;
+        esac
 }
 
 
@@ -134,8 +139,16 @@ singleFileInArchive() {
             #          CRC32: 363A3020
             #        Host OS: Unix
             #    Compression: RAR 3.0(v29) -m3 -md=128K
-            nFiles=$('rar' lt "$1" | 'grep' -Ec '^[ \t]+Name: ')
-            firstFile=$('rar' lt "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
+            rar=( 'rar' 'lt' )
+            if isEncrypted "$1"; then
+                if [ -z "$password" ]; then
+                    echoerr -e "File is encrypted, but no password set!"
+                    return 1
+                fi
+                rar+=( "-p$password" )
+            fi
+            nFiles=$(${rar[@]} "$1" | 'grep' -Ec '^[ \t]+Name: ')
+            firstFile=$(${rar[@]} "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
             if [ $nFiles -le 1 ]; then
                 echo $firstFile
                 return 0
@@ -147,7 +160,7 @@ singleFileInArchive() {
                     return 1
                 }
                 # Special regex chars in folder may pose a problem!
-                elif [ $('rar' lt "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
+                elif [ $(${rar[@]} "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
                     echo "${firstFile%%/*}/"
                 else
                     return 1
@@ -186,57 +199,137 @@ singleFileInArchive() {
             fi
         }
         ;;
+        # bzip2 and gz only work for single files
+        'gzip')
+            return 0
+            ;;
+        'bzip2')
+            return 0
+            ;;
         *)
-            echo -e "\e[31m Listing files not supported for $1"'!'"\e[0m"
+            echo -e "\e[31m Listing files not supported for file '$1' with type '$(getArchiveCommand "$1")'"'!'"\e[0m" 1>&2
             return 1
             ;;
     esac
 }
 
+isEncrypted() {
+    # tests $1 if encrypted. If $2 is given, then try if that is the correct
+    # password
+    case $(getArchiveCommand "$1") in
+        rar)
+            local pw='-'
+            if [ ! -z "$2" ]; then pw="$2"; fi
+            'rar' l "-p$pw" "$1" 2>&1 | grep -q 'wrong password' &&
+            'rar' l "-p$pw" "$1" 2>&1 | grep -q 'encrypted headers'
+            return $?
+            ;;
+        *)
+            return 1;
+            ;;
+    esac
+}
+
+pwfile=$HOME/etc/extractpws
+if [ ! -f "$pwfile" ]; then
+    mkdir -p "$HOME/etc/"
+    touch "$pwfile"
+fi
+
+cachePassword() {
+    # sets global variable password, if necessary
+    password='-'
+
+    # first test if a valid password can be found in the database
+    while read line; do
+        if ! isEncrypted "$1" "$line"; then
+            password=$line
+            break
+        fi
+    done <"$pwfile"
+
+    # if not in database ask user
+    while isEncrypted "$1" "$password"; do
+        read -p "Password [Enter s to skip this archive]: " -s password
+        if [ "$password" == 's' ] || [ -z "$password" ]; then
+            return 1
+        fi
+    done
+
+    if ! grep -q "^$password\$" "$pwfile"; then
+        echo "$password" >> "$pwfile"
+    fi
+    return 0
+}
 
 extractHere() {
     case $(getArchiveCommand "$1") in
-        7z)   7z x         "$1"; return $? ;;
-        bz2)  bunzip2      "$1"; return $? ;;
-        exe)  cabextract   "$1"; return $? ;;
-        gz)   gunzip       "$1"; return $? ;;
-        lzma) unlzma       "$1"; return $? ;;
-        tar)  tar -C . -xf "$1"; return $? ;;
-        rar)  unrar x      "$1"; return $? ;;
-        xz)   unxz         "$1"; return $? ;;
-        zip)  unzip        "$1"; return $? ;;
-        #Z)    uncompress   "$1" ;;
+        7z)    7z x         "$1"; return $? ;;
+        bzip2) bzip2 -d -k  "$1"; return $? ;;
+        exe)   cabextract   "$1"; return $? ;;
+        gzip)  gzip -d -k   "$1"; return $? ;;
+        lzma)  unlzma       "$1"; return $? ;;
+        tar)   tar -C . -xf "$1"; return $? ;;
+        rar)
+            if isEncrypted "$1"; then
+                unrar x -p"$password" "$1"
+            else
+                unrar x "$1"
+            fi
+            return $?
+            ;;
+        xz)    xz -d -k     "$1"; return $? ;;
+        zip)   unzip        "$1"; return $? ;;
+        #Z)     uncompress   "$1" ;;
         #tar.lrz) lrztar -d   "$1" ;;
     esac
 }
 
 ##################################### main #####################################
 
-if [ -z "$1" ]; then
-    # display usage if no parameters given
-    echo "Usage: extract <path/file_name>.<zip|rar|bz2|gz|tar|tbz2|tgz|Z|7z|xz|ex|tar.bz2|tar.gz|tar.xz> ..."
-    exit 1
-fi
+verbose=0
+while [ ! -z "$1" ]; do
+    case "$1" in
+        '-h' | '--help')
+            echo 'Usage: extract <file> [<file> [...]]'
+            exit 0
+            ;;
+        '-v' | '--verbose')
+            verbose=1
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 # Commented out, beginning of: 'Extract at folder where archive resides in'
 oldPath=$(pwd)
 while [ ! -z "$1" ]; do
+{
     archive=$(basename "$1")
     cd "$oldPath"
     cd $(dirname "$1")
     # just skip folders, makes calls like 'extract *' easier
     if [ -d "$archive" ]; then continue; fi
     if [ -f "$archive" ]; then
+    {
         echo -e "\e[37mExtracting '$archive'\e[0m"
+        if [ $verbose -eq 1 ]; then
+            echo "file type: $(getArchiveCommand "$archive")"
+        fi
+        cachePassword "$archive"
         if file=$(singleFileInArchive "$archive"); then
             echo -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
             if extractHere "$archive"; then
                 mkdir -p extracted
                 mv "$archive" './extracted/'
             else
-                echo -e "\e[31mIt seems were there problems when extracting"'!'"\[0m"
+                echo -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
             fi
         else
+        {
             # assuming file does not contain any /!
             folder=${archive%.*}
             echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
@@ -255,9 +348,12 @@ while [ ! -z "$1" ]; do
                 echo -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
                 shift
             fi
+        }
         fi
+    }
     else
         echo -e "\e[31mFile '$archive' does not exist, skipping"'!'"\e[0m"
     fi
     shift
+}
 done

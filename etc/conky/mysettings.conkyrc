@@ -16,9 +16,11 @@ conky.config = {
 	background = true,          -- if true, Conky will be forked to background when started
 	double_buffer = true,       -- eliminates flicker
 
-	alignment = 'bottom_right', -- where to count from when specifiying gap_x,y
-	gap_x = 20,                 -- distance in pixels from alignment
-	gap_y = 60,
+	--alignment = 'bottom_right', -- where to count from when specifiying gap_x,y
+	--gap_x = 20,                 -- distance in pixels from alignment
+	gap_y     = 60,
+	gap_x     = -280,           -- for 2x 1920x1080 monitor setup (right side of left monitor)
+    alignment = 'bottom_left',
 
 	draw_borders = false,       -- draws simple non-rounded one-colored borders around widget
 	border_width = 6,           -- no effect if draw_borders set teo no
@@ -88,8 +90,14 @@ ${cpugraph cpu1 25,120}${cpugraph cpu2 25,120}${voffset 6}
 ${font}${voffset -37}${color0}${goto 78}${freq_g 1}GHz ${goto 198}${freq_g 2}GHz${voffset 5}
 ${cpugraph cpu3 25,120}${cpugraph cpu4 25,120}${voffset 6}
 ${font}${voffset -37}${color0}${goto 78}${freq_g 3}GHz ${goto 198}${freq_g 4}GHz${voffset 10}
+${voffset 5}\
+${color2}CPU Temp${goto 70}${color0}${platform coretemp.0/hwmon/hwmon0 temp 1}C\
+${goto 135}${color2}Core 0 Temp${goto 205}${color0}${platform coretemp.0/hwmon/hwmon0 temp 2}C
+${color2}Fan Speed${goto 70}${color0}${platform nct6775.656/hwmon/hwmon1 fan 2} rpm\
+${goto 135}${color2}Core 1 Temp${goto 205}${color0}${platform coretemp.0/hwmon/hwmon0 temp 3}C
+${voffset 2}\
 # top processes hogging CPU time: top_time (cumulative time) may be more interesting ...
-${color2}${voffset 5}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
+${color2}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
 ${top name 1}${goto 115}${top pid 1}${goto 160}${top cpu 1}${goto 205}${top mem 1}
 ${top name 2}${goto 115}${top pid 2}${goto 160}${top cpu 2}${goto 205}${top mem 2}
 ${top name 3}${goto 115}${top pid 3}${goto 160}${top cpu 3}${goto 205}${top mem 3}
@@ -101,8 +109,9 @@ ${top name 4}${goto 115}${top pid 4}${goto 160}${top cpu 4}${goto 205}${top mem 
 ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}GPU$color
 ${color2}${voffset -5}${hr 1}$color
+Load ${goto 55}${nvidiabar 8 gpuutil}
 ${color2}GPU Temp${goto 70}${color0}${nvidia temp}C${goto 125}${color2}Fan Speed${goto 195}${color0}${execi 10 nvidia-settings -q [fan:0]/GPUCurrentFanSpeed -t} %
-${color2}GPU Clock${goto 70}${color0}${nvidia gpufreq} MHz${goto 125}${color2}Mem Clock${goto 195}${color0}${nvidia memfreq} MHz
+#${color2}GPU Clock${goto 70}${color0}${nvidia gpufreq} MHz${goto 125}${color2}Mem Clock${goto 195}${color0}${nvidia memfreq} MHz
 ${color2}Mem Used${goto 70}${color0}${execi 10 nvidia-settings -q [gpu:0]/UsedDedicatedGPUMemory -t} / ${exec nvidia-settings -q [gpu:0]/TotalDedicatedGPUMemory -t} MiB
 #-------------------------------------------------------------------------------
 #                                  Memory
@@ -111,7 +120,7 @@ ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Memory$color
 ${color2}${voffset -5}${hr 1}$color
 #${color2}Memory used$color${alignr}${mem} / ${memmax}
-${color0}${membar 10,110}${alignr}${mem} / ${memmax}  [${memperc}%]
+${color0}${membar 8,110}${alignr}${mem} / ${memmax}  [${memperc}%]
 ${color2}${voffset 5}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
 ${top_mem name 1}${goto 115}${top_mem pid 1}${goto 160}${top_mem cpu 1}${goto 205}${top_mem mem 1}
 ${top_mem name 2}${goto 115}${top_mem pid 2}${goto 160}${top_mem cpu 2}${goto 205}${top_mem mem 2}
@@ -147,14 +156,14 @@ ${color2}${voffset -5}${hr 1}$color
 #
 # public ip address
 # this command creates traffic permanently, not good :S
-${color2}Public IP${color0}${alignr}${execi 3600 wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1}
+#${color2}Public IP${color0}${alignr}${execi 3600 wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1}
 # Arguably this may not find the public IP, if behind a NAT or Router, but what use would the IP have then
-#${color2}Public${color0}${alignr}${LANG=c ifconfig eth0 | grep "inet addr" | awk -F: '{print $2}' | awk '{print $1}'}
+${color2}Public${color0}${alignr}${execi 3600 ifconfig eth0 | sed -nE 's|.*inet ([^ ]*).*|\1|p'}
 #
 #${color2}${voffset 5}Hostname: $color$alignr$nodename
 ######## wlan0 #########
 ${if_up wlan0}\
-${color2}wlan0: $color$alignr${addr wlan0}
+#${color2}wlan0: $color$alignr${addr wlan0}
 ${color2}SSID: ${color}${wireless_essid wlan0}${alignr}\
 #conky[5596]: segfault at 0 ip 00000000004541a2 sp 00007ffc214c8db8 error 4 in conky[400000+d3000]
 ${wireless_bitrate} ${color2}Quality: ${color}${wireless_link_bar} ${wireless_link_qual} [${wireless_link_qual_perc}%]
@@ -164,7 +173,7 @@ ${voffset -6}${color2}Total:$color ${totaldown wlan0} ${alignr}${color2}Total:$c
 ${endif}\
 ######## eth0 ########
 ${if_up eth0}\
-${color2}eth0: $color$alignr${addr eth0}
+#${color2}eth0: $color$alignr${addr eth0}
 ${color2}Down: $color${downspeedf eth0} kiB/s ${alignr}${color2}Up:$color ${upspeedf eth0} kiB/s${voffset -3}
 ${downspeedgraph eth0 50,120} ${alignr}${upspeedgraph eth0 50,120}$color
 ${voffset -6}${color2}Total:$color ${totaldown eth0} ${alignr}${color2}Total:$color ${totalup eth0}\
