@@ -147,8 +147,10 @@ singleFileInArchive() {
                 fi
                 rar+=( "-p$password" )
             fi
+            if [ "$verbose" -eq 1 ]; then echoerr "${rar[@]} '$1'"; fi
             nFiles=$(${rar[@]} "$1" | 'grep' -Ec '^[ \t]+Name: ')
-            firstFile=$(${rar[@]} "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
+            firstFile=$(${rar[@]} "$1" | 'head' -1 | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
+            if [ "$verbose" -eq 1 ]; then echoerr "$nFiles files, first: $firstFile"; fi
             if [ $nFiles -le 1 ]; then
                 echo $firstFile
                 return 0
