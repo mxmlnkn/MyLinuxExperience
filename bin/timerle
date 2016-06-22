@@ -1,8 +1,39 @@
 #!/bin/bash
 
-sleep $1
-ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
-pid=$!
-echo $pid
+quiet=0
+args=()
+for arg in $@; do
+    case "$arg" in
+        -q|--quiet)
+            quiet=1
+            ;;
+        *)
+            if [[ "$arg" =~ ^[0-2]?[0-9]:[0-6]?[0-9]$ ]]; then
+                dh=$(( ${arg%:*} - $(date +%H) ))
+                if [ "$dh" -lt 0 ]; then
+                    dh=$((dh + 24))
+                fi
+                dm=$(( ${arg#*:} - $(date +%M) ))
+                if [ "$dm" -lt 0 ]; then
+                    dm=$((dm + 60))
+                fi
+                args+=( "$(( dh * 60 + dm ))m" )
+                continue
+            fi
+            # Unknown arguments are forwarded to sleep
+            args+=( "$arg" )
+            ;;
+    esac
+done
+
+sleep ${args[@]}
+if [ "$quiet" -eq 0 ]; then
+    ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
+    pid=$!
+    echo $pid
+fi
 xview "$HOME/.config/timerle.png" &&
-kill $pid
+if [ "$quiet" -eq 0 ]; then
+    kill $pid
+fi
+
