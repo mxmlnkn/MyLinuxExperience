@@ -26,13 +26,14 @@ for arg in $@; do
     esac
 done
 
+echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will will finish in ${args[@]}"
 sleep ${args[@]}
 if [ "$quiet" -eq 0 ]; then
     ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
     pid=$!
-    echo $pid
+    #echo "PID (ffplay) = $pid"
 fi
-xview "$HOME/.config/timerle.png" &&
+xview "$HOME/.config/timerle.png" &>/dev/null &&
 if [ "$quiet" -eq 0 ]; then
     kill $pid
 fi
