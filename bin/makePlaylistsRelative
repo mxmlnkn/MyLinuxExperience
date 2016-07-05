@@ -5,9 +5,14 @@ if [ -z "$folder" ]; then folder=.; fi
 if [ ! -d "$folder" ]; then
     echo -e "\e[31mGiven path '.' not found or is not a directory"'!'"\e[0m"
 fi
+dryrun=0
+dummy=
+if [ "$dryrun" -eq 1 ]; then
+    dummy='echo'
+fi
 
 FIND=( find "$folder" -iname '*.m3u' )
-${FIND[@]} -print 0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
+"${FIND[@]}" -print0 | pv -0lps $("${FIND[@]}" | wc -l) | xargs -0 -I {} -P 4 bash -c '
     file="$(cat <<EOF
 {}
 EOF
@@ -16,10 +21,19 @@ EOF
     if ! grep -q "$(echo -ne "\xEF\xBB\xBF")" "$file"; then
         echo -ne "\xEF\xBB\xBF" > "${file%.*}"
     fi
+    # absolute path to remove (without file://). As this is used inside sed
+    # we need to escape regex characters
+    prefix=$( basename "$(cd '"'$folder'"' && pwd)" )
+    prefixRegex=$( echo "$prefix" | sed -r '"'"'s|([][^$.*\])|\\\1|g'"'"' )
+    #echo "Remove Prefix : .*$prefix"
+    #echo "Prefix (Regex): .*$prefixRegex"
+    # replace windows "\" to linux style "/"
+    # replace "%20"-hexcodes to their respective ascii characters
+    # (echo -e is to interprete \xnn codes)
     echo -e "$(sed "s|\\\\|\/|g;
                     s/%/\\\\x/g" "$file" )" |
-        sed "s|.*$(echo "$(basename "$(pwd)")" |
-        sed "s/\[/\\\\[/g" )/||" >> "${file%.*}"
-    rm "$file"
-    mv "${file%.*}" "$file"
+        sed "s|.*$prefixRegex/||" >> "${file%.*}"
+    cat "${file%.*}"
+    $dummy rm "$file"
+    $dummy mv "${file%.*}" "$file"
 ' \;
