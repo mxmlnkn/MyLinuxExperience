@@ -16,6 +16,7 @@ for arg in $@; do
                 dm=$(( ${arg#*:} - $(date +%M) ))
                 if [ "$dm" -lt 0 ]; then
                     dm=$((dm + 60))
+                    dh=$((dh - 1 ))
                 fi
                 args+=( "$(( dh * 60 + dm ))m" )
                 continue
