@@ -1,4 +1,13 @@
 #!/bin/bash
+#
+# ToDo
+#  - Handle .part1 files, normally E.g. part1.rar gets extracted and and moved
+#    into extracted/ then .part2.rar will also be tried to extract again, to
+#    abstain from that we would have to search the list of given files for
+#    ones which could be part of this rar file. But there are more than one
+#    naming scheme ...
+#    Or just move the other parts, should be enough. Could also try to know
+#    the other parts by using strace, but that is not available often
 
 echoerr() { echo "$@" 1>&2; }
 
@@ -38,6 +47,7 @@ getArchiveCommand() {
             x-7z-compressed) echo '7z'    ;;
             octet-stream)    echo 'lzma'  ;;
             x-rar)           echo 'rar'   ;;
+            x-tar)           echo 'tar'   ;;
             x-bzip2)         echo 'bzip2' ;;
             gzip)            echo 'gzip'  ;;
             x-xz)            echo 'xz'    ;;
@@ -83,7 +93,7 @@ singleFileInArchive() {
                 return 0
             else
                 # find out if all are in the same folder
-                if [ ${firstFile[-1]} != '/' ]; then
+                if [ ${firstFile:1: -1} != '/' ]; then
                     return 1
                 # Special regex chars in folder may pose a problem!
                 elif [ $('tar' -tf "$1" | 'grep' -c "^$firstFile") -eq $nFiles ]; then
@@ -147,22 +157,34 @@ singleFileInArchive() {
                 fi
                 rar+=( "-p$password" )
             fi
-            if [ "$verbose" -eq 1 ]; then echoerr "${rar[@]} '$1'"; fi
             nFiles=$(${rar[@]} "$1" | 'grep' -Ec '^[ \t]+Name: ')
-            firstFile=$(${rar[@]} "$1" | 'head' -1 | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p')
-            if [ "$verbose" -eq 1 ]; then echoerr "$nFiles files, first: $firstFile"; fi
+            firstFile=$(${rar[@]} "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'head' -1)
+            folder=$(dirname "$firstFile")
+            folderRegex=$(echo "$folder" | sed -r 's|([][^$.*\])|\\\1|g')
+            if [ "$verbose" -eq 1 ]; then
+                echoerr "${rar[@]} '$1'"
+                ${rar[0]} l ${rar[2]} "$1" 1>&2
+                echoerr "nFiles    = $nFiles"
+                echoerr "firstFile = $firstFile"
+                echoerr "folder    = $folder"
+            fi
             if [ $nFiles -le 1 ]; then
                 echo $firstFile
                 return 0
             else
             {
-                if [ ${firstFile:0:1} == '/' ]; then
+                if [ "${firstFile:0:1}" == '/' ]; then
                 {
                     echoerr -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
                     return 1
                 }
+                elif [ "$folder" == '.' ]; then
+                    return 1
                 # Special regex chars in folder may pose a problem!
-                elif [ $(${rar[@]} "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'grep' -c "^${firstFile%%/*}") -eq $nFiles ]; then
+                elif [ $(${rar[@]} "$1" |
+                         'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' |
+                         'grep' -c "^$folderRegex"
+                        ) -eq $nFiles ]; then
                     echo "${firstFile%%/*}/"
                 else
                     return 1
@@ -209,7 +231,7 @@ singleFileInArchive() {
             return 0
             ;;
         *)
-            echo -e "\e[31m Listing files not supported for file '$1' with type '$(getArchiveCommand "$1")'"'!'"\e[0m" 1>&2
+            echoerr -e "\e[31m Listing files not supported for file '$1' with type '$(getArchiveCommand "$1")'"'!'"\e[0m" 1>&2
             return 1
             ;;
     esac
@@ -253,6 +275,7 @@ cachePassword() {
     # if not in database ask user
     while isEncrypted "$1" "$password"; do
         read -p "Password [Enter s to skip this archive]: " -s password
+        echo ''
         if [ "$password" == 's' ] || [ -z "$password" ]; then
             return 1
         fi
@@ -264,14 +287,33 @@ cachePassword() {
     return 0
 }
 
+
 extractHere() {
+    if [ "$dryrun" -eq 1 ]; then
+        return 0
+    fi
     case $(getArchiveCommand "$1") in
         7z)    7z x         "$1"; return $? ;;
         bzip2) bzip2 -d -k  "$1"; return $? ;;
         exe)   cabextract   "$1"; return $? ;;
-        gzip)  gzip -d -k   "$1"; return $? ;;
         lzma)  unlzma       "$1"; return $? ;;
         tar)   tar -C . -xf "$1"; return $? ;;
+        gzip)
+            # use -S to suppress
+            #    gzip: 'file' unknown suffix -- ignored
+            # warning. Won't work if file name does not contain any .
+            local name=$(basename "$1")
+            local suffix=${name##*.}
+            if [ "$verbose" -eq 1 ]; then
+                echoerr -e "\e[37mSuffix = $suffix\e[0m"
+            fi
+            if [ "$name" == "$suffix" ]; then
+                cat "$1" | gzip -d -k > "$1.ungz"
+            else
+                gzip -d -k -S "$suffix" "$1";
+            fi
+            return $?
+            ;;
         rar)
             if isEncrypted "$1"; then
                 unrar x -p"$password" "$1"
@@ -284,12 +326,40 @@ extractHere() {
         zip)   unzip        "$1"; return $? ;;
         #Z)     uncompress   "$1" ;;
         #tar.lrz) lrztar -d   "$1" ;;
+        *) return 1 ;;
     esac
+}
+
+function trashArchive() {
+    local archive=$1
+    local trashFolder='./extracted'
+    local dummy=
+
+    if [ "$dryrun" -eq 1 ]; then
+        local dummy='echo'
+    fi
+    $dummy mkdir -p "$trashFolder"
+    if echo "$archive" | grep -q 'part[0-9]\{1,\}.rar$'; then
+        # find doesn't seem to have an option for simply matching [0-9]+, so
+        # we have to repeat it manually to [0-9][0-9] and so on
+        local sr='[0-9]'
+        local numbers=
+        for (( i=0; i<5; ++i )); do
+            numbers="${numbers}${sr}"
+            nameMatch=$(echo "$archive" | sed -r 's|part[0-9]+\.rar$|'"part${numbers}.rar|")
+            # ^ did mimi.part1.rar -> mimi.part[0-9].rar
+            find "$(dirname "$archive")" -maxdepth 1 -type f -name "$nameMatch" \
+                 -execdir $dummy mv "$archive" "$trashFolder" \;
+         done
+    else
+        $dummy mv "$archive" "$trashFolder"
+    fi
 }
 
 ##################################### main #####################################
 
 verbose=0
+dryrun=0
 while [ ! -z "$1" ]; do
     case "$1" in
         '-h' | '--help')
@@ -298,6 +368,10 @@ while [ ! -z "$1" ]; do
             ;;
         '-v' | '--verbose')
             verbose=1
+            shift
+            ;;
+        '-n' | '--dry-run')
+            dryrun=1
             shift
             ;;
         *)
@@ -314,7 +388,13 @@ while [ ! -z "$1" ]; do
     cd "$oldPath"
     cd $(dirname "$1")
     # just skip folders, makes calls like 'extract *' easier
-    if [ -d "$archive" ]; then continue; fi
+    if [ -d "$archive" ]; then
+        if [ "$verbose" -eq 1 ]; then
+            echoerr "'$archive' is a folder, skipping"'!'
+        fi
+        shift
+        continue
+    fi
     if [ -f "$archive" ]; then
     {
         echo -e "\e[37mExtracting '$archive'\e[0m"
@@ -325,8 +405,7 @@ while [ ! -z "$1" ]; do
         if file=$(singleFileInArchive "$archive"); then
             echo -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
             if extractHere "$archive"; then
-                mkdir -p extracted
-                mv "$archive" './extracted/'
+                trashArchive "$archive"
             else
                 echo -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
             fi
@@ -335,16 +414,21 @@ while [ ! -z "$1" ]; do
             # assuming file does not contain any /!
             folder=${archive%.*}
             echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
-            if mkdir "$folder" 2>/dev/null || [ $('ls' --almost-all "$folder" | 'wc' -l) -eq 0 ]; then
+            if [ "$dryrun" -eq 1 ]; then
+                couldCreateFolder=0
+            else
+                mkdir "$folder" 2>/dev/null
+                couldCreateFolder=$?
+            fi
+            if [ "$couldCreateFolder" -eq 0 ] || [ $('ls' --almost-all "$folder" | 'wc' -l) -eq 0 ]; then
                 cd "$folder"
                 extractHere "../$archive"
                 success=$?
                 cd ..
                 if [ $success -eq 0 ]; then
-                    mkdir -p extracted
-                    mv "$archive" './extracted/'
+                    trashArchive "$archive"
                 else
-                    echo -e "\e[31mIt seems were there problems when extracting"'!'"\[0m"
+                    echo -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
                 fi
             else
                 echo -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
