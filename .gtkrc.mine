@@ -1,0 +1,9 @@
+style "xfdesktop-icon-view" {
+    XfdesktopIconView::label-alpha = 0
+    XfdesktopIconView::selected-label-alpha = 170
+    XfdesktopIconView::cell-spacing = 6
+    XfdesktopIconView::cell-padding = 6
+    XfdesktopIconView::cell-text-width-proportion = 1.8
+    fg[NORMAL] = "#ffffff"
+}
+widget_class "*XfdesktopIconView*" style "xfdesktop-icon-view"
