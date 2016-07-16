@@ -1,0 +1,111 @@
+#!/bin/bash
+
+#if [ "$EUID" != 0 ]; then
+#   echo -e "\e[31mThis script must be run as root"'!'"\e[0m" 1>&2
+#   exit 1
+#fi
+# Don't use root home, but the home of the user using sudo
+if [ ! -z "$SUDO_USER" ]; then
+    HOME=$(getent passwd $SUDO_USER | cut -d: -f6)
+fi
+
+function extractWlans() {
+    # returns list of available wlan interfaces
+    interfaces=($(ip link show | sed -nE 's/[0-9]*: (wl[A-Za-z0-9]*): .*/\1/p'))
+}
+function isUp() {
+    # $1 : wlan interface name, e.g. wlan0, which to test for
+    # returns if interface is up or not
+    ip link | grep -q "$1.*state UP"
+}
+function replaceOption() {
+    # $1 file name
+    # $2 option name
+    # $3 new value to asign
+    # searches for '$1=" and replaces all those with "$1=$2"
+    if 'grep' -qE '^[ \t]*'"$2"'=' "$1"; then
+        # Todo don't print warning for lines which already assign $3, meaning they don't effetively change
+        echo -e "\e[37mReplacing
+    $('grep' -E '^[ \t]*'"$2"'=' "$1")
+with
+    $2=$3
+in $1\e[0m"
+        sudo 'sed' -E -i 's|^([ \t]*'"$2"'=).*|\1'"$3"'|' "$1"
+    else
+        echo "$2=$3" >> "$1"
+    fi
+}
+
+############################ Main ################################
+
+function startap() {
+    sudo pkill hostapd
+    sudo service isc-dhcp-server stop
+    if [ "$1" == '-x' ]; then
+        exit 0
+    fi
+    sleep 0.1
+    if ps -p "$(cat /var/run/dhcpd.pid)" &>/dev/null; then
+        echo -e "\e[31mIt seems a rogue dhcpd process is still running with pid $(cat /var/run/dhcpd.pid) (see /var/run/dhcpd.pid)\e[0m"
+        exit 1
+    else
+        # See also this bug: https://marc.ttias.be/systemd-devel/2016-06/msg00006.php
+        sudo 'rm' -f /var/run/dhcpd.pid
+    fi
+
+    # Parse e.g. if fodun:
+    # [    7.402603] ath9k_htc 1-2.1.1:1.0 wlxec086b13468f: renamed from wlan0
+    #interface=( $('dmesg' | 'sed' -nE 's/.* ([A-Za-z0-9]*): renamed from wlan[0-9]*/\1/p') )
+    extractWlans
+    if [ "${#interfaces[@]}" -eq 0 ]; then
+        echo "No wlan interface using the new systemd scheme found"
+        # Todo: do some other checks, e.g. in ifconfig, iw list, ip link show or old scheme in dmesg, and give hints as to what drivers to install, ...
+        exit 1
+    elif [ "${#interfaces[@]}" -gt 1 ]; then
+        echo -e "Found more than one interface, please choose which to use as an access point: ${interface[@]}"
+        # Todo: exclude interfaces already in use as a recevier or those which do not support AP with iw list, note that we would need to find a mapping of phy0,1, .. to interface name
+        exit 1
+    fi
+    interface=$interfaces
+
+    if ! isUp $interface; then
+        sudo ip link set dev $interface up
+        sleep 0.1s
+    fi
+    if ! ifconfig | 'grep' -q "$1"; then
+        echo -e "\e[31mCouldn't bring interface '$interface' up with 'ip link set dev $interface up'\e[0m"
+        exit 1
+    fi
+    echo "Starting hostapd and dhcp-server on interface '$interface'"
+
+    # echo 1 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
+    export DAEMON_CONF=~/etc/hostapd/hostapd.conf
+    export RUN_DAEMON=yes
+    sudo nohup hostapd "$HOME/etc/hostapd/hostapd.conf" &
+
+    replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$HOME/etc/dhcp/dhcpd.conf"
+    replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' '"wlxec086b13468f"'
+    replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv6' '""'
+
+    sudo ip address add 10.0.0.1/24 dev $interface
+    sudo service isc-dhcp-server restart
+
+    function addRule() {
+        # test if rules already exist first and only add it if it does not exist
+        if sudo iptables --check $@; then
+            sudo iptables --append $@
+        fi
+    }
+    addRule POSTROUTING --table nat --out-interface eth0 --jump MASQUERADE
+    addRule FORWARD --table filter --match conntrack --ctstate RELATED,ESTABLISHED --jump ACCEPT
+    addRule FORWARD --table filter --in-interface $interface --out-interface eth0 --jump ACCEPT
+
+    # Error checking if access point does not work (not yet automated):
+    #  - does the interface used here has an IP address, if not, do: ip address add 10.0.0.1/24 dev $interface
+    #  - has the client the correct gateway configured? -> if not, then ping gateway works, but any other IP e.g. pign 8.8.8.8 won't work. Solution: set one manually with ip route or check the DHCP server configuration, whether it has a 'option router 10.0.0.1' at the correct place
+    #  - is a domain name server configured? Symptom: ping 8.8.8.8 works, but not ping google.de Solution: Check DHCP configuration for 'option domain-name-servers 8.8.8.8;' or set it manually by editing /etc/resolv.conf
+    #  - is a WPA connection established? Todo: how to test, except checking wpa-supplicant output for errrors?
+}
+
+# note: shell function lookup has higher priority than executing binaries with the same name
+startap "$@"
