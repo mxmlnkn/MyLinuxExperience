@@ -86,6 +86,36 @@ EOF
     name=$(basename "$path")
     cd "$(dirname "$path")"
     newname=$(printf "%s" "$name" | cleanFilenames)
+    mime=$(file --mime "$newname" | sed -r "s|.*: ([^;]*); .*|\1|")
+    # http://www.iana.org/assignments/media-types/media-types.xhtml
+    # /etc/mime.types
+    case "$mime" in
+        image/gif                  ) mext=gif   ;;
+        image/jpeg                 ) mext=jpg   ;;
+        image/png                  ) mext=png   ;;
+        image/tiff                 ) mext=tiff  ;;
+        image/vnd.djvu             ) mext=djvu  ;;
+        image/x-icon               ) mext=ico   ;;
+        image/x-ms-bmp             ) mext=bmp   ;;
+        application/x-7z-compressed) mext=7z    ;;
+        application/octet-stream   ) mext=lzma  ;;
+        application/x-rar          ) mext=rar   ;;
+        application/x-tar          ) mext=tar   ;;
+        application/x-bzip2        ) mext=bzip2 ;;
+        application/gzip           ) mext=gzip  ;;
+        application/x-xz           ) mext=xz    ;;
+        application/zip            ) mext=zip   ;;
+        *                          ) mext=      ;;
+    esac
+    ext=${newname##*.}
+    #echo "$name -> ext: $ext -> mime: $mime -> mext: $mext"
+    # this means it most probable is actually the extension and not something
+    # different like a word after a full stop or decimal point
+    if [ ${#ext} -le 3 ] && [ ! -z "$mext" ]; then
+        newname=${newname%.*}.$mext
+    elif [ ! -z "$mext" ]; then
+        newname=$newname.$mext
+    fi
     if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
         echo "rename: $(realpath "$name")"
         echo " -> to: $(realpath "$newname")"
