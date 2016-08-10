@@ -139,7 +139,7 @@ alias la='ls -lah --group-directories-first'
 alias l='la'
 # make nvcc workw ith g++ 4.9 instead of default g+ 5.2, which it can't work with
 alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
-alias gb='git branch --color'
+alias gb='git branch --color=always'
 alias gs='git status'
 function up() {
     if [ "$1" -lt 256 ] 2>/dev/null; then
@@ -249,4 +249,12 @@ function lac() {
         fi
         echo "$line" | 'sed' -r 's|^([^ ]+ )[ ]*[0-9]+|\1'"$('printf' '% 4i' $nFiles)|"
     done < <('ls' --color -lah --group-directories-first $@)
+}
+
+function equalize-volumes(){
+    local masterVolume sink
+    masterVolume=$(amixer get 'Master' | sed -nr 's|.*\[([0-9]*%)\].*|\1|p' | head -1)
+    for sink in $(pactl list sink-inputs | sed -nr 's/^Sink Input #(.*)/\1/p'); do
+        pactl set-sink-input-volume $sink $masterVolume
+    done
 }
