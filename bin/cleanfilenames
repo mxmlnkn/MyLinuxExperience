@@ -49,6 +49,8 @@ cleanFilenames() {
         s|(\.[A-Za-z0-9]{3})$|\L\1|;
         # some other obnoxious extensions
         s|\.jpeg$|.jpg|;
+        s|\.png\.jpg|.jpg|;
+        s|\.jpg\.png|.png|;
     '
 }
 
@@ -76,7 +78,11 @@ done
 
 export -f cleanFilenames
 FIND=( find "$dir" -type f )
-${FIND[@]} -print0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
+echo -n "Counting how many files need to be checked ... "
+# if ${FIND[@]} is unqoted, then spaces in $dir will cause problems
+nFiles=$("${FIND[@]}" | wc -l)
+echo "$nFiles"
+"${FIND[@]}" -print0 | pv -0lps $nFiles | xargs -0 -I {} -P 4 bash -c '
     # use here-doc in order to not have any undefined behavior caused by
     # special characters
     path=$(cat << "EOF"
@@ -86,7 +92,7 @@ EOF
     name=$(basename "$path")
     cd "$(dirname "$path")"
     newname=$(printf "%s" "$name" | cleanFilenames)
-    mime=$(file --mime "$newname" | sed -r "s|.*: ([^;]*); .*|\1|")
+    mime=$(file --mime -- "$name" | sed -r "s|.*: ([^;]*); .*|\1|")
     # http://www.iana.org/assignments/media-types/media-types.xhtml
     # /etc/mime.types
     case "$mime" in
@@ -98,27 +104,54 @@ EOF
         image/x-icon               ) mext=ico   ;;
         image/x-ms-bmp             ) mext=bmp   ;;
         application/x-7z-compressed) mext=7z    ;;
-        application/octet-stream   ) mext=lzma  ;;
+        # octet stream means the file type was not recognized!
+        # application/octet-stream   ) mext=lzma  ;;
         application/x-rar          ) mext=rar   ;;
         application/x-tar          ) mext=tar   ;;
-        application/x-bzip2        ) mext=bzip2 ;;
-        application/gzip           ) mext=gzip  ;;
+        application/x-bzip2        ) mext=bz2   ;;
+        application/gzip           ) mext=gz    ;;
         application/x-xz           ) mext=xz    ;;
         application/zip            ) mext=zip   ;;
         *                          ) mext=      ;;
     esac
+
+    # Remove extension duplicates e.g. a.png.png.png -> a.png
+    # Ignore digit-only extensions, e.g. libssl.so.1.0.0
     ext=${newname##*.}
-    #echo "$name -> ext: $ext -> mime: $mime -> mext: $mext"
-    # this means it most probable is actually the extension and not something
+    if [ "$ext" == "$newname" ]; then
+        ext=
+    fi
+    newNameWoExt=${newname%.*}
+    while [ ! -z "$ext" ] && [ ${#ext} -le 4 ] &&
+          [ "${newNameWoExt##*.}" == "$ext" ] &&
+          [ "${newNameWoExt%.*}" != "$newNameWoExt" ] &&
+          ! [ "$ext" -eq "$ext" ] 2>/dev/null  # if not number
+    do
+        ext=${newNameWoExt##*.}
+        newNameWoExt=${newNameWoExt%.*}
+    done
+    if [ -z "$ext" ]; then
+        newname=${newNameWoExt}
+    else
+        newname=${newNameWoExt}.$ext
+    fi
+
+    # change README.README back to README (cause by old bug in this script)
+    #if [ "${newname%.*}" == "${newname##*.}" ]; then
+    #    newname=${newname%.*}
+    #fi
+
+    # this means it most probably is actually the extension and not something
     # different like a word after a full stop or decimal point
-    if [ ${#ext} -le 3 ] && [ ! -z "$mext" ]; then
+    if [ ${#ext} -le 4 ] && [ "$ext" != "$mext" ] && [ ! -z "$mext" ]; then
         newname=${newname%.*}.$mext
-    elif [ ! -z "$mext" ]; then
+    elif [ "$ext" != "$mext" ] && [ ! -z "$mext" ]; then
+        # if the old extension is longer than 4 characters, just append the new extension
         newname=$newname.$mext
     fi
     if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
-        echo "rename: $(realpath "$name")"
-        echo " -> to: $(realpath "$newname")"
+        # $name -> ext: $ext -> mime: $mime -> mext: $mext\n
+        echo -e "rename: $(realpath "$name")\n -> to: $(realpath "$newname")"
         if [ ! "'$dryrun'" -eq 1 ]; then
             mv "$name" "$newname"
         fi
