@@ -211,40 +211,12 @@ function singleFileInArchive() {
                 fi
                 cmd+=( "-p$password" )
             fi
-            nFiles=$("${cmd[@]}" "$1" | 'grep' -Ec '^[ \t]+Name: ')
-            firstFile=$("${cmd[@]}" "$1" | 'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' | 'head' -1)
-            folder=$(dirname "$firstFile")
-            folderRegex=$(echo "$folder" | sed -r 's|([][^$.*\])|\\\1|g')
-            if [ "$verbose" -eq 1 ]; then
-                echoerr "${cmd[@]} '$1'"
-                ${cmd[0]} l ${cmd[2]} "$1" 1>&2
-                echoerr "nFiles    = $nFiles"
-                echoerr "firstFile = $firstFile"
-                echoerr "folder    = $folder"
-            fi
-            if [ $nFiles -le 1 ]; then
-                echo $firstFile
-                return 0
-            else
-            {
-                if [ "${firstFile:0:1}" == '/' ]; then
-                {
-                    echoerr -e "\e[31rar seems to contain absolute paths, which are not supported by this script. Maybe you can add it?\e[0m"
-                    return 1
-                }
-                elif [ "$folder" == '.' ]; then
-                    return 1
-                # Special regex chars in folder may pose a problem!
-                elif [ $("${cmd[@]}" "$1" |
-                         'sed' -nE 's|^[ \t]+Name: (.*)$|\1|p' |
-                         'grep' -c "^$folderRegex"
-                        ) -eq $nFiles ]; then
-                    echo "${firstFile%%/*}/"
-                else
-                    return 1
-                fi
-            }
-            fi
+
+            files=()
+            while IFS= read -d $'\n' -r file ; do
+                files+=("$file")
+            done < <( "${cmd[@]}" "$1" |
+                      sed -nr 's|^[ \t]+Name: (.*)$|\1|p' )
         }
         ;;
         'zip')
@@ -286,6 +258,12 @@ function singleFileInArchive() {
             ;;
     esac
 
+    if [ $verbose -eq 1 ]; then
+        echoerr "File List of Archive (${#files[@]}):"
+        for file in "${files[@]}"; do
+            echoerr "  $file"
+        done
+    fi
 
     if [ ${#files[@]} -le 1 ]; then
         echo "${files[0]}"
@@ -296,7 +274,7 @@ function singleFileInArchive() {
         if [ "${files[0]:0:1}" == '/' ]; then
             echoerr -e "\e[31archive seems to contain absolute paths ('${files[0}\'), which are not supported by this script. Maybe you can add it to this script?\e[0m"
             return 1
-        elif [ "$(dirname "${files[0]}")" == '.' ]; then
+        elif [ "$(dirname "${files[0]}")" == '.' ] && [ "${files[0]: -1}" != '/' ]; then
             # more than one file and first file is in no subdirectory,
             #  at least one other file will be in the top directory
             #
@@ -315,9 +293,17 @@ function singleFileInArchive() {
             # Check if maybe all files in the archive share the same
             # directory they are in, i.e. the archives top level
             # contains only one folder
+            if [ $verbose -eq 1 ]; then
+                echoerr "Folder Prefix: ${files[0]%%/*}"
+            fi
             for file in "${files[@]}"; do
-                if [ "${file%%/*}" != "${files[0]%%/*}" ] ||
-                   [ "${file%%/*}" == "$file" ]; then # i.e. it is a file
+                # it is not necessary to check if it is actually a file:
+                #    [ "${file%%/*}" == "$file" ]
+                # because there can't be a folder and a file with the same name
+                if [ "${file%%/*}" != "${files[0]%%/*}" ]; then
+                    if [ $verbose -eq 1 ]; then
+                        echoerr "The file '$file' lies in a different top-folder than '${files[0]%%/*}'"
+                    fi
                     return 1
                 fi
             done
@@ -793,10 +779,11 @@ function main() {
                 echo '
 Usage: extract <file> [<file> [...]]
 
-   -v  show more debug output
-   -d  delete files instead of moving them in a subfolder "extracted/"
-   -n  dry-run i.e. do not remove archives and do not extract
-   -t  run tests
+   -d|--delete   delete files instead of moving them in a subfolder "extracted/"
+   -k|--keep     do not move the extracted archives into a folder "extracted/"
+   -n|--dry-run  dry-run i.e. do not remove archives and do not extract
+   -t|--tests    run tests
+   -v|--verbose  show more debug output
 '
                 return 0
                 ;;
