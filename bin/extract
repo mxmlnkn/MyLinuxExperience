@@ -319,6 +319,9 @@ function isEncrypted() {
     # password
     local pw=
     if [ ! -z "$2" ]; then pw="$2"; fi
+    if [ $verbose -eq 1 ]; then
+        echoerr -e "\e[37mTest archive '$1' using password: $pw\e[0m"
+    fi
     case $(getArchiveCommand "$1") in
         7z)
             if [ -z "$pw" ]; then pw='-'; fi
@@ -335,7 +338,8 @@ function isEncrypted() {
             # Can't use -T option in zip for this -.-!!!!! see this bug report
             # http://www.info-zip.org/phpBB3/viewtopic.php?f=3&t=147&hilit=password
             # last version of zip is from 2009 -> Linux is dead
-            'unzip' -t -P "$pw" "$1" 2>&1 | grep -q 'because of incorrect password'
+            # Note that space after -P is possible, but leads to problems, if the password starts with a hyphen -
+            'unzip' -t "-P$pw" "$1" 2>&1 | grep -q 'because of incorrect password'
             return $?
             ;;
         *)
@@ -361,10 +365,16 @@ function askPassword() {
     # sets global variable password, if necessary
     password='-'
 
+    if [ $verbose -eq 1 ]; then
+        echoerr -e "\e[37mTry to find password in cache ...\e[0m"
+    fi
     # first test if a valid password can be found in the database
     while read line; do
         if ! isEncrypted "$1" "$line"; then
             password=$line
+            if [ $verbose -eq 1 ]; then
+                echoerr -e "\e[37mFound password: $password\e[0m"
+            fi
             break
         fi
     done <"$pwfile"
