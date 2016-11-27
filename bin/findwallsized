@@ -34,7 +34,7 @@ minHeight=$(readNumber 1080 "$4")
 
 mkdir -p "$dst"
 FIND=(find "$src" -type f -not \( -path "$dst" -prune \) )
-${FIND[@]} -print 0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
+${FIND[@]} -print0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
     fpath=$(cat <<EOF
 {}
 EOF

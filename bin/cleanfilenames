@@ -32,7 +32,7 @@ cleanFilenames() {
         s/\.html\.mht/\.mht/g;
         s/[*?<>$]/_/g;
         # delete dots at the end of line
-        s/\.+$//;
+        s/\.+$//g;
         s/&#039;/'"'"'/g;
         s|&lt;||g;
         s|&gt;||g;
@@ -45,6 +45,8 @@ cleanFilenames() {
         s/[\x01-\x1F\x7F]/ /g;
         s|\t| |g;
         s|[ \t]+| |g;
+        # convert hex codes
+        s|%20| |g;
         # convert extensions to lowercase
         s|(\.[A-Za-z0-9]{3})$|\L\1|;
         # some other obnoxious extensions
@@ -99,7 +101,7 @@ EOF
         image/gif                  ) mext=gif   ;;
         image/jpeg                 ) mext=jpg   ;;
         image/png                  ) mext=png   ;;
-        image/tiff                 ) mext=tiff  ;;
+        image/tiff                 ) mext=tif   ;;
         image/vnd.djvu             ) mext=djvu  ;;
         image/x-icon               ) mext=ico   ;;
         image/x-ms-bmp             ) mext=bmp   ;;

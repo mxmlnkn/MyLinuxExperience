@@ -1,6 +1,6 @@
 #!/bin/bash
 
-networks=( 'WLAN_SSID' ) # files WLAN_SSID.conf must be in searchPaths
+networks=( 'WLAN-64A235' 'pcmkrouter' 'eduroam' 'HZDR' 'Brave New World' ) # files WLAN_SSID.conf must be in searchPaths
 searchPaths=( "$HOME/etc/wpa_supplicant" "/etc/wpa_supplicant" )
 verbose=0
 

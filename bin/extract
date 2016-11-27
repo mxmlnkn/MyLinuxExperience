@@ -8,6 +8,8 @@
 #    naming scheme ...
 #    Or just move the other parts, should be enough. Could also try to know
 #    the other parts by using strace, but that is not available often
+#  - zip and unzip don't seem to have any way (like --) to allow file names
+#    starting with '-'!
 
 function echoerr() { echo "$@" 1>&2; }
 
@@ -39,7 +41,7 @@ function getArchiveCommand() {
         # Note that the .gz files are not differing from the .tar.gz or
         # .tgz files obviously. We need to look into them and see
         # if they only contain a single .tar archive
-        local mime=$(file --dereference --mime-type "$1" | 'sed' 's|^.*: application/||')
+        local mime=$(file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||')
         if [ "$verbose" -eq 1 ] 2>/dev/null; then
             echo "raw type: $mime" 1>&2
         fi
@@ -325,12 +327,12 @@ function isEncrypted() {
     case $(getArchiveCommand "$1") in
         7z)
             if [ -z "$pw" ]; then pw='-'; fi
-            '7z' t "-p$pw" "$1" 2>&1 | grep -q 'Wrong password?'
+            '7z' t "-p$pw" -- "$1" 2>&1 | grep -q 'Wrong password?'
             return $?
             ;;
         rar)
             if [ -z "$pw" ]; then pw='-'; fi
-            'rar' t "-p$pw" "$1" 2>&1 | grep -q 'Corrupt file or wrong password'
+            'rar' t "-p$pw" -- "$1" 2>&1 | grep -q 'Corrupt file or wrong password'
             return $?
             ;;
         zip)
@@ -411,9 +413,9 @@ function extractHere() {
     case $(getArchiveCommand "$1") in
         7z)
             if isEncrypted "$1"; then
-                7z x -p"$password" "$1" 1>$redirect
+                7z x -p"$password" -- "$1" 1>$redirect
             else
-                7z x "$1" 1>$redirect
+                7z x -- "$1" 1>$redirect
             fi
             return $?
             ;;
@@ -421,9 +423,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat "$1" | bzip2 -d -k > "$1.unbz2"
+                cat -- "$1" | bzip2 -d -k > "$1.unbz2"
             else
-                cat "$1" | bzip2 -d -k > "${name%.*}"
+                cat -- "$1" | bzip2 -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -432,9 +434,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat "$1" | lzma -d -k > "$1.unlzma"
+                cat -- "$1" | lzma -d -k > "$1.unlzma"
             else
-                cat "$1" | lzma -d -k > "${name%.*}"
+                cat -- "$1" | lzma -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -449,19 +451,19 @@ function extractHere() {
                 echoerr -e "\e[37mSuffix = $suffix\e[0m"
             fi
             if [ "$name" == "$suffix" ]; then
-                cat "$1" | gzip -d -k > "$1.ungz"
+                cat -- "$1" | gzip -d -k > "$1.ungz"
             else
-                cat "$1" | gzip -d -k > "${name%.*}"
+                cat -- "$1" | gzip -d -k > "${name%.*}"
             fi
             return $?
             ;;
         rar)
             if isEncrypted "$1"; then
                 #echoerr "unrar x -p$password $1 1>$redirect"
-                unrar x -p"$password" "$1" 1>$redirect
+                unrar x -p"$password" -- "$1" 1>$redirect
             else
                 #echoerr "unrar x $1 1>$redirect"
-                unrar x "$1" 1>$redirect
+                unrar x -- "$1" 1>$redirect
             fi
             return $?
             ;;
@@ -469,9 +471,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat "$1" | xz -d -k > "$1.unxz"
+                cat -- "$1" | xz -d -k > "$1.unxz"
             else
-                cat "$1" | xz -d -k > "${name%.*}"
+                cat -- "$1" | xz -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -503,7 +505,7 @@ function trashArchive() {
     fi
 
     if [ "$delete" -eq 1 ]; then
-        $dummy rm "$archive"
+        $dummy rm -- "$archive"
         return 0
     fi
 
@@ -519,10 +521,10 @@ function trashArchive() {
             nameMatch=$(echo "$archive" | sed -r 's|part[0-9]+\.rar$|'"part${numbers}.rar|")
             # ^ did mimi.part1.rar -> mimi.part[0-9].rar
             find "$(dirname "$archive")" -maxdepth 1 -type f -name "$nameMatch" \
-                 -execdir $dummy mv "$archive" "$trashFolder" \;
+                 -execdir $dummy mv -- '{}' "$trashFolder" \;
          done
     else
-        $dummy mv "$archive" "$trashFolder"
+        $dummy mv -- "$archive" "$trashFolder"
     fi
 }
 
@@ -817,6 +819,10 @@ Usage: extract <file> [<file> [...]]
                 keep=1
                 shift
                 ;;
+            '--')
+                shift
+                break
+                ;;
             *)
                 break
                 ;;
@@ -828,9 +834,9 @@ Usage: extract <file> [<file> [...]]
     local oldPath=$(pwd)
     while [ ! -z "$1" ]; do
     {
-        local archive=$(basename "$1")
+        local archive=$(basename -- "$1")
         cd "$oldPath"
-        cd $(dirname "$1")
+        cd $(dirname -- "$1")
         # just skip folders, makes calls like 'extract *' easier
         if [ -d "$archive" ]; then
             if [ "$verbose" -eq 1 ]; then

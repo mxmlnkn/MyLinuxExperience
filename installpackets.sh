@@ -26,7 +26,7 @@ packagelistsid=(
     libcdio-utils
 
     # Programming toolchain
-    linux-tools gcc gdb clang matplotlib libopenmpi-dev openmpi-bin gnuplot perl freeglut3
+    linux-tools gcc gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-doc gnuplot perl freeglut3
     python ipython python-numpy python-setuptools python-scipy python-matplotlib gfortran
 
     # steam things like glxinfo
@@ -42,7 +42,7 @@ packagelistsid=(
     gtk2-engines-murrine gtk2-engines-pixbuf gnome-themes-standard gtk-theme-switch lxappearance
 
     # XnView prerequisites
-    libphonon4
+    libphonon4 reportbug
 
     # WLAN
     wireless-tools
@@ -90,6 +90,7 @@ packagelistsid=(
 
     # audio control (weird dependendencies would remove gparted and inkscape on upgrade ... -.- )
     pavucontrol gparted inkscape flashplugin-nonfree
+    synfigstudio
     # Battery / power tools
     tlp acpi-call-dkms dkms tp-smapi-dkms
 
@@ -104,7 +105,7 @@ packagelistsid=(
     powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils
     cython cython-doc libhdf5-dev libhdf5-doc python-h5py python-h5py-doc python-pip vitables
     trans-de-en ding translate anacron scite rfkill trash-cli strace chm2pdf
-    catfish galculator gdmap mysql-server mysql-client cpuburn shred wipe
+    catfish galculator gdmap mysql-server mysql-client cpuburn fancontrol shred wipe
     wine64-preloader wine wine64 wine32 libwine:i386 pv
 
     # XFCE
@@ -128,6 +129,8 @@ packagelistsid=(
 
     # Programming with SDL (udev and co are necessary prerequesits, does not work with jessie-versions)
     udev systemd-ui bootlogd libsdl2-dev libsdl2-* libsdl-dev # savh ???
+
+    git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark
 
 
     # for compiling ffmpeg from source
@@ -242,3 +245,5 @@ sudo apt-get purge xterm
 #   - sudo bash -c "service wicd stop; dpkg-reconfigure wicd; sudo service wicd start"
 
 # Scite theme fallback ... use darktheme in xfce4-appearance-settings ... still doesn't work perfect...
+
+sudo easy_install seaborn mpltools

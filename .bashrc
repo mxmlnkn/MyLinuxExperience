@@ -204,7 +204,7 @@ EOF
         return
     fi
     find . -maxdepth 1 -execdir bash -c '
-        fname=$(cat <<EOF4ejiuh
+        fname=$(cat <<"EOF4ejiuh"
 {}
 EOF4ejiuh
         )
@@ -251,10 +251,19 @@ function lac() {
     done < <('ls' --color -lah --group-directories-first $@)
 }
 
-function equalize-volumes(){
+function equalize-volumes() {
     local masterVolume sink
     masterVolume=$(amixer get 'Master' | sed -nr 's|.*\[([0-9]*%)\].*|\1|p' | head -1)
     for sink in $(pactl list sink-inputs | sed -nr 's/^Sink Input #(.*)/\1/p'); do
         pactl set-sink-input-volume $sink $masterVolume
     done
+}
+
+function githubSize() {
+    # expects a github clone link, e.g. https://github.com/chrissimpkins/Hack.git
+    echo "$1" |
+        perl -ne 'print $1 if m!([^/]+/[^/]+?)(?:\.git)?$!' |
+        xargs -i curl -s -k https://api.github.com/repos/'{}' |
+        'grep' size |
+        sed -nr 's|.*: ([0-9]*).*|\1 KB|p'
 }
