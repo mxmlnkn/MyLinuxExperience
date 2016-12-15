@@ -1,34 +1,42 @@
 #!/bin/bash
 
 quiet=0
+message=""
+waitTime='0'
 args=()
-for arg in $@; do
-    case "$arg" in
+while [ -n "$1" ]; do
+    case "$1" in
         -q|--quiet)
             quiet=1
             ;;
+        -m|--message)
+            shift
+            message="$1"
+            ;;
         *)
-            if [[ "$arg" =~ ^[0-2]?[0-9]:[0-6]?[0-9]$ ]]; then
-                dh=$(( ${arg%:*} - $(date +%H) ))
+            # specified is a date not a wait duration
+            if [[ "$1" =~ ^[0-2]?[0-9]:[0-6]?[0-9]$ ]]; then
+                dh=$(( ${1%:*} - $(date +%H) ))
                 if [ "$dh" -lt 0 ]; then
                     dh=$((dh + 24))
                 fi
-                dm=$(( ${arg#*:} - $(date +%M) ))
+                dm=$(( ${1#*:} - $(date +%M) ))
                 if [ "$dm" -lt 0 ]; then
                     dm=$((dm + 60))
                     dh=$((dh - 1 ))
                 fi
-                args+=( "$(( dh * 60 + dm ))m" )
+                waitTime=( "$(( dh * 60 + dm ))m" )
                 continue
+            elif [[ "$1" =~ ^[0-9]*[hms]*$ ]]; then
+                waitTime="$1"
             fi
-            # Unknown arguments are forwarded to sleep
-            args+=( "$arg" )
             ;;
     esac
+    shift
 done
 
-echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will will finish in ${args[@]}"
-sleep ${args[@]}
+echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will will finish in ${waitTime}"
+sleep "$waitTime"
 if [ "$quiet" -eq 0 ]; then
     ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
     pid=$!
@@ -39,3 +47,6 @@ if [ "$quiet" -eq 0 ]; then
     kill $pid
 fi
 
+if [ -n "$message" ]; then
+    notify-send 'Timerle' "$message"
+fi
