@@ -16,11 +16,13 @@ while [ -n "$1" ]; do
         *)
             # specified is a date not a wait duration
             if [[ "$1" =~ ^[0-2]?[0-9]:[0-6]?[0-9]$ ]]; then
-                dh=$(( ${1%:*} - $(date +%H) ))
+                # need to omit padding with %-H instead of %H, because leading
+                # 0s would try to use octal input!
+                dh=$(( ${1%:*} - $(date +%-H) ))
                 if [ "$dh" -lt 0 ]; then
                     dh=$((dh + 24))
                 fi
-                dm=$(( ${1#*:} - $(date +%M) ))
+                dm=$(( ${1#*:} - $(date +%-M) ))
                 if [ "$dm" -lt 0 ]; then
                     dm=$((dm + 60))
                     dh=$((dh - 1 ))
