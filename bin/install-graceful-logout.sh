@@ -3,18 +3,21 @@
 # This script installs the .desktop links needed for the yad-Skript to work
 # and also missing icons (doesn't overwrite existing icons)
 
+echoerr() { echo "$@" 1>&2; }
+
 configPath="$HOME/.config/graceful-logout"
 mkdir -p "$configPath"
 cd "$configPath"
 
 ################ copy icons to currently activated icon theme ################
 
-wget 'https://github.com/daniruiz/Super-Flat-Remix/files/54449/icons.zip'
-unzip -o icons.zip && rm icons.zip
+wget -q 'https://github.com/daniruiz/Super-Flat-Remix/files/54449/icons.zip'
+unzip -q -o icons.zip && rm icons.zip
 iconNames=( "logout" "reboot" "shutdown" "suspend" "hibernate" "lock-screen" )
 
 # ~/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml:    <property name="IconThemeName" type="string" value="sable-ultra-flat-icons"/>
-iconTheme=$(sed -rn 's/^.*IconThemeName.*value="([^"]*)".*/\1/p' $HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml)
+iconTheme=$('sed' -n -r 's|^.*IconThemeName.*value="([^"]*)".*|\1|p' "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml")
+echoerr "\e37miconTheme = $iconTheme\e[0m"
 targetDir=""
 if [ -d "/usr/share/icons/$iconTheme/" ]; then targetDir="/usr/share/icons/$iconTheme"; fi
 if [ -d "$HOME/.icons/$iconTheme/"     ]; then targetDir="$HOME/.icons/$iconTheme"; fi
@@ -23,15 +26,16 @@ if [ -d "$HOME/.icons/$iconTheme/"     ]; then targetDir="$HOME/.icons/$iconThem
 for icon in "${iconNames[@]}"; do
     fname="system-$icon.svg"
     targetIcon="$targetDir/apps/scalable/$fname"
+    echoerr -e "\e[37mTry to copy icon '$fname' to theme location: '$targetIcon'\e[0m"
     if [ ! -f "$targetIcon" ]; then
         echo "create $targetIcon"
         cp --no-clobber "$fname" "$targetIcon"
     fi
-    rm $fname
+    'rm' "$fname"
     targetIcon="$targetDir/apps/scalable/xfsm-$icon.svg"
     if [ ! -f "$targetIcon" ]; then
         echo "create $targetIcon"
-        ln -s -T "$targetDir/apps/scalable/$fname" "$targetIcon"
+        'ln' -s -T "$targetDir/apps/scalable/$fname" "$targetIcon"
     fi
 done
 
@@ -46,7 +50,7 @@ execs=( "$closeCmd --logout" "$closeCmd --reboot" "$closeCmd --halt"
 for ((i=0; i<${#names[@]}; i++ )); do
     lowercaseName=$(echo "${names[i]}" | tr '[:upper:]' '[:lower:]')
     fileName="$configPath/0$i-$lowercaseName.desktop"
-    cat > "$fileName" << EOF
+    'cat' > "$fileName" << EOF
 [Desktop Entry]
 Name=${names[i]}
 Comment=${names[i]} system
@@ -61,5 +65,5 @@ done
 ################ change xfce-whiskermenu logout command to script ################
 
 #~/.config/xfce4/panel/whiskermenu-5.rc:command-logout=~/bin/graceful-logout
-sed -ir 's/^command-logout=.*/command-logout=$HOME/bin/graceful-logout/' "$HOME/.config/xfce4/panel/whiskermenu-5.rc"
+sed -i 's|^command-logout=.*|'"command-logout='HOME/bin/graceful-logout|" "$HOME/.config/xfce4/panel/whiskermenu-5.rc"
 
