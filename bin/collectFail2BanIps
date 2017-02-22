@@ -1,0 +1,25 @@
+#!/bin/bash
+
+cd "$(mktemp -d)"
+cp /var/log/auth.log*
+gzip -d *.gz
+cat /var/log/auth.log* | sed -nE '
+    s|.*sshd.*User .* from ([^ ]*) not allowed.*|\1|p;
+    s|.*sshd.*Invalid user .* from ([^ ]*).*|\1|p;
+    s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p;
+' | sed -r '
+    s|(127\.0\.0\.1)|#\1|;
+    s|(::1)|#\1|;
+    # TUD
+    s|(141\.30\..*)|#\1|;
+    s|(141\.75\..*)|#\1|;
+    # 1&1
+    # s|(87\.157\..*)|#\1|;
+' | sort | uniq > found.lst
+# Block ranges if more than one in a range attacked
+sed 's|[0-9]*$||' found.lst | uniq -c | sed '/^[ \t]*1 /d; s|\.$|.0/24|; s|^[ \t]*[0-9]* ||' >> found.lst
+sed -i 's|$|      [18/6/2016 00:00:00]|' found.lst
+cat /etc/fail2ban/ip.blacklist >> found.lst
+sort found.lst -u -o found.lst
+
+sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
