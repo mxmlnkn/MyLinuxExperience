@@ -28,7 +28,6 @@ while [ -n "$1" ]; do
                     dh=$((dh - 1 ))
                 fi
                 waitTime=( "$(( dh * 60 + dm ))m" )
-                continue
             elif [[ "$1" =~ ^[0-9]*[hms]*$ ]]; then
                 waitTime="$1"
             fi

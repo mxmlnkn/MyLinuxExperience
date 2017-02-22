@@ -62,7 +62,7 @@ if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
-function isGitRepo() { git rev-parse --git-dir &>/dev/null; }
+isGitRepo() { git rev-parse --git-dir &>/dev/null; }
 if ! type GitPS1 &>/dev/null | grep -q 'function'; then
     GitPS1() {
         if isGitRepo; then
@@ -74,10 +74,10 @@ if ! type GitPS1 &>/dev/null | grep -q 'function'; then
         fi
     }
 fi
-function getMountPoints() {
+getMountPoints() {
     mount | sed -nE 's/.* on (.*) type .* \(.*\)/\1/p' | tac
 }
-function pswd() {
+pswd() {
     # like pwd, bugt limits length to 40 characters
     local dir=$(pwd)
     if [ ${#dir} -gt 40 ]; then
@@ -123,6 +123,11 @@ esac
 
 ################### aliases and custom environment variables ###################
 
+commandExists() {
+    # http://stackoverflow.com/questions/592620/check-if-a-program-exists-from-a-bash-script
+    command -v "$1" > /dev/null 2>&1;
+}
+
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
@@ -132,23 +137,42 @@ if [ -x /usr/bin/dircolors ]; then
     alias dmesg='dmesg --color=always'
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
-alias rm='trash'
+if commandExists 'trash'; then alias rm='trash'; fi
 alias mv='mv -i'
 alias cp='cp -i'
 alias la='ls -lah --group-directories-first'
 alias l='la'
 # make nvcc workw ith g++ 4.9 instead of default g+ 5.2, which it can't work with
 alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
-alias gb='git branch --color=always'
-alias gs='git status'
-function up() {
+if commandExists 'git'; then
+    alias gb='git branch --color=always'
+    alias gs='git status'
+fi
+
+up() {
     if [ "$1" -lt 256 ] 2>/dev/null; then
         for ((i=0;i<$1;i++)); do
             cd ..;
         done;
     fi
 }
-function getmac() {
+
+echoerr() { echo "$@" 1>&2; }
+stringContains() {
+    #echo "    String to test: $1"
+    #echo "    Substring to test for: $2"
+    [ -z "${1##*$2*}" ] && [ ! -z "$1" ]
+}
+
+# This function returns all links found in the given html-file.
+# One link begins with http:// or https:// and ends on the first "-mark,
+# because the format expected is: href="http://..."
+# This function is independent of the site to crawl! The returned links need
+# to be filtered differently depending on what to crawl. See filterUrls()
+getUrls() {
+    sed 's|<a href="|\nKEEP!!|g' "$1" | sed '/^KEEP!!/!d; s/KEEP!!//; s/".*$//g; s/ /%20/g'
+}
+getmac() {
     if [ ! -z "$1" ]; then
         ip addr ls "$1" | sed -nE 's|[ \t]*link/ether ([a-f0-9:]+) brd.*|\1|p'
     else
@@ -157,7 +181,7 @@ function getmac() {
             n;s|[ \t]*link/ether ([a-f0-9:]+) brd.*|  \1|p}';
     fi
 }
-function offSteamUpdates() {
+offSteamUpdates() {
     for lib in "$@"; do
         find "$lib" -name '*.acf' -execdir bash -c "
             if grep -q 'AutoUpdateBehavior.*\"[^1]\"' '{}'; then
@@ -166,12 +190,12 @@ function offSteamUpdates() {
             fi;
         " \; ; done
 }
-function getLargestSide() {
+getLargestSide() {
     local w=$(convert "$1" -format "%w" info:)
     local h=$(convert "$1" -format "%h" info:)
     if [ "$w" -gt "$h" ]; then echo $w; else echo $h; fi
 }
-function makeIcon() {
+makeIcon() {
     if [ -z "$1" ]; then
         echo -e "\e[31m Please specify a path to an image.\e[0m"
         exit 1
@@ -185,7 +209,7 @@ function makeIcon() {
     test -f "$1.ico"
     #set +vx
 }
-function mvsed() {
+mvsed() {
     # $1 rule for sed how to work on file name
     local dryrun
     if [ "$1" == '-n' ]; then
@@ -215,7 +239,7 @@ EOF4ejiuh
         fi
     ' \;
 }
-function lac() {
+lac() {
     # show listing, but replace the second column (hard link count:
     # http://askubuntu.com/questions/19510/) with the number of files and
     # folders if it is a directory
@@ -251,7 +275,7 @@ function lac() {
     done < <('ls' --color -lah --group-directories-first $@)
 }
 
-function equalize-volumes() {
+equalize-volumes() {
     local masterVolume sink
     masterVolume=$(amixer get 'Master' | sed -nr 's|.*\[([0-9]*%)\].*|\1|p' | head -1)
     for sink in $(pactl list sink-inputs | sed -nr 's/^Sink Input #(.*)/\1/p'); do
@@ -259,7 +283,7 @@ function equalize-volumes() {
     done
 }
 
-function githubSize() {
+githubSize() {
     # expects a github clone link, e.g. https://github.com/chrissimpkins/Hack.git
     echo "$1" |
         perl -ne 'print $1 if m!([^/]+/[^/]+?)(?:\.git)?$!' |

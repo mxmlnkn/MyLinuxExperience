@@ -396,26 +396,36 @@ function askPassword() {
 
 
 function extractHere() {
+    # $1 path to file to extract
+    # $2 enforce certain program usage / extension e.g. 7z on files where unzip or unrar fails because of bad encoding errors
     if [ ! -f "$1" ]; then
         echoerr -e "\e[31mCouldn't find file '$1'\e[0m"
         return 1
     fi
+    local ext=$(getArchiveCommand "$1")
+    if test -n "$2"; then ext=$2; fi
 
-    local redirect='/dev/tty'   # &1 won't get interpreted, intead creates a file named '&1'
+    local redirect='/dev/tty'   # &1 won't get interpreted, instead creates a file named '&1'
+    local quiet=
     if [ $verbose -eq 0 ]; then
         redirect='/dev/null'
+        quiet='-q'
     fi
+    local errorlog=$(mktemp)
 
     if [ "$dryrun" -eq 1 ]; then
         return 0
     fi
 
-    case $(getArchiveCommand "$1") in
+    case "$ext" in
         7z)
+            # if verbose is 0 we can't redirect to /dev/null, because then
+            # the user would miss a command prompt if the file to extract
+            # already exists and we would wait forever!
             if isEncrypted "$1"; then
-                7z x -p"$password" -- "$1" 1>$redirect
+                7z x -p"$password" -- "$1"
             else
-                7z x -- "$1" 1>$redirect
+                7z x -- "$1"
             fi
             return $?
             ;;
@@ -423,9 +433,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | bzip2 -d -k > "$1.unbz2"
+                cat -- "$1" | bzip2 $quiet -d -k > "$1.unbz2"
             else
-                cat -- "$1" | bzip2 -d -k > "${name%.*}"
+                cat -- "$1" | bzip2 $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -434,9 +444,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | lzma -d -k > "$1.unlzma"
+                cat -- "$1" | lzma $quiet -d -k > "$1.unlzma"
             else
-                cat -- "$1" | lzma -d -k > "${name%.*}"
+                cat -- "$1" | lzma $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -471,19 +481,31 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | xz -d -k > "$1.unxz"
+                cat -- "$1" | xz $quiet -d -k > "$1.unxz"
             else
-                cat -- "$1" | xz -d -k > "${name%.*}"
+                cat -- "$1" | xz $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
         zip)
             if isEncrypted "$1"; then
-                'unzip' -P "$password" "$1" 1>$redirect
+                'unzip' -P "$password" "$1" 2>&1 >"$ " | tee "$errorlog"
             else
-                'unzip' "$1" 1>$redirect
+                'unzip' "$1" 2>&1 >"$redirect" | tee "$errorlog"
             fi
-            return $?
+            local errorCode=${PIPESTATUS[0]}
+
+            if grep -q 'error:  cannot create ' "$errorlog" ||
+               grep -q 'Invalid or incomplete multibyte or wide character' "$errorlog"
+            then
+                if test "$verbose" -eq 1; then
+                    echoerr -e "\e[37mTrying to extract '$1' with 7z, because unzip has problems with some file name encodings\e[0m"
+                fi
+                extractHere "$1" '7z'
+                errorCode=$?
+            fi
+
+            return $errorCode
             ;;
         #Z)     uncompress   "$1" ;;
         #tar.lrz) lrztar -d   "$1" ;;
@@ -836,7 +858,7 @@ Usage: extract <file> [<file> [...]]
     {
         local archive=$(basename -- "$1")
         cd "$oldPath"
-        cd $(dirname -- "$1")
+        cd "$(dirname -- "$1")"
         # just skip folders, makes calls like 'extract *' easier
         if [ -d "$archive" ]; then
             if [ "$verbose" -eq 1 ]; then
@@ -879,7 +901,7 @@ Usage: extract <file> [<file> [...]]
                     mkdir "$folder" 2>/dev/null
                     couldCreateFolder=$?
                 fi
-                if [ "$couldCreateFolder" -eq 0 ] || [ $('ls' --almost-all "$folder" | 'wc' -l) -eq 0 ]; then
+                if [ "$couldCreateFolder" -eq 0 ] || [ "$('ls' --almost-all "$folder" | 'wc' -l)" -eq 0 ]; then
                     cd "$folder"
                     extractHere "../$archive"
                     local success=$?

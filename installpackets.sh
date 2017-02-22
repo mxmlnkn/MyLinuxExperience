@@ -22,7 +22,7 @@ packagelistsid=(
     # scala 2.11 doesn't work with spark 1.6.0 yet -.-
     scala scala-doc
 
-    x11-apps # xclock for testing
+    x11-apps screenruler # xclock for testing
     libcdio-utils
 
     # Programming toolchain
@@ -131,7 +131,7 @@ packagelistsid=(
     udev systemd-ui bootlogd libsdl2-dev libsdl2-* libsdl-dev # savh ???
 
     git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark
-
+    time
 
     # for compiling ffmpeg from source
     libass-dev libfreetype6-dev libsdl1.2-dev libtheora-dev libtool libva-dev libvdpau-dev libvorbis-dev libxcb1-dev libxcb-shm0-dev  libxcb-xfixes0-dev pkg-config texi2html zlib1g-dev yasm libx264-dev libfdk-aac-dev libfdk-aac0 libmp3lame-dev libopus-dev libvpx1 libvpx-dev
@@ -152,7 +152,7 @@ packagelistsid=(
     # science for siunitx, pictures for includegraphics and tikz => ~350mb download!
     texlive-latex-recommended texlive-science texlive-science-doc texlive-pictures texlive-pstricks texlive-generic-extra
     # german for ngerman, fonts-recommended for ecrm1000 for uniinput.dtx
-    texlive-lang-german texlive-fonts-recommended texlive-bibtex-extra
+    texlive-lang-german texlive-fonts-recommended texlive-bibtex-extra lmodern
     # for animate,tcolorbox,esint,multirow,bbm,cancel,tensor,braket packages; large packet!
     texlive-latex-extra
     # for Mnsymbol which was for sumint; large packet!
@@ -161,12 +161,16 @@ packagelistsid=(
     texlive-lang-greek
     # texlive documentation
     texlive-latex-recommended-doc texlive-science-doc texlive-pictures-doc texlive-pstricks-doc texlive-fonts-recommended-doc texlive-latex-extra-doc texlive-fonts-extra-doc
+    # nice GUI editor
+    texmaker hunspell-en-gb myspell-de-de hunspell-de-de-frami
 
     #octave
     octave-general octave-signal octave-image octave-struct octave-io octave-specfun octave-doc octave-statistics octave-audio octave-bim octave-data-smoothing octave-fpl octave-ga octave-geometry octave-gsl octave-linear-algebra octave-ltfat octave-ltfat-common octave-missing-functions octave-mpi octave-openmpi-ext octave-msh octave-nan octave-nurbs octave-ocs octave-quaternion octave-secs1d octave-secs2d octave-sockets octave-splines octave-strings octave-symbolic octave-plplot octave-zenity
 
     # LibreOffice
     libreoffice-common libreoffice-core libreoffice-pdfimport libreoffice-l10n-de libreoffice-help-de hyphen-de myspell-de-de mythes-de libreoffice-help-en-us libreoffice-writer libreoffice-impress
+
+    marble-qt # 3D offline globe
 )
 
 for package in ${packagelistsid[*]}; do

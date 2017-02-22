@@ -78,6 +78,19 @@ while [ "$1" != "" ]; do
   shift
 done
 
+
+echo -n "Finding and removing duplicates 'name(2).jpg'"
+# Find duplicates and delete them
+find "$dir" -name '*([0-9]).*' -execdir bash -c '
+    fname=$0
+    fnameorg=$(echo "$fname" | sed -r "s|\([0-9]\)\.(.*)|.\1|" )
+    if [ ! -f "$fnameorg" ]; then
+        mv "$fname" "$fnameorg"
+    elif diff "$fname" "$fnameorg"; then
+        rm "$fname"
+    fi' {} \;
+
+
 export -f cleanFilenames
 FIND=( find "$dir" -type f )
 echo -n "Counting how many files need to be checked ... "
@@ -85,12 +98,9 @@ echo -n "Counting how many files need to be checked ... "
 nFiles=$("${FIND[@]}" | wc -l)
 echo "$nFiles"
 "${FIND[@]}" -print0 | pv -0lps $nFiles | xargs -0 -I {} -P 4 bash -c '
-    # use here-doc in order to not have any undefined behavior caused by
-    # special characters
-    path=$(cat << "EOF"
-{}
-EOF
-    )
+    # xargs already does its best to give {} as one command line argument no
+    # matter the sepcial characters it contains!
+    path=$0
     name=$(basename "$path")
     cd "$(dirname "$path")"
     newname=$(printf "%s" "$name" | cleanFilenames)
@@ -158,4 +168,4 @@ EOF
             mv "$name" "$newname"
         fi
     fi
-' \;
+' {} \;

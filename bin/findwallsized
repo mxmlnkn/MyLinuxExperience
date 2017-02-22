@@ -35,10 +35,7 @@ minHeight=$(readNumber 1080 "$4")
 mkdir -p "$dst"
 FIND=(find "$src" -type f -not \( -path "$dst" -prune \) )
 ${FIND[@]} -print0 | pv -0lps $(${FIND[@]} | wc -l) | xargs -0 -I {} -P 4 bash -c '
-    fpath=$(cat <<EOF
-{}
-EOF
-    )
+    fpath=$0
     ext=${fpath##*.}
     if [ "${ext,,}" == "png" ] || [ "${ext,,}" == "jpg" ] || [ "${ext,,}" == "bmp" ]; then
         xy=( $(identify -format "%[fx:w] %[fx:h]\n" "$fpath" 2>/dev/null ) )
@@ -49,4 +46,4 @@ EOF
             fi
         fi
     fi
-'
+' {} \;
