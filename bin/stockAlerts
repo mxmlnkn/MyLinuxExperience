@@ -1,0 +1,121 @@
+#!/bin/bash
+
+function echoerr() { echo "$@" 1>&2; }
+
+getTradegatePrice(){
+    local tmp stats
+    # expects ISIN as argument
+    tmp=$(mktemp)
+    wget -q -O "$tmp" 'http://www.tradegate.de/orderbuch.php?isin='$1 1>&2
+    stats=( $(sed -n -r '/<th>Bid Size<\/th>/,/<td id="delta"/p' "$tmp" |
+    sed '/\.\/\./d; s|%||; s|><strong||; s|</strong>||' |
+    sed -n -r 's|.*<td id="([^"]*)"[^>]*>([^<]*)</td>.*|\1\n\2|p' |
+    sed 's|&nbsp;||g; s|,|.|g') )
+
+    stockFolder="$HOME/.stockdata"
+    if [ ! -d "$stockFolder" ]; then
+        mkdir -p "$stockFolder"
+    fi
+    if [ ! -f "$stockFolder/$1" ]; then
+        touch "$stockFolder/$1"
+    fi
+
+    local i
+    printf '%s' "$(date +'%s') " >> "$stockFolder/$1"
+    for (( i=0; i < ${#stats[*]} / 2; i++ )); do
+        printf '%s' "${stats[2*i+1]} " >> "$stockFolder/$1"
+    done
+    echo '' >> "$stockFolder/$1"
+    echo "${stats[*]}"
+}
+
+printHelp(){
+    echo 'stockAlerts [configuration file path]
+
+StockAlerts shows alerts when the tradegatexchange (TRE) value of a stock hits some predefined bounds, e.g. when it changes more than 5% in a day.
+
+The format of the configuration file is
+
+    "Name"  ISIN  Low-Limit  High-Limit  Change-Dec-Limit  Change-Inc-Limit
+
+E.g.
+
+    "Advanced Micro Devices Inc." US0079031078 12.10 14.50 -5.0 6.0
+
+Will give notifications if AMD rises by 6% on one day or if it goes down below 12.10 Euro (Euro is default currency on TRE),
+
+If no path is given or given path is non-existend, then by default ~/etc/stockalerts will be used.'
+}
+
+configFile="$HOME/etc/stockalerts"
+if [ "$1" == '-h' ] || [ "$1" == '--help' ]; then
+    printHelp
+    exit
+elif [ -f "$1" ]; then
+    configFile=$1
+fi
+if [ ! -f "$configFile" ]; then
+    echoerr -e "\e[31mCould not find configuration file '$configFile'.\e[0m"
+    exit
+fi
+
+iBidSize=0
+iAskSize=1
+iHigh=2
+iLow=3
+iLast=4
+iChange=5
+
+while true; do
+    if [ $(date +%-H) -lt 8 ] || [ $(date +%-H) -ge 22 ]; then
+        sleep 10m
+        continue
+    fi
+
+    # makes live changes to configFile possible!
+    readarray -t stocks < <(sed -n -r 's|^[ \t]*"([^"]*)"[ \t]*(.*)|\1\n\2|p' "$configFile" )
+
+    for (( iStock=0; iStock < ${#stocks[*]} / 2; ++iStock )); do
+        name=${stocks[2*iStock]}
+        stock=( ${stocks[2*iStock+1]} )
+        stats=( $(getTradegatePrice ${stock[0]}) )
+
+        for (( i=0; i<=4; i++ )); do
+            if [ -z "${stock[i]}" ]; then
+                echoerr -e "\e[37m[Warning] empty value found in settings at position $((i+1)) out of 5 for '$name' (stock: ${stock[*]}). 'Stock' should contain '[name] [low limit] [high limit] [max change down] [max change up]'\e[0m"
+            fi
+        done
+
+        for (( i=0; i<=5; i++ )); do
+            if [ -z "${stats[i]}" ]; then
+                echoerr -e "\e[37m[Warning] empty value found in Tradegate data at position $((i+1)) out of 6 for '$name' (stats: ${stats[*]}). Stats should contain '[Bid Size] [Ask Size] [High] [Low] [Last] [Change]'\e[0m"
+            fi
+        done
+
+        # bc can't handle plus signs before numbers! so strip it -.-
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} <= ${stock[3]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+            msg="fell down hard by ${stats[2*iChange+1]}%"'!'
+            echo -e "\e[31m$name $msg\e[0m"
+            # Icon name must be in GTK-Theme folder, e.g. for me
+            # ~/hypatia/.icons/sable-ultra-flat-icons/actions/scalable
+            notify-send -i stock-chart-down "$name" "$msg"
+        fi
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} <= ${stock[1]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+            msg="fell down hard under ${stock[1]} to ${stats[2*iLast+1]}"'!'
+            echo -e "\e[31m$name $msg\e[0m"
+            notify-send -i stock-chart-down "$name" "$msg"
+        fi
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} >= ${stock[4]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+            msg="rose hard by ${stats[2*iChange+1]}%"'!'
+            echo -e "\e[32m$name $msg\e[0m"
+            notify-send -i stock-chart-up "$name" "$msg"
+        fi
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} >= ${stock[2]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+            msg="rose hard over ${stock[2]} to ${stats[2*iLast+1]}"'!'
+            echo -e "\e[32m$name $msg\e[0m"
+            notify-send -i stock-chart-up "$name" "$msg"
+        fi
+    done
+
+    sleep 10m
+done
