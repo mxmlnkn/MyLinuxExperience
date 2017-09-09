@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# https://stackoverflow.com/questions/3043978/how-to-check-if-a-process-id-pid-exists
+if [ "$1" -eq "$1" ] && kill -0 "$1"; then
+    pid=$1
+else
+    # Get current active window
+    wid=$( xprop -root 32x '\t$0' _NET_ACTIVE_WINDOW | sed -r 's|.*[ \t]+||' )
+    pid=$( wmctrl -lp | grep "0x0*${wid#0x}" | tr -s ' ' | cut -d' ' -f3 )
+    wname=$( wmctrl -lp | grep "0x0*${wid#0x}" | tr -s ' ' | cut -d' ' -f5- )
+    if [ "$pid" -eq 0 ]; then
+        echo "Couldn't find pid to wid $wid i.e. window '$wname'" 1>&2
+        exit 1
+    fi
+fi
+
+# https://unix.stackexchange.com/questions/321440/how-can-i-check-to-see-if-a-process-is-stopped-from-the-command-line
+isProcessStopped() {
+    [ "$(ps -o state= -p "$pid")" = T ]
+}
+
+# https://superuser.com/questions/382616/detecting-currently-active-window
+if isProcessStopped "$pid"; then
+    kill -CONT "$pid"
+    echo "Continue stopped process $pid" 1>&2
+else
+    kill -TSTP "$pid"
+    if ! isProcessStopped "$pid"; then kill -STOP "$pid"; fi
+    if ! isProcessStopped "$pid"; then
+        echo "Couldn't stop process $pid i.e. window ID $wid i.e. window '$wname'" 1>&2
+        exit 2
+    fi
+fi

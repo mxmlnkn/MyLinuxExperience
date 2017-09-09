@@ -45,7 +45,7 @@ function startap() {
         exit 0
     fi
     sleep 0.1
-    if ps -p "$(cat /var/run/dhcpd.pid)" &>/dev/null; then
+    if ps -p "$(cat /var/run/dhcpd.pid &>/dev/null)"; then
         echo -e "\e[31mIt seems a rogue dhcpd process is still running with pid $(cat /var/run/dhcpd.pid) (see /var/run/dhcpd.pid)\e[0m"
         exit 1
     else
@@ -53,7 +53,7 @@ function startap() {
         sudo 'rm' -f /var/run/dhcpd.pid
     fi
 
-    # Parse e.g. if fodun:
+    # Parse e.g. if found:
     # [    7.402603] ath9k_htc 1-2.1.1:1.0 wlxec086b13468f: renamed from wlan0
     #interface=( $('dmesg' | 'sed' -nE 's/.* ([A-Za-z0-9]*): renamed from wlan[0-9]*/\1/p') )
     extractWlans
@@ -81,7 +81,7 @@ function startap() {
     # echo 1 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
     export DAEMON_CONF=~/etc/hostapd/hostapd.conf
     export RUN_DAEMON=yes
-    sudo nohup hostapd "$HOME/etc/hostapd/hostapd.conf" &
+    sudo bash -c "nohup hostapd '$HOME/etc/hostapd/hostapd.conf' > '$HOME/nohupHostapd.out'" &
 
     replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$HOME/etc/dhcp/dhcpd.conf"
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' '"wlxec086b13468f"'

@@ -1,0 +1,157 @@
+#!/bin/bash
+# sudo apt-get install -t sid jq
+
+# This scripts gets data on crypto currencies from kraken.com and prints
+# alerts using notify-send on given thresholds as configured in ~/etc/coinalerts
+# Basically same as stockAlerts
+
+function echoerr() { echo "$@" 1>&2; }
+
+tmp=$(mktemp -d)
+echoerr "tmp = $tmp"
+
+getKrakenPrice(){
+    local stats error url
+    # expects ISIN as argument
+    url='https://api.kraken.com/0/public/Ticker?pair='$1
+    'wget' -q -O "$tmp/coindata" "$url" 1>&2
+    error=$(sed -n -r 's|.*"error":\["([^"]*)"\].*|\1|p' "$tmp/coindata" )
+    if [ -n "$error" ]; then
+        printf '\e[31mKraken API error on URL "%s": %s\n\e[0m' "$url" "$error" 1>&2
+        if printf '%s' -- "$error" | 'grep' -q 'Unknown asset pair'; then
+            echoerr -e '\e[37mAllowed asset pairs are:'
+            if [ ! -f "$tmp/assetpairs" ]; then
+                'wget' -q -O "$tmp/assetpairs" 'https://api.kraken.com/0/public/AssetPairs'
+            fi
+            cat "$tmp/assetpairs" |
+            'sed' -r 's|("altname":)|\n\1|g' |
+            'sed' -n -r 's|^"altname":"([A-Z]+)".*|\1|p' |
+            'sed' -z 's|\n|, |g' 1>&2
+            echoerr -e '\e[0m'
+        fi
+        printf '\e[0m'
+        exit 3
+    fi
+    stats=( $(sed -n -r 's|.*"c":\["([0-9.]*)".*|\1|p' "$tmp/coindata" ) )
+
+    stockFolder="$HOME/.coindata"
+    if [ ! -d "$stockFolder" ]; then
+        mkdir -p "$stockFolder"
+    fi
+    if [ ! -f "$stockFolder/$1" ]; then
+        touch "$stockFolder/$1"
+    fi
+
+    local i
+    printf '%s' "$(date +'%s') Kraken " >> "$stockFolder/$1"
+    for (( i=0; i < ${#stats[*]} / 2; i++ )); do
+        printf '%s' "${stats[2*i+1]} " >> "$stockFolder/$1"
+    done
+    echo '' >> "$stockFolder/$1"
+    echo "${stats[*]}"
+}
+
+printHelp(){
+    echo 'coinalerts [configuration file path]
+
+CoinAlerts shows alerts when the Kraken value of a coin hits some predefined bounds, e.g. when it changes more than 5% in a day.
+
+The format of the configuration file is
+
+    "Name"  Pair  Low-Limit  High-Limit  Change-Dec-Limit  Change-Inc-Limit
+
+E.g.
+
+    "Ethereum Classic" ETCXBT 0.007 0.0086 -20.0 50.0
+
+Will give notifications if Ethereum rises by 50% on one day or if it goes down below 0.007 BTC.
+If no path is given or given path is non-existend, then by default ~/etc/coinalerts will be used.
+Comments are possible starting with #'
+}
+
+configFile="$HOME/etc/coinalerts"
+if [ "$1" == '-h' ] || [ "$1" == '--help' ]; then
+    printHelp
+    exit
+elif [ -f "$1" ]; then
+    configFile=$1
+fi
+if [ ! -f "$configFile" ]; then
+    echoerr -e "\e[31mCould not find configuration file '$configFile'.\e[0m"
+    exit
+fi
+
+iApiLast=0
+#iApiBidSize=0
+#iApiAskSize=1
+nApiValuesExpected=1
+
+iConfigSymbol=0
+iConfigLow=1
+iConfigHigh=2
+iConfigChange=3
+iConfigChange=4
+nConfigValuesExpected=1
+
+while true; do
+    # skip stock checking when market is closed
+    #if [ $(date +%-H) -lt 8 ] || [ $(date +%-H) -ge 22 ]; then
+    #    sleep 10m
+    #    continue
+    #fi
+
+    # makes live changes to configFile possible!
+    readarray -t stocks < <(sed -n -r 's|^[ \t]*"([^"]*)"[ \t]*(.*)|\1\n\2|p' "$configFile" )
+
+    for (( iStock=0; iStock < ${#stocks[*]} / 2; ++iStock )); do
+        name=${stocks[2*iStock]}
+        stock=( ${stocks[2*iStock+1]} )
+        stats=( $(getKrakenPrice ${stock[iConfigSymbol]}) )
+        if [ "$?" -ge 3 ]; then exit; fi
+
+        for (( i = 0; i < nApiValuesExpected; i++ )); do
+            if [ -z "${stock[i]}" ]; then
+                echoerr -e "\e[37m[Warning] empty value found in settings at position $((i+1)) out of 5 for '$name' (stock: ${stock[*]}). 'Stock' should contain '[name] [low limit] [high limit] [max change down] [max change up]'\e[0m"
+            fi
+        done
+
+        for (( i = 0; i < nConfigValuesExpected; i++ )); do
+            if [ -z "${stats[i]}" ]; then
+                echoerr -e "\e[37m[Warning] empty value found in Tradegate data at position $((i+1)) out of 6 for '$name' (stats: ${stats[*]}). Stats should contain '[Bid Size] [Ask Size] [High] [Low] [Last] [Change]'\e[0m"
+            fi
+        done
+
+        # change dec limit
+        # bc can't handle plus signs before numbers! so strip it -.-
+        #if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} <= ${stock[iConfigChangeDec]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
+        #    msg="fell down hard by ${stats[2*iChange+1]}%"'!'
+        #    echo -e "\e[31m$name $msg\e[0m"
+        #    # Icon name must be in GTK-Theme folder, e.g. for me
+        #    # ~/hypatia/.icons/sable-ultra-flat-icons/actions/scalable
+        #    notify-send -i stock-chart-down "$name" "$msg"
+        #fi
+
+        # low limit
+        if [ 1 -eq "$(printf '%s\n' "${stats[iApiLast]} <= ${stock[iConfigLow]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
+            msg="fell down hard under ${stock[iConfigLow]} to ${stats[iApiLast]}"'!'
+            echo -e "\e[31m$name $msg\e[0m"
+            notify-send -i stock-chart-down "$name" "$msg"
+        fi
+
+        # change inc limit
+        #if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} >= ${stock[iConfigChangeInc]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
+        #    msg="rose hard by ${stats[2*iChange+1]}%"'!'
+        #    echo -e "\e[32m$name $msg\e[0m"
+        #    notify-send -i stock-chart-up "$name" "$msg"
+        #fi
+
+        # high limit
+        if [ 1 -eq "$(printf '%s\n' "${stats[iApiLast]} >= ${stock[iConfigHigh]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
+            msg="rose hard over ${stock[iConfigHigh]} to ${stats[iApiLast]}"'!'
+            echo -e "\e[32m$name $msg\e[0m"
+            notify-send -i stock-chart-up "$name" "$msg"
+        fi
+    done
+
+    sleep 5m
+done

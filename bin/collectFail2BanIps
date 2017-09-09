@@ -1,9 +1,19 @@
 #!/bin/bash
 
 cd "$(mktemp -d)"
-cp /var/log/auth.log*
-gzip -d *.gz
-cat /var/log/auth.log* | sed -nE '
+cp /var/log/auth.log* .
+i=0
+for file in *.gz; do
+    if [ -f "${file%.gz}" ]; then
+        gzip -c "$file" > "auth.log.exists.$i"
+        (( ++i ))
+        rm "$file"
+    else
+        gzip -d "$file"  # deletes .gz files automatically
+    fi
+done
+pwd && ls -la . && echo
+cat auth.log* | sed -nE '
     s|.*sshd.*User .* from ([^ ]*) not allowed.*|\1|p;
     s|.*sshd.*Invalid user .* from ([^ ]*).*|\1|p;
     s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p;
@@ -18,8 +28,32 @@ cat /var/log/auth.log* | sed -nE '
 ' | sort | uniq > found.lst
 # Block ranges if more than one in a range attacked
 sed 's|[0-9]*$||' found.lst | uniq -c | sed '/^[ \t]*1 /d; s|\.$|.0/24|; s|^[ \t]*[0-9]* ||' >> found.lst
-sed -i 's|$|      [18/6/2016 00:00:00]|' found.lst
-cat /etc/fail2ban/ip.blacklist >> found.lst
-sort found.lst -u -o found.lst
 
+cp /etc/fail2ban/ip.blacklist .
+sed 's|[ \t]\[.*\]$||' ip.blacklist >> found.lst
+sort -n found.lst -u -o found.lst
+
+echo '' > found.lst.unpretty
+while read ip; do
+    ipraw=${ip%.0/24}
+    ipraw=${ipraw#\#}
+    timestamp=$( 'grep' --no-filename -F "$ipraw" auth.log* |
+                 'sed' -nr '1s|^([A-Za-z]+[ \t]+[0-9]+[ \t]+[0-9:]+).*|\1|p' )
+    if [ -z "$timestamp" ]; then
+        timestamp=$( 'grep' --no-filename -F "$ipraw" ip.blacklist |
+                     'sed' -nr '1s|.*\[([0-9 :-]+)\]$|\1|p' )
+    fi
+    if [ -z "$timestamp" ]; then
+        echo "No timestamp corresponding to found IP: '$ipraw' found. This should not happen. Using 'now' as timestamp"
+        timestamp='now'
+    fi
+    echo "${ip}+[$(date --date="$timestamp" '+%y-%m-%d %H:%M:%S')]" >> found.lst.unpretty
+done < found.lst
+#sed -i 's;[ \t]+$;|+['"$(date '+%d/%m/%y %H:%M:%S')"'];' found.lst
+#cp found.lst found.lst.unpretty
+column -s '+' -t -e found.lst.unpretty > found.lst
+
+echo sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
 sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
+cat  found.lst
+#rm -r "$(pwd)"

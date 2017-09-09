@@ -67,6 +67,7 @@ iLast=4
 iChange=5
 
 while true; do
+    # skip stock checking when market is closed
     if [ $(date +%-H) -lt 8 ] || [ $(date +%-H) -ge 22 ]; then
         sleep 10m
         continue
@@ -93,24 +94,24 @@ while true; do
         done
 
         # bc can't handle plus signs before numbers! so strip it -.-
-        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} <= ${stock[3]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} <= ${stock[3]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
             msg="fell down hard by ${stats[2*iChange+1]}%"'!'
             echo -e "\e[31m$name $msg\e[0m"
             # Icon name must be in GTK-Theme folder, e.g. for me
             # ~/hypatia/.icons/sable-ultra-flat-icons/actions/scalable
             notify-send -i stock-chart-down "$name" "$msg"
         fi
-        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} <= ${stock[1]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} <= ${stock[1]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
             msg="fell down hard under ${stock[1]} to ${stats[2*iLast+1]}"'!'
             echo -e "\e[31m$name $msg\e[0m"
             notify-send -i stock-chart-down "$name" "$msg"
         fi
-        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} >= ${stock[4]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iChange+1]} >= ${stock[4]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
             msg="rose hard by ${stats[2*iChange+1]}%"'!'
             echo -e "\e[32m$name $msg\e[0m"
             notify-send -i stock-chart-up "$name" "$msg"
         fi
-        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} >= ${stock[2]}" | sed 's|^\+||' | bc)" ] 2>&1; then
+        if [ 1 -eq "$(printf '%s\n' "${stats[2*iLast+1]} >= ${stock[2]}" | sed 's|^\+||' | bc)" ] 2>&1 1>/dev/null; then
             msg="rose hard over ${stock[2]} to ${stats[2*iLast+1]}"'!'
             echo -e "\e[32m$name $msg\e[0m"
             notify-send -i stock-chart-up "$name" "$msg"

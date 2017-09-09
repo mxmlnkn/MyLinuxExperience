@@ -327,12 +327,12 @@ function isEncrypted() {
     case $(getArchiveCommand "$1") in
         7z)
             if [ -z "$pw" ]; then pw='-'; fi
-            '7z' t "-p$pw" -- "$1" 2>&1 | grep -q 'Wrong password?'
+            '7z' t "-p$pw" -- "$1" 2>&1 | 'grep' -q 'Wrong password?'
             return $?
             ;;
         rar)
             if [ -z "$pw" ]; then pw='-'; fi
-            'rar' t "-p$pw" -- "$1" 2>&1 | grep -q 'Corrupt file or wrong password'
+            'rar' t "-p$pw" -- "$1" 2>&1 | 'grep' -q 'Corrupt file or wrong password'
             return $?
             ;;
         zip)
@@ -341,7 +341,13 @@ function isEncrypted() {
             # http://www.info-zip.org/phpBB3/viewtopic.php?f=3&t=147&hilit=password
             # last version of zip is from 2009 -> Linux is dead
             # Note that space after -P is possible, but leads to problems, if the password starts with a hyphen -
-            'unzip' -t "-P$pw" "$1" 2>&1 | grep -q 'because of incorrect password'
+            if [ -n "$pw" ]; then
+                # This tests the whole archive and therefore will in total need twice the time -.-
+                'unzip' -t "-P$pw" "$1" 2>&1 | 'grep' -q 'because of incorrect password'
+            else
+                # http://www.info-zip.org/mans/zipinfo.html
+                'zipinfo' -1 -s   | 'sed' '1d;2d;$d' | 'awk' '{ print $5; }' | 'grep' '[BT]' -q
+            fi
             return $?
             ;;
         *)
@@ -433,9 +439,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | bzip2 $quiet -d -k > "$1.unbz2"
+                pv -- "$1" | bzip2 $quiet -d -k > "$1.unbz2"
             else
-                cat -- "$1" | bzip2 $quiet -d -k > "${name%.*}"
+                pv -- "$1" | bzip2 $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -444,9 +450,9 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | lzma $quiet -d -k > "$1.unlzma"
+                pv -- "$1" | lzma $quiet -d -k > "$1.unlzma"
             else
-                cat -- "$1" | lzma $quiet -d -k > "${name%.*}"
+                pv -- "$1" | lzma $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
@@ -461,13 +467,15 @@ function extractHere() {
                 echoerr -e "\e[37mSuffix = $suffix\e[0m"
             fi
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | gzip -d -k > "$1.ungz"
+                pv -- "$1" | gzip -d -k > "$1.ungz"
             else
-                cat -- "$1" | gzip -d -k > "${name%.*}"
+                pv -- "$1" | gzip -d -k > "${name%.*}"
             fi
             return $?
             ;;
         rar)
+            # https://superuser.com/questions/708877/how-to-unrar-the-stdin
+            # https://stackoverflow.com/questions/32341691/unrar-and-progress-bar-bash
             if isEncrypted "$1"; then
                 #echoerr "unrar x -p$password $1 1>$redirect"
                 unrar x -p"$password" -- "$1" 1>$redirect
@@ -481,13 +489,14 @@ function extractHere() {
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                cat -- "$1" | xz $quiet -d -k > "$1.unxz"
+                pv -- "$1" | xz $quiet -d -k > "$1.unxz"
             else
-                cat -- "$1" | xz $quiet -d -k > "${name%.*}"
+                pv -- "$1" | xz $quiet -d -k > "${name%.*}"
             fi
             return $?
             ;;
         zip)
+            # https://unix.stackexchange.com/questions/2690/how-to-redirect-output-of-wget-as-input-to-unzip
             if isEncrypted "$1"; then
                 'unzip' -P "$password" "$1" 2>&1 >"$ " | tee "$errorlog"
             else
@@ -806,6 +815,7 @@ function main() {
     verbose=0
     dryrun=0
     keep=0
+    skip=0
     delete=0
     while [ ! -z "$1" ]; do
         case "$1" in
@@ -818,6 +828,7 @@ Usage: extract <file> [<file> [...]]
    -n|--dry-run  dry-run i.e. do not remove archives and do not extract
    -t|--tests    run tests
    -v|--verbose  show more debug output
+   -s|--skip     skip archive test before extracting
 '
                 return 0
                 ;;
@@ -831,6 +842,10 @@ Usage: extract <file> [<file> [...]]
                 ;;
             '-n' | '--dry-run')
                 dryrun=1
+                shift
+                ;;
+            '-s' | '--skip')
+                skip=1
                 shift
                 ;;
             '-t' | '--tests')

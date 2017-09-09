@@ -37,6 +37,7 @@ cleanFilenames() {
         s|&lt;||g;
         s|&gt;||g;
         s|&amp;| and |g;
+        s|&quot;|'\''|g;
         # delete leading spaces
         s/^ +//g;
         # delete white spaces at end of file name
@@ -79,7 +80,7 @@ while [ "$1" != "" ]; do
 done
 
 
-echo -n "Finding and removing duplicates 'name(2).jpg'"
+echo "Finding and removing duplicates 'name(2).jpg'"
 # Find duplicates and delete them
 find "$dir" -name '*([0-9]).*' -execdir bash -c '
     fname=$0
@@ -163,7 +164,7 @@ echo "$nFiles"
     fi
     if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
         # $name -> ext: $ext -> mime: $mime -> mext: $mext\n
-        echo -e "rename: $(realpath "$name")\n -> to: $(realpath "$newname")"
+        printf "rename: %s\n -> to: %s" "$(realpath "$name")" "$(realpath "$newname")"
         if [ ! "'$dryrun'" -eq 1 ]; then
             mv "$name" "$newname"
         fi

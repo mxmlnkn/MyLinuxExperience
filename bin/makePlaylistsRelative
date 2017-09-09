@@ -1,30 +1,42 @@
 #!/bin/bash
 
-folder="$1"
-if [ -z "$folder" ]; then folder=.; fi
-if [ ! -d "$folder" ]; then
-    echo -e "\e[31mGiven path '.' not found or is not a directory"'!'"\e[0m"
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Makes all entries inside a given .m3u playlist relative in respect to the location of the .m3u list itself. If a folder is given, then this is done for all .m3u lists found in that folder.
+
+Usage: makePlayListsRelative <path to folder or .m3u>"
+    exit 0
 fi
+
 dryrun=0
 dummy=
 if [ "$dryrun" -eq 1 ]; then
     dummy='echo'
 fi
 
-FIND=( find "$folder" -iname '*.m3u' )
-"${FIND[@]}" -print0 | pv -0lps $("${FIND[@]}" | wc -l) | xargs -0 -I {} -P 4 bash -c '
-    file="$(cat <<EOF
-{}
-EOF
-    )"
-    echo "$file"
+folder=$1
+file=
+if [ -z "$folder" ]; then folder=.; fi
+if [ -f "$folder" ]; then
+    file=$(basename "$folder")
+    folder=$(dirname "$folder") # ${folder%/*} does not work, if path to m3u in current folder not given with prefixed ./
+    echo "folder = $folder"
+    echo "file   = $file"
+elif [ ! -d "$folder" ]; then
+    echo -e "\e[31mGiven path '.' not found or is neither a directory nor a file"'!'"\e[0m" 1>&2
+    exit 1
+fi
+
+actualScript='
+    file=$0
+    #echo "$file"
+    cd '"'$folder'"'
     if ! grep -q "$(echo -ne "\xEF\xBB\xBF")" "$file"; then
         echo -ne "\xEF\xBB\xBF" > "${file%.*}"
     fi
     # absolute path to remove (without file://). As this is used inside sed
     # we need to escape regex characters
     prefix=$( basename "$(cd '"'$folder'"' && pwd)" )
-    prefixRegex=$( echo "$prefix" | sed -r '"'"'s|([][^$.*\])|\\\1|g'"'"' )
+    prefixRegex=$( echo "$prefix" | sed -r '\''s|([][^$.*\])|\\\1|g'\'' )
     echo "Remove Prefix : .*$prefix"
     echo "Prefix (Regex): .*$prefixRegex"
     # replace windows "\" to linux style "/"
@@ -33,7 +45,15 @@ EOF
     echo -e "$(sed "s|\\\\|\/|g;
                     s/%/\\\\x/g" "$file" )" |
         sed "s|.*$prefixRegex/||" >> "${file%.*}"
-    cat "${file%.*}"
-    $dummy rm "$file"
-    $dummy mv "${file%.*}" "$file"
-' \;
+    # cat "${file%.*}"
+    '"$dummy"' rm "$file"
+    '"$dummy"' mv "${file%.*}" "$file"
+'
+
+if [ -n "$file" ]; then
+    bash -c "$actualScript" "$file"
+    exit 0
+else
+    FIND=( find "$folder" -iname '*.m3u' )
+    "${FIND[@]}" -print0 | pv -0lps $("${FIND[@]}" | wc -l) | xargs -0 -I {} -P 4 bash -c "$actualScript" {} \;
+fi

@@ -27,13 +27,14 @@ packagelistsid=(
 
     # Programming toolchain
     linux-tools gcc gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-doc gnuplot perl freeglut3
-    python ipython python-numpy python-setuptools python-scipy python-matplotlib gfortran
+    python ipython python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
+    python3 python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn
 
     # steam things like glxinfo
     mesa-utils
 
     filezilla audacity gimp pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm xdotool lynx
-    scite gnome-themes-standard gnome-themes-extras
+    scite meld gnome-themes-standard gnome-themes-extras pdftk
     fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
 
     pavumeter pavucontrol
@@ -49,7 +50,7 @@ packagelistsid=(
     # times new roman and so in in libreoffice
     ttf-mscorefonts-installer
 
-    xorg x11-xfs-utils xorg-docs libhdf5-doc elfutils gnuplot-doc doc-base
+    xorg x11-xfs-utils xorg-docs xclip libhdf5-doc elfutils gnuplot-doc doc-base
 
     # for creating local repo from cached .deb files using dpkg-scanpackages
     dpkg-dev environment-modules

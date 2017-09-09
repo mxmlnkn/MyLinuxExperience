@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Converts the current clipboard to QR image and displays it
+
+folder="$HOME/qrcodes"
+mkdir -p "$folder"
+fname=$(date +%Y-%m-%d_%H-%M-%S-%N)
+xclip -o -selection clipboard > "$folder/$fname.txt"
+cat "$folder/$fname.txt" | qrencode -o "$folder/$fname.png" -t png
+# xview seems to have problems with the qrcodes, displaying garbage -.-...
+#xview "$folder/$fname.png"
+display "$folder/$fname.png"

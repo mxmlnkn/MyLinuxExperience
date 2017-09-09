@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# deletes some unneeded cashes in home folder
+
+rm -rf $HOME/.cache/thumbnails
+rm -rf $HOME/.thumbnails
+rm -f $HOME/.xnviewmmp/Thumb.db
+rm -f $HOME/.xnviewmmp/XnView.db

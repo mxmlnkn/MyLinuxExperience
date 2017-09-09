@@ -21,14 +21,14 @@ findThumbnailImage() {
     local file extension width
 
     # -a to also include hidden files, especially .folder.ico which this script generates
-    file=$(command ls -a -v | grep -e '.ico$' | head -1)
-    if [ ! -z "$file" ] && [ -f "$file" ] && $(identify "$file" | grep -q 'ICO'); then
+    file=$('ls' -a -v | 'grep' -e '.ico$' | 'head' -1)
+    if [ ! -z "$file" ] && [ -f "$file" ] && $('identify' "$file" | 'grep' -q 'ICO'); then
         echo "$file"
         return 0
     fi
 
     # -v natural sort in order to put 'test.jpg' before 'test_003.jpg' which wouldn't be the case normally as the file extension would be included in the sorting algorithm thereby putting 'test.jpg' to the last position
-    # use 'command ls instead of ls, in order to get non-colored output if something like 'alias ls=ls --color' is set
+    # use 'ls' instead of ls, in order to get non-colored output if something like 'alias ls=ls --color' is set
     while read file; do
     {
         if [ ! -f "$file" ]; then
@@ -50,14 +50,14 @@ findThumbnailImage() {
         # where line 48 was 'if [ "$width" -gt "$height" ]' this is because width as returned by convert would be all widths of the consecutive frames concatenated, in this example 27 frames each 850px wide
         # Trying to converte an animated gid to icon-temp.png would convert them to icon-tmp-0.png and so on, thereby polluting the folders. Clean this with:
         #   find /media/m/ -name 'icon-tmp*.png' -execdir bash -c 'echo "$(pwd)/{}"' \;
-        if [ "$extension" == "gif" ] && [ $(identify "$file" | wc -l) -gt 1 ] ; then
+        if [ "$extension" == "gif" ] && [ $('identify' "$file" | 'wc' -l) -gt 1 ] ; then
             if [ $verbose -eq 1 ]; then
                 echoerr -e "\e[33m'$1': File is animated, won't be used for thumbnail"'!'"\e[0m"
             fi
             continue
         fi
 
-        width=$(convert "$file" -format "%w" info: 2>/dev/null)
+        width=$('convert' "$file" -format "%w" info: 2>/dev/null)
         if [ -z "$width" ]; then
             # if it isn't an image, then width won't be available
             if [ $verbose -eq 1 ]; then
@@ -70,12 +70,12 @@ findThumbnailImage() {
         echo "$file"
         break
     }
-    done < <(command ls -v -1)
+    done < <('ls' -v -1)
 }
 
 getLargestSide() {
-    local w=$(convert "$1" -format "%w" info:)
-    local h=$(convert "$1" -format "%h" info:)
+    local w=$('convert' "$1" -format "%w" info:)
+    local h=$('convert' "$1" -format "%h" info:)
     if [ "$w" -gt "$h" ]; then echo $w; else echo $h; fi
 }
 
@@ -85,10 +85,10 @@ convertToThumbnail() {
     # also fill with trasparency to 1:1 aspect ratio
 
     local size=$(getLargestSide "$1")
-    echo convert "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
-    convert "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
-    convert 'icon-tmp.png' -define icon:auto-resize=256,128,64,48,32,16 -compress none '.folder.ico'
-    rm  'icon-tmp.png'
+    echoerr convert "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
+    'convert' "$1" -alpha set -background none -gravity center -extent ${size}x${size}  'icon-tmp.png'
+    'convert' 'icon-tmp.png' -define icon:auto-resize=256,128,64,48,32,16 -compress none '.folder.ico'
+    rm 'icon-tmp.png'
     # About needed icon resolutions, see:
     #   http://www.axialis.com/tutorials/tutorial-vistaicons.html#t8
     #   http://stackoverflow.com/questions/3236115/which-icon-sizes-should-my-windows-applications-icon-include
@@ -99,7 +99,7 @@ convertToThumbnail() {
 }
 
 isCygwin() {
-    uname -a | grep -q -i 'cygwin';
+    'uname' -a | 'grep' -q -i 'cygwin';
 }
 
 # ls -yz >> command.log 2>&1
@@ -125,20 +125,20 @@ commandExists() {
 
 isNtfs() {
     #http://unix.stackexchange.com/questions/21799/how-can-i-determine-the-fs-type-of-my-current-working-directory
-    #fsname=mount | grep "^$(df -Pk . | head -n 2 | tail -n 1 | cut -f 1 -d ' ') " | cut -f 5 -d ' '
-    df -t ntfs -t fuseblk "$1" > /dev/null 2>&1
+    #fsname=mount | 'grep' "^$(df -Pk . | head -n 2 | tail -n 1 | cut -f 1 -d ' ') " | cut -f 5 -d ' '
+    'df' -t ntfs -t fuseblk "$1" > /dev/null 2>&1
 }
 
 checkPrerequisites() {
     if isCygwin && isNtfs . && ! commandExists attrib; then
-       echo -e "\e[31m[$(pwd)] For some reason the windows command 'attrib' isn't available. Maybe you actually aren't using Cygwin, or you use a very very new Windows version or maybe your Cygwin PATH variable doesn't include '/cygdrive/c/Windows/system32/'.\e[0m"
+       echoerr -e "\e[31m[$(pwd)] For some reason the windows command 'attrib' isn't available. Maybe you actually aren't using Cygwin, or you use a very very new Windows version or maybe your Cygwin PATH variable doesn't include '/cygdrive/c/Windows/system32/'.\e[0m"
        exit 1
     fi
     if ! commandExists convert; then
-       echo -e "\e[31m[$(pwd)] The command 'convert' is not available, please install ImageMagick, if you want to set colder icons to the first image found. Set existing icons in the folder will still work.\e[0m"
+       echoerr -e "\e[31m[$(pwd)] The command 'convert' is not available, please install ImageMagick, if you want to set colder icons to the first image found. Set existing icons in the folder will still work.\e[0m"
     fi
     if ! isCygwin && isNtfs . && ! commandExists setfattr; then
-       echo -e "\e[31m[$(pwd)] The command 'setfattr' is not available, please install ntfs-3g-2010.6.16AR.1 or later and attr (or try 'apt-cache search getfattr' if that doesn't work). The script should still work, but the set icons won't be visible in Windows, because both the folder and the desktop.ini need to have certain extended NTFS attributes"'!'"\e[0m"
+       echoerr -e "\e[31m[$(pwd)] The command 'setfattr' is not available, please install ntfs-3g-2010.6.16AR.1 or later and attr (or try 'apt-cache search getfattr' if that doesn't work). The script should still work, but the set icons won't be visible in Windows, because both the folder and the desktop.ini need to have certain extended NTFS attributes"'!'"\e[0m"
     fi
 }
 
@@ -224,7 +224,7 @@ setCustomFolderIcon() {
     #   attrib +A -S +R .
     #   attrib -A -S +H desktop.ini
     if [ -f 'desktop.ini' ]; then
-        echo -e "\e[35m[$(pwd)] There already exists a 'desktop.ini'. As there is no append or modify function implemented, this script would need to overwrite it. If you want that, use the -f option. Not changing 'desktop.ini' for now!\e[0m"
+        echoerr -e "\e[35m[$(pwd)] There already exists a 'desktop.ini'. As there is no append or modify function implemented, this script would need to overwrite it. If you want that, use the -f option. Not changing 'desktop.ini' for now!\e[0m"
     else
         printf "[.ShellClassInfo]\r\nConfirmFileOp=0\r\nIconResource=$1\r\nIconIndex=0\r\n" > 'desktop.ini'
         makeReadOnly .
@@ -232,8 +232,8 @@ setCustomFolderIcon() {
     fi
     if commandExists gvfs-set-attribute; then
         # test if it already has icon
-        if gvfs-info -a 'metadata::*' "$folder" | grep -q 'custom-icon'; then
-        #    echo -e "\e[35m[$(pwd)] '$1' already has an icon set.\e[0m"
+        if gvfs-info -a 'metadata::*' "$folder" | 'grep' -q 'custom-icon'; then
+        #    echoerr -e "\e[35m[$(pwd)] '$1' already has an icon set.\e[0m"
             exit 2
         fi
         # gvfs-info --query-writable .
@@ -283,14 +283,14 @@ while [ "$1" != "" ]; do
         ;;
     "-v" | "--vebrose")
         verbose=1
-        echo -e "\e[37mVerbosity increased.\e[0m"
+        echoerr -e "\e[37mVerbosity increased.\e[0m"
         ;;
     "-x" | "--remove-icons")
         remove=1
         ;;
     *)  # default case (neither one of the options from above, nor empty)
         if [ ${1:0:1} == '-' ]; then
-            echo "Wrong parameters specified! (\$1=$1)"
+            echoerr "Wrong parameters specified! (\$1=$1)"
             exit 1
         else
             folder="$1"
@@ -305,7 +305,7 @@ if [ ! -d "$folder" ]; then
     # the backslash -.-.
     # http://unix.stackexchange.com/questions/33339/cant-use-exclamation-mark-in-bash
     # http://superuser.com/questions/133780/in-bash-how-do-i-escape-an-exclamation-mark
-    echo -e "\e[31m[$(pwd)] '$1' is not a folder"'!'"\e[0m"
+    echoerr -e "\e[31m[$(pwd)] '$1' is not a folder"'!'"\e[0m"
     printHelpMessage
     exit 1
 fi
@@ -328,7 +328,7 @@ fi
 checkPrerequisites
 file=$(findThumbnailImage)
 if [ -z "$file" ]; then
-    echo -e "\e[31mCouldn't find suitable thumbnail image in '$(pwd)'\e[0m"
+    echoerr -e "\e[31mCouldn't find suitable thumbnail image in '$(pwd)'\e[0m"
     exit 1
 fi
 echo -e "\e[32m[$(pwd)] Changing icon to '$file'\e[0m"
@@ -340,7 +340,7 @@ echo -e "\e[32m[$(pwd)] Changing icon to '$file'\e[0m"
 if [ "$(getExtension "$file")" != 'ico' ]; then
     if ! commandExists convert; then exit 1; fi
     if ! convertToThumbnail "$file"; then
-        echo -e "\e[31m[$(pwd)] Couldn't convert '$file' to '.folder.ico'!\e[0m"
+        echoerr -e "\e[31m[$(pwd)] Couldn't convert '$file' to '.folder.ico'!\e[0m"
         exit 3
     fi
     file='.folder.ico'

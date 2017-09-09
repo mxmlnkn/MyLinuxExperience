@@ -148,6 +148,78 @@ if commandExists 'git'; then
     alias gb='git branch --color=always'
     alias gs='git status'
 fi
+alias lc='locate -i'
+alias sup='sudo apt-get update'
+alias si='sudo apt-get install -t sid'
+alias startVolbot='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup python monitorVolumes.py > ~/nohupMonitorVolume.out & )'
+alias startBittrexCrawler='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup ./getBittrexTrades.sh > ~/nohupBittrexPoller.out & )'
+alias startKrakenCrawler='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup ./getKrakenTrades.sh > ~/nohupKrakenPoller.out & )'
+alias startCryptoScripts='startVolbot; startBittrexCrawler; startKrakenCrawler'
+alias startConky='pkill -9 conky; nohup /opt/conky/build/src/conky -c '\''$HOME/etc/conky/mysettings.conkyrc'\'' 2>&1 > '\''$HOME/conky.log'\'
+#alias startAll='startCryptoScripts; startConky'
+alias startAll='startConky; startap'
+alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait -r -p -E -e robots=off -U mozilla'
+alias splitImages='for file in *; do convert -crop 50%x100% "$file" "${file%.*}-%0d.${file##*.}"; done'
+
+
+
+
+
+function cropCryptopia() {
+    local fname=${1%/*}
+    if [ "$fname" == "$1" ]; then fname=.; fi
+    local coin
+    if [ -n "$2" ]; then coin="$2-"; fi
+    fname="$fname/cryptopia-$coin${1##*/}"
+    convert -crop 1220x440+2250+150 "$1" "$fname"
+    echo "$fname"
+}
+
+
+# function keyword necessary if function name already is defined as an alias!
+
+function prettyPrintSeconds() {
+    local d h m s
+    r=$1
+    (( s = r % 60 ))
+    (( r = r / 60 ))
+    (( m = r % 60 ))
+    (( r = r / 60 ))
+    (( h = r % 24 ))
+    (( r = r / 24 ))
+    (( d = r      ))
+    if ! [ "$d" -eq 0 ]; then printf "%02dd " "$d"; fi
+    if ! [ "$h" -eq 0 ]; then printf "%02dh " "$h"; fi
+    if ! [ "$m" -eq 0 ]; then printf "%02dm " "$m"; fi
+    if ! [ "$s" -eq 0 ]; then printf "%02ds " "$s"; fi
+    printf "\n"
+}
+
+function t0(){
+    _T0=$(date +%s)
+    echo "Recorded time t0 at $(date)"
+}
+
+function t1(){
+    _T1=$(date +%s)
+    echo "Recorded time t1 at $(date)"
+    if ! [ "$_T0" -eq "$_T0" ]; then
+        echo -e "\e[37mNo _T0 variable set. You need to call 't0' before 't1' to get a difference\e[0m"'!' 2>&1
+    else
+        echo -n "Difference to t0 is "
+        prettyPrintSeconds "$(( _T1 - _T0 ))"
+    fi
+}
+
+unalias sp lb 2>/dev/null
+sp(){
+    if [ -z "$DISPLAY" ]; then
+        export DISPLAY=:0
+    fi
+    xfce4-session-logout --suspend
+}
+
+lb(){ locate -i -b '*'"$*"'*'; }
 
 up() {
     if [ "$1" -lt 256 ] 2>/dev/null; then
@@ -172,6 +244,7 @@ stringContains() {
 getUrls() {
     sed 's|<a href="|\nKEEP!!|g' "$1" | sed '/^KEEP!!/!d; s/KEEP!!//; s/".*$//g; s/ /%20/g'
 }
+
 getmac() {
     if [ ! -z "$1" ]; then
         ip addr ls "$1" | sed -nE 's|[ \t]*link/ether ([a-f0-9:]+) brd.*|\1|p'
@@ -181,20 +254,22 @@ getmac() {
             n;s|[ \t]*link/ether ([a-f0-9:]+) brd.*|  \1|p}';
     fi
 }
+
 offSteamUpdates() {
     for lib in "$@"; do
         find "$lib" -name '*.acf' -execdir bash -c "
-            if grep -q 'AutoUpdateBehavior.*\"[^1]\"' '{}'; then
+            if grep -q 'AutoUpdateBehavior.*\"[^1]\"' \"\$1\"; then
             "'  echo $(pwd)/{};
                 sed -i -E'" 's|(AutoUpdateBehavior.*\")[^1]\"|\11\"|' '{}';
             fi;
-        " \; ; done
+        " bash {} \; ; done
 }
 getLargestSide() {
     local w=$(convert "$1" -format "%w" info:)
     local h=$(convert "$1" -format "%h" info:)
     if [ "$w" -gt "$h" ]; then echo $w; else echo $h; fi
 }
+
 makeIcon() {
     if [ -z "$1" ]; then
         echo -e "\e[31m Please specify a path to an image.\e[0m"
@@ -209,6 +284,7 @@ makeIcon() {
     test -f "$1.ico"
     #set +vx
 }
+
 mvsed() {
     # $1 rule for sed how to work on file name
     local dryrun
@@ -227,18 +303,16 @@ EOF
         # E.g. if sed rule is wrong
         return
     fi
-    find . -maxdepth 1 -execdir bash -c '
-        fname=$(cat <<"EOF4ejiuh"
-{}
-EOF4ejiuh
-        )
+    find . -mindepth 1 -maxdepth 1 -execdir bash -c '
+        fname=$1
         fname=$(basename "$fname")
         newname=$(echo "$fname" | sed -r '"'$1'"')
         if [ "$fname" != "$newname" ]; then
             '"$dryrun"' mv "./$fname" "./$newname"
         fi
-    ' \;
+    ' bash {} \;
 }
+
 lac() {
     # show listing, but replace the second column (hard link count:
     # http://askubuntu.com/questions/19510/) with the number of files and
@@ -290,4 +364,86 @@ githubSize() {
         xargs -i curl -s -k https://api.github.com/repos/'{}' |
         'grep' size |
         sed -nr 's|.*: ([0-9]*).*|\1 KB|p'
+}
+
+colorinfo16() {
+    for clbg in {40..47} {100..107} 49 ; do
+        for clfg in {30..37} {90..97} 39 ; do
+            for attr in 0 1 2 4 5 7 ; do
+                echo -en "\e[${attr};${clbg};${clfg}m ^[${attr};${clbg};${clfg}m \e[0m"
+            done
+            echo
+        done
+    done
+}
+
+pyplot() {
+    # e.g.: pyplot 0 10000 '5 + 8. * np.minimum( np.exp( -(x-800)/2000 ), np.ones(len(x)) )'
+    cat <<EOF | python
+import matplotlib.pyplot as plt
+import numpy as np
+
+x   = np.linspace( $1, $2, 1000 )
+fig = plt.figure()
+ax  = fig.add_subplot(111)
+y   = $3
+ax.plot( x, y )
+plt.show()
+EOF
+}
+
+igcc() {
+    # Use e.g. with:  igcc 'std::cout << "hello\n";'
+    # to kinda test  things interactively
+    local oldDir=$(pwd)
+    local folder=$(mktemp -d)
+    cd "$folder"
+    cat <<EOF > tmp.cpp
+// http://en.cppreference.com/w/cpp/header
+
+#include <algorithm>                            // count_if, sort
+#include <cassert>
+#include <climits>                              // INT_MAX
+#include <cfloat>                               // FLT_MAX
+#include <cmath>                                // isnan
+#include <ctime>
+#include <cstdint>                              // uint8_t
+#include <cstdio>
+#include <cstdlib>                              // rand, malloc
+
+#include <array>                                // template fixed size arrays
+#include <algorithm>                            // sort, find, ...
+#include <chrono>
+#include <complex>
+#include <deque>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <iostream>
+#include <list>
+#include <map>
+#include <mutex>
+#include <numeric>                              // accumulate
+#include <queue>
+#include <random>
+#include <set>
+#include <sstream>
+#include <stdexcept>                            // invalid_argument
+#include <stack>
+#include <string>
+#include <thread>
+#include <typeinfo>
+#include <utility>                              // pair
+#include <vector>
+
+int main( int argc, char ** argv )
+{
+    $1
+    return 0;
+}
+EOF
+    g++ tmp.cpp -std=c++11 -Wall -o a.out
+    ./a.out
+    rm -r "$folder"
+    cd "$oldDir"
 }

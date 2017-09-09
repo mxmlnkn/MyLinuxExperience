@@ -1,0 +1,81 @@
+#!/bin/bash
+
+echoerr() { echo "$@" 1>&2; }
+
+
+browser='/opt/firefox/firefox'
+site='http://boards.4chan.org/biz/'
+
+# by default only crawl threads on main page
+maxsite=$1  # up to 11
+if [ ! "$maxsite" -eq "$maxsite" ] 2>/dev/null; then
+    maxsite=1
+fi
+
+cd "$(mktemp -d)"
+echo "$(pwd)"
+wget -q -O "1.html" "$site"
+for ((i=maxsite; i>1; i--)); do
+    wget -q -O "$i.html" "$site$i"
+done
+
+# Why | readarray does not work: https://unix.stackexchange.com/questions/263883/bash-pipe-find-output-into-readarray
+# pipe creates subshell in which the array will be saved and when gets lost -.-
+readarray -t threads < <( cat [0-9]*.html |
+    sed 's|thread|\nthread|g' |
+    sed -n -r 's|.*thread/([0-9]+).*|\1|p' |
+    sort -n | uniq )
+
+for thread in "${threads[@]}"; do
+    wget -q -O "t$thread.html" "$site/thread/$thread"
+done
+
+mkdir -p "$HOME/etc/"
+logFile="$HOME/etc/4chaninvites"
+touch "$logFile"
+
+# https://t.me/joinchat/AAAAAEKKqMIT4-vZUSwC5Q
+# https://discordapp.com/invite/gjtSbsG
+readarray -t telegrams < <( cat [0-9]*.html t[0-9]*.html |
+    sed 's|http|\nhttp|g' |
+    sed 's|<wbr>||g' |
+    sed -n -r 's|(https?://t\.me/joinchat/[A-Za-z0-9\-]+).*|\1|p' |
+    sort -n | uniq  )
+for telegram in "${telegrams[@]}"; do
+    if ! 'grep' -q -F "$telegram" "$logFile"; then
+        #"$browser" "$telegram"
+        file=$('grep' -l -F "$telegram" t[0-9]*.html )
+        echo "$telegram $file" >> "$logFile"
+        echoerr "$telegram"
+    fi
+done
+
+readarray -t telegrams < <( cat [0-9]*.html t[0-9]*.html |
+    sed 's|http|\nhttp|g' |
+    sed 's|<wbr>||g' |
+    sed -n -r 's|(https?://t\.me/[A-Za-z0-9\-]+).*|\1|p' |
+    sort -n | uniq  )
+for telegram in "${telegrams[@]}"; do
+    if ! 'grep' -q -F "$telegram" "$logFile"; then
+        #"$browser" "$telegram"
+        file=$('grep' -l -F "$telegram" t[0-9]*.html )
+        echo "$telegram $file" >> "$logFile"
+        echoerr "$telegram"
+    fi
+done
+
+readarray -t discords < <( cat [0-9]*.html t[0-9]*.html |
+    sed 's|http|\nhttp|g' |
+    sed 's|<wbr>||g' |
+    sed -n -r 's|(https?://discord(app\.com)?(\.gg)?/(invite/)?[A-Za-z0-9\-]+).*|\1|p' |
+    sort -n | uniq )
+for discord in "${discords[@]}"; do
+    if ! 'grep' -q -F "$discord" "$logFile"; then
+        #"$browser" "$discord"
+        echo "$discord" >> "$logFile"
+        echoerr "$discord"
+    fi
+done
+
+#caja "$(pwd)"
+#rm -r -- "$(pwd)"

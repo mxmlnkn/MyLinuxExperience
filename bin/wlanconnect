@@ -1,6 +1,6 @@
 #!/bin/bash
 
-networks=( 'WLAN-64A235' 'pcmkrouter' 'eduroam' 'HZDR' 'Brave New World' ) # files WLAN_SSID.conf must be in searchPaths
+networks=( '' ) # files WLAN_SSID.conf must be in searchPaths
 searchPaths=( "$HOME/etc/wpa_supplicant" "/etc/wpa_supplicant" )
 verbose=0
 
@@ -65,23 +65,30 @@ if ! sudo ip link | grep -q 'wlan0.*UP'; then
 fi
 
 # todo: if fail connect to next network in list
-for curnet in ${networks[*]}; do
+for curnet in "${networks[@]}"; do
     if [ ! $verbose -eq 0 ]; then
         echo "Trying to connect to $curnet"
     fi
-    if sudo iw wlan0 scan | grep -i -q "$curnet"; then
-        confPath=''
-        for dir in ${searchPaths[@]}; do
-            if [ -f "$dir/$curnet.conf" ]; then
-                confPath="$dir/$curnet.conf"
-                break
-            fi
-        done
-        if [ -z "$confPath" ]; then
-            echo "\e[31mCouldn't find '$curnet.conf' in ${searchPaths[@]}\e[0m"
-            exit 1
+
+    confPath=''
+    for dir in ${searchPaths[@]}; do
+        if [ -f "$dir/$curnet.conf" ]; then
+            confPath="$dir/$curnet.conf"
+            break
         fi
-        echo "Connecting to WLAN-SSID: $(sed -nE 's|ssid=(.*)|\1|p' $confPath)"
+    done
+    if [ -z "$confPath" ]; then
+        echo "\e[31mCouldn't find '$curnet.conf' in ${searchPaths[@]}\e[0m"
+        continue
+    fi
+
+    ssid=$('sed' -nr 's|.*ssid="([^"]*)".*|\1|p' "$confPath")
+    if [ ! $verbose -eq 0 ]; then
+        echo "SSID = $ssid"
+    fi
+
+    if sudo iw wlan0 scan | grep -i -q "$ssid"; then
+        echo "Connecting to WLAN-SSID: $ssid"
         if [ ! $verbose -eq 0 ]; then
             # use tee and -d
             sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c '$confPath' -d | tee /var/log/nohup/wpasupp-$curnet.log &"
