@@ -16,8 +16,10 @@ shopt -s histappend   # append when closing session
 mkdir -p $HISTFOLDER
 HISTFILE=$HISTFOLDER/$(date +%Y-%m-%d_%H-%M-%S_%N).$HISTFILEEXT  # create unique file name for this session. Nanoseconds seems to be unique enough, try: for ((i=0; i<=10; i++)); do date +%Y-%m-%d_%H-%M-%S_%N; done
 # if HISTFILE unset, history is not saved on exit -> not really necessary if we save after each command, but its a double net safety
-HISTSIZE=-1       # maximum number of commands to hold inside bash history buffer
-HISTFILESIZE=-1   # maximum number of lines in history file
+# HIST[FILE]SIZE=-1 resulted in =0 on a certain server, i.e. no history. bash --version:
+#   GNU bash, version 4.2.46(1)-release (x86_64-redhat-linux-gnu)
+HISTSIZE=10000        # maximum number of commands to hold inside bash history buffer
+HISTFILESIZE=100000   # maximum number of lines in history file
 # history -a $HISTFILE # bash saves the total history commands entered since startup or since the last save and saves that amount of commands to the file. This means reading a history file after typing commands will trip up bash, but this won't be a problem if the history file is only loaded in the beginning. This means that only new commands are saved not all the old loaded commands, thereby we can load as many history files into the buffer as we want and still only save newly thereafter typed commands
 PROMPT_COMMAND="history -a $HISTFILE; $PROMPT_COMMAND"  # This command is executed after very typed command -> save history after each command instead after only closing the session
 
