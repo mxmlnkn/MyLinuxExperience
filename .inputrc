@@ -1,0 +1,63 @@
+# See https://www.gnu.org/software/bash/manual/html_node/Readline-Init-File-Syntax.html#Readline-Init-File-Syntax
+# See man readline
+
+set colored-stats On
+set expand-tilde Off
+set horizontal-scroll-mode Off
+
+"\e[5D": backward-word
+"\e[5C": forward-word
+
+# rxvt and konsole (i.e. the KDE-app...)
+"\e[7~": beginning-of-line
+"\e[8~": end-of-line
+
+# VT220
+"\eOH": beginning-of-line
+"\eOF": end-of-line
+
+"\e[5~": beginning-of-history
+"\e[6~": end-of-history
+# the following line is actually
+# equivalent to "\C-?": delete-char
+"\e[3~": delete-char
+"\e[2~": quoted-insert
+
+set colored-stats On
+set expand-tilde Off
+
+# What I want:
+#   beginning-of-line     Ctrl + Pos1           moves cursor to line beginning
+#   end-of-line           Ctrl + End            ~ to line end
+#   forward-word          Ctrl + Right Arrow    moves cursor to next word
+#   backward-word         Ctrl + Left Arrow     ~ previous word
+#   kill-word             Ctrl + Del            deletes word right of cursor
+#   backward-kill-word    Ctrl + Backspace      ~ left of cursor
+#   redraw-current-line
+#   re-read-init-file     F5                    reloads .inputrc
+# About conversion:
+#   Go to relevant terminal and press Ctrl+V and then the keystroke you want to map
+#   E.g. for VT Ctrl+Del will produce ^[[3~
+#   For some reason though this can't be copied directly into inputrc -.-!
+#   ^[ is an escape squence (ascii 27) and needs to be replaced with \e in inputrc
+# Ctrl+V is verbatim insert or from "Linux in a Nutshell" pg. 698: "Insert next character verbatim"
+
+# xfce4-terminal
+# can be made to work with VT with makeArrowsWorkInVT.sh also contains mapping for del
+"\e[H": beginning-of-line
+"\e[F": end-of-line
+"\e[1;5C": forward-word
+"\e[1;5D": backward-word
+"\e[3;5~": kill-word
+"\e[9;3~": backward-kill-word
+"\e[15~": redraw-current-line
+"\e[15~": re-read-init-file
+
+# VT - the virtual terminals (ctrl+alt+f1-f12 have for some reason different keymappings
+"\e[1~": beginning-of-line
+"\e[4~": end-of-line
+#"\e[D": backward-word
+#"\e[C": forward-word
+#"\e[3~": kill-word
+"\x8": backward-kill-word
+"\e[[E": re-read-init-file

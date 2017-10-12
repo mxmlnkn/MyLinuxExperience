@@ -74,3 +74,4 @@ Geany
 *.old
 /build*/
 *.ffs_gui
+etc/

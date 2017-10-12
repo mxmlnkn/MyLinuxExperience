@@ -43,7 +43,7 @@ function getArchiveCommand() {
         # if they only contain a single .tar archive
         local mime=$(file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||')
         if [ "$verbose" -eq 1 ] 2>/dev/null; then
-            echo "raw type: $mime" 1>&2
+            echoerr "raw type: $mime"
         fi
         case "$mime" in
             x-7z-compressed) echo '7z'    ;;
@@ -53,7 +53,8 @@ function getArchiveCommand() {
             x-bzip2)         echo 'bzip2' ;;
             gzip)            echo 'gzip'  ;;
             x-xz)            echo 'xz'    ;;
-            zip)             echo 'zip'   ;;
+            #zip)             echo 'zip'   ;;
+            zip)             echo '7z'    ;;
             *)
                 case "$1" in
                     *.7z)      echo '7z'      ;;
@@ -137,9 +138,9 @@ function singleFileInArchive() {
 
             files=()
             while IFS= read -d $'\n' -r file ; do
-                files+=("$file")
+                files+=( "$file" )
             done < <( "${cmd[@]}" "$1" |
-                      sed -nr '/^Path = /{N;s|^Path = (.*)\nSize = .*|\1|p;}' )
+                      sed -nr '/^Path = /{N;s|^Path = (.*)\n(Size\|Folder) = .*|\1|p;}' )
         }
         ;;
         'tar')

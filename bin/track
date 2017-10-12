@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# @todo open caja folders only have the path as window title -> get somehow proces name additionally to active window title
+
+project=$1
+if [ -z "$project" ]; then project='untitled'; fi
+echo "Tracking time for '$project' ... Close with Ctrl+C"
+folder="$HOME/ttrack/$project"
+mkdir -p "$folder"
+logFile="$folder/$( date '+%Y-%m-%d_%H-%M' ).log"
+touch "$logFile"
+
+while true; do
+    activeWindow=$( xdotool getwindowfocus getwindowname )
+    echo "$( date '+%Y-%m-%d_%H-%M-%S' ) $activeWindow" >> "$logFile"
+    sleep 10s
+done
+
+# finish() {
+#     echo "$( date '+%Y-%m-%d_%H-%M-%S' )" >> "$logFile"
+# }
+#
+# trap finish EXIT
+# trap finish SIGINT

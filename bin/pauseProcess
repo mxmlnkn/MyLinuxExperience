@@ -25,7 +25,9 @@ if isProcessStopped "$pid"; then
     echo "Continue stopped process $pid" 1>&2
 else
     kill -TSTP "$pid"
+    sleep 0.05s
     if ! isProcessStopped "$pid"; then kill -STOP "$pid"; fi
+    sleep 0.05s
     if ! isProcessStopped "$pid"; then
         echo "Couldn't stop process $pid i.e. window ID $wid i.e. window '$wname'" 1>&2
         exit 2

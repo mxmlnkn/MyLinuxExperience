@@ -1,0 +1,131 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.gpu
+*.cubin
+*.fatbin
+*.stub.c
+
+
+#Visual Studio compile files
+*.exp
+
+# TeX
+
+*.aux
+*.glo
+*.idx
+*.log
+*.toc
+*.ist
+*.acn
+*.acr
+*.alg
+*.bbl
+*.blg
+*.dvi
+*.glg
+*.gls
+*.ilg
+*.ind
+*.lof
+*.lot
+*.maf
+*.mtc
+*.mtc1
+*.out
+*.synctex.gz
+*.fls
+
+## Bibliography auxiliary files (bibtex/biblatex/biber):
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.brf
+*.run.xml
+
+# Python Byte Code
+*.pyc
+
+# Java
+*.class
+*.jar
+*.tmp
+
+# Archives (Git compresses files itself, or use --force to add)
+*.7z
+*.zip
+*.xz
+*.bz2
+*.gz
+*.tar
+*.rar
+*.tbz2
+*.tgz
+
+# CMake build files
+**/build*/
+
+# temporary files
+.*~
+*~
+*.old
+*.bak
+*.stackdump
+
+# Files created on some filesystems when deleting a file still in use
+.fuse*
+.nfs*
+
+# Geany
+*.geany
+
+# netbeans project files
+/nbproject/
+
+# Code::Blocks project files
+/*.cbp
+/*.layout
+
+# original backup files
+*.orig
+
+# uncompressed images (use png or tiff)
+*.bmp
+
+# hidden files
+.*
+!/.git*
+
+# Test Files (use .md for important notes instead)
+*.txt
+
+# Personal standard folders
+KNOWLEDGE/*

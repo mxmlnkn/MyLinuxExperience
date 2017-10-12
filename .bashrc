@@ -151,29 +151,9 @@ fi
 alias lc='locate -i'
 alias sup='sudo apt-get update'
 alias si='sudo apt-get install -t sid'
-alias startVolbot='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup python monitorVolumes.py > ~/nohupMonitorVolume.out & )'
-alias startBittrexCrawler='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup ./getBittrexTrades.sh > ~/nohupBittrexPoller.out & )'
-alias startKrakenCrawler='( cd /media/f/Studium/10TH_SEMESTER/cryptoscripts/ && nohup ./getKrakenTrades.sh > ~/nohupKrakenPoller.out & )'
-alias startCryptoScripts='startVolbot; startBittrexCrawler; startKrakenCrawler'
-alias startConky='pkill -9 conky; nohup /opt/conky/build/src/conky -c '\''$HOME/etc/conky/mysettings.conkyrc'\'' 2>&1 > '\''$HOME/conky.log'\'
-#alias startAll='startCryptoScripts; startConky'
-alias startAll='startConky; startap'
+
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait -r -p -E -e robots=off -U mozilla'
 alias splitImages='for file in *; do convert -crop 50%x100% "$file" "${file%.*}-%0d.${file##*.}"; done'
-
-
-
-
-
-function cropCryptopia() {
-    local fname=${1%/*}
-    if [ "$fname" == "$1" ]; then fname=.; fi
-    local coin
-    if [ -n "$2" ]; then coin="$2-"; fi
-    fname="$fname/cryptopia-$coin${1##*/}"
-    convert -crop 1220x440+2250+150 "$1" "$fname"
-    echo "$fname"
-}
 
 
 # function keyword necessary if function name already is defined as an alias!
@@ -305,8 +285,9 @@ EOF
     fi
     find . -mindepth 1 -maxdepth 1 -execdir bash -c '
         fname=$1
-        fname=$(basename "$fname")
-        newname=$(echo "$fname" | sed -r '"'$1'"')
+        fname=$( basename "$fname" ) # this strips the leading ./ and trailing / for directories, find doesnt give trailing /
+        if [ -d "./$fname" ]; then fname=$fname/; fi
+        newname=$( printf "%s" "$fname" | sed -r '"'$1'"' )
         if [ "$fname" != "$newname" ]; then
             '"$dryrun"' mv "./$fname" "./$newname"
         fi
@@ -377,21 +358,6 @@ colorinfo16() {
     done
 }
 
-pyplot() {
-    # e.g.: pyplot 0 10000 '5 + 8. * np.minimum( np.exp( -(x-800)/2000 ), np.ones(len(x)) )'
-    cat <<EOF | python
-import matplotlib.pyplot as plt
-import numpy as np
-
-x   = np.linspace( $1, $2, 1000 )
-fig = plt.figure()
-ax  = fig.add_subplot(111)
-y   = $3
-ax.plot( x, y )
-plt.show()
-EOF
-}
-
 igcc() {
     # Use e.g. with:  igcc 'std::cout << "hello\n";'
     # to kinda test  things interactively
@@ -436,6 +402,27 @@ igcc() {
 #include <utility>                              // pair
 #include <vector>
 
+#include <boost/core/demangle.hpp>
+
+template <class T>
+std::string
+type_name()
+{
+    typedef typename std::remove_reference<T>::type TR;
+    std::unique_ptr<char, void(*)(void*)> own( nullptr, std::free );
+    std::string r = own != nullptr ? own.get() : typeid(TR).name();
+    r = boost::core::demangle( r.c_str() );
+    if (std::is_const<TR>::value)
+        r += " const";
+    if (std::is_volatile<TR>::value)
+        r += " volatile";
+    if (std::is_lvalue_reference<T>::value)
+        r += "&";
+    else if (std::is_rvalue_reference<T>::value)
+        r += "&&";
+    return r;
+}
+
 int main( int argc, char ** argv )
 {
     $1
@@ -446,4 +433,28 @@ EOF
     ./a.out
     rm -r "$folder"
     cd "$oldDir"
+}
+
+function o() { xdg-open "$*"; }
+
+function downo() {
+    local link
+    for link in $@; do
+        wget "$link"
+        xdg-open "${link##*/}"
+    done
+
+}
+
+alias getip='wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1'
+
+function findPath()
+{
+    local path
+    for path in "$@"; do
+        if [ -f "$path" ]; then
+            printf '%s' "$path"
+            break
+        fi
+    done
 }

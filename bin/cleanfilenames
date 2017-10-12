@@ -24,24 +24,22 @@ cleanFilenames() {
         $!b a
         s/\n/ /g
         # for some reason s/\r//g wouldnt work now :S, that is why it is piped to another sed
-    ' | sed -r '
+    ' | perl -C -MHTML::Entities -pe 'decode_entities($_);' | sed -r '
         s/[|/\:]/ - /g;
         s|—|-|g;
         s/\x22/\x27/g;
         # .html.mht -> .mht
         s/\.html\.mht/\.mht/g;
         s/[*?<>$]/_/g;
-        # delete dots at the end of line
+        # delete dots at the end of line (windows has issue with empty extensions -.-)
         s/\.+$//g;
-        s/&#039;/'"'"'/g;
-        s|&lt;||g;
-        s|&gt;||g;
-        s|&amp;| and |g;
-        s|&quot;|'\''|g;
+        s/&#039;/'\''/g;
+        s|&| and |g;
+        s|";|'\''|g;
         # delete leading spaces
-        s/^ +//g;
+        s/^[ \t]+//g;
         # delete white spaces at end of file name
-        s/ +$//g;
+        s/[ \t]+$//g;
         # delete newlines and returns and other non-printables
         s/[\x01-\x1F\x7F]/ /g;
         s|\t| |g;

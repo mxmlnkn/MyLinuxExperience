@@ -1,0 +1,28 @@
+#!/bin/bash
+
+urls=(
+    # Twelve Kingdoms, The - Hardcover Edition Volume 1: Sea of Shadow (Gebundene Ausgabe)
+    'https://www.amazon.de/gp/offer-listing/1598169467/'
+    # Volume 3, soft- and hardcover
+    'https://www.amazon.de/gp/offer-listing/1427802599/'
+    'https://www.amazon.de/gp/offer-listing/1598169483/'
+)
+cheapPrices=( 20 20 ) # euro
+
+tmp=$(mktemp)
+
+for (( i=0; i<${#urls[@]}; ++i )); do
+    url=${urls[i]}
+    cheapPrice=${cheapPrices[i]}
+
+    wget -q -O "$tmp" "$url" 2>/dev/null
+    echo "Getting prices"
+    prices=( $( 'sed' -nr 's|.*<span class="[^"]*olpOfferPrice[^"]*">[^<]*EUR ([0-9,]+)[^<]*</span>.*|\1|p' "$tmp" ) )
+    echo "Checking offers"
+    if [ "${prices[0]%,*}" -lt "$cheapPrice" ]; then
+        echo "Send notification"
+        notify-send -i "$HOME/files/Bilder/amazon-white.svg" -t "$((1*60*60*1000))" 'Found cheap offer (<'"$cheapPrice"'€) on Amazon!' "$url\nPrices: ${prices[*]}"
+        # Note that here "${prices[@]}" would lead to 'Invalid number of options.', because very array element would be given as an extra argument by bash to notify-send
+    fi
+done
+rm "$tmp"
