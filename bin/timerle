@@ -13,6 +13,11 @@ while [ -n "$1" ]; do
             shift
             message="$1"
             ;;
+        -h|--help)
+            echo "timerle [-q] [-h] [-m <alert message>] <sleep duration like 1m,1.5h or time like 21:13>
+This script plays an alarm sound after the given duration or at the given time and displays a reminder message."
+            exit 0
+            ;;
         *)
             # specified is a date not a wait duration
             if [[ "$1" =~ ^[0-2]?[0-9]:[0-6]?[0-9]$ ]]; then
@@ -49,5 +54,5 @@ if [ "$quiet" -eq 0 ]; then
 fi
 
 if [ -n "$message" ]; then
-    notify-send 'Timerle' "$message"
+    notify-send -t 100000 'Timerle' "$message" # 100s timeout (user basically has to click it away)
 fi
