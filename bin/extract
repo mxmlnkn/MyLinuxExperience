@@ -27,6 +27,7 @@ function getArchiveCommand() {
         #    7z   a world.7z  world
         #    rar  a world.rar world
         #    zip -u world.zip world
+        #    ar x world.deb
         #  for file in *.*; do file --mime-type "$file"; done
         #    world.7z     : application/x-7z-compressed
         #    world.lzma   : application/octet-stream
@@ -38,10 +39,11 @@ function getArchiveCommand() {
         #    world.tar.gz : application/gzip
         #    world.tar.xz : application/x-xz
         #    world.zip    : application/zip
+        #    world.deb    : application/vnd.debian.binary-package
         # Note that the .gz files are not differing from the .tar.gz or
         # .tgz files obviously. We need to look into them and see
         # if they only contain a single .tar archive
-        local mime=$(file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||')
+        local mime=$( file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||' )
         if [ "$verbose" -eq 1 ] 2>/dev/null; then
             echoerr "raw type: $mime"
         fi
@@ -55,23 +57,27 @@ function getArchiveCommand() {
             x-xz)            echo 'xz'    ;;
             #zip)             echo 'zip'   ;;
             zip)             echo '7z'    ;;
+            pdf)             echo 'pdfimages' ;;
+            vnd.debian.binary-package) echo 'ar' ;;
             *)
                 case "$1" in
-                    *.7z)      echo '7z'      ;;
-                    *.exe)     echo 'cabextract' ;;
-                    *.lzma)    echo 'lzma'    ;;
-                    *.tar.lrz) echo 'lrztar'  ;;
-                    *.tar.bz2) echo 'tar'     ;;
-                    *.tar.gz)  echo 'tar'     ;;
-                    *.tar.xz)  echo 'tar'     ;;
-                    *.tar)     echo 'tar'     ;;
-                    *.tbz2)    echo 'tar'     ;;
-                    *.tgz)     echo 'tar'     ;;
-                    *.bz2)     echo 'bzip2'   ;;
-                    *.gz)      echo 'gzip'    ;;
-                    *.rar)     echo 'rar'     ;;
-                    *.zip)     echo 'zip'     ;;
-                    *.xz)      echo 'xz'      ;;
+                    *.7z)      echo '7z'            ;;
+                    *.exe)     echo 'cabextract'    ;;
+                    *.lzma)    echo 'lzma'          ;;
+                    *.tar.lrz) echo 'lrztar'        ;;
+                    *.tar.bz2) echo 'tar'           ;;
+                    *.tar.gz)  echo 'tar'           ;;
+                    *.tar.xz)  echo 'tar'           ;;
+                    *.tar)     echo 'tar'           ;;
+                    *.tbz2)    echo 'tar'           ;;
+                    *.tgz)     echo 'tar'           ;;
+                    *.bz2)     echo 'bzip2'         ;;
+                    *.gz)      echo 'gzip'          ;;
+                    *.rar)     echo 'rar'           ;;
+                    *.zip)     echo 'zip'           ;;
+                    *.xz)      echo 'xz'            ;;
+                    *.deb)     echo 'ar'            ;;
+                    *.pdf)     echo 'pdfimages'     ;;
                     *)
                         echoerr -e "\e[31m[getArchiveCommand] Unknown archive type for file '$1' with mime type '$mime'"'!'"\e[0m"
                         return 1
@@ -88,8 +94,8 @@ function singleFileInArchive() {
     # test if archive contains single file or single folder so we can
     # extract it without polluting the working folder, but also without
     # creating unnecessary folders
-    local extension=$(getArchiveCommand "$1")
-    case $extension in
+    local unpackCommand=$( getArchiveCommand "$1" )
+    case "$unpackCommand" in
         '7z')
         {
             cmd=( '7z' 'l' '-slt' )
@@ -244,12 +250,24 @@ function singleFileInArchive() {
             done < <( "${cmd[@]}" "$1" )
         }
         ;;
+        'pdfimages')
+        {
+            test "$( pdfimages -q -list -- "$1" | wc -l )" -le 1
+            return $?
+        }
+        ;;
+        'ar')
+        {
+            test "$( ar -t -- "$1" | wc -l )" -le 1
+            return $?
+        }
+        ;;
         # bzip2 and gz only work for single files
         'gzip'|'bzip2'|'lzma'|'xz')
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                echo "$1.un$extension"
+                echo "$1.un$unpackCommand"
             else
                 echo "${name%.*}"
             fi
@@ -425,7 +443,7 @@ function extractHere() {
     fi
 
     case "$ext" in
-        7z)
+        '7z')
             # if verbose is 0 we can't redirect to /dev/null, because then
             # the user would miss a command prompt if the file to extract
             # already exists and we would wait forever!
@@ -436,7 +454,7 @@ function extractHere() {
             fi
             return $?
             ;;
-        bzip2)
+        'bzip2')
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
@@ -446,8 +464,8 @@ function extractHere() {
             fi
             return $?
             ;;
-        exe)   cabextract   "$1"; return $? ;;
-        lzma)
+        'exe')   cabextract   "$1"; return $? ;;
+        'lzma')
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
@@ -457,8 +475,8 @@ function extractHere() {
             fi
             return $?
             ;;
-        tar)   tar -C . -xf "$1"; return $? ;;
-        gzip)
+        'tar')   tar -C . -xf "$1"; return $? ;;
+        'gzip')
             # use -S to suppress
             #    gzip: 'file' unknown suffix -- ignored
             # warning. Won't work if file name does not contain any .
@@ -474,7 +492,7 @@ function extractHere() {
             fi
             return $?
             ;;
-        rar)
+        'rar')
             # https://superuser.com/questions/708877/how-to-unrar-the-stdin
             # https://stackoverflow.com/questions/32341691/unrar-and-progress-bar-bash
             if isEncrypted "$1"; then
@@ -486,7 +504,7 @@ function extractHere() {
             fi
             return $?
             ;;
-        xz)
+        'xz')
             local name=$(basename "$1")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
@@ -496,7 +514,7 @@ function extractHere() {
             fi
             return $?
             ;;
-        zip)
+        'zip')
             # https://unix.stackexchange.com/questions/2690/how-to-redirect-output-of-wget-as-input-to-unzip
             if isEncrypted "$1"; then
                 'unzip' -P "$password" "$1" 2>&1 >"$ " | tee "$errorlog"
@@ -516,6 +534,13 @@ function extractHere() {
             fi
 
             return $errorCode
+            ;;
+        'pdfimages')
+            pdfimages -all -p -- "$1" 'page'
+            return 1 # hacky... return error, because by default pdf are not to be deleted, because more often than not PDF are more than just images ...
+            ;;
+        'ar')
+            ar -x -- "$1"
             ;;
         #Z)     uncompress   "$1" ;;
         #tar.lrz) lrztar -d   "$1" ;;
