@@ -81,9 +81,10 @@ function startap() {
     # echo 1 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
     export DAEMON_CONF=~/etc/hostapd/hostapd.conf
     export RUN_DAEMON=yes
-    sudo bash -c "nohup hostapd '$HOME/etc/hostapd/hostapd.conf' > '$HOME/nohupHostapd.out'" &
+    if [ -d "$1" ]; then home=$1; else home=$HOME; fi
+    sudo bash -c "nohup hostapd '$home/etc/hostapd/hostapd.conf' > '$home/nohupHostapd.out'" &
 
-    replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$HOME/etc/dhcp/dhcpd.conf"
+    replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$home/etc/dhcp/dhcpd.conf"
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' '"wlxec086b13468f"'
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv6' '""'
 
