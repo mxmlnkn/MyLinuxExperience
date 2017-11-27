@@ -19,7 +19,7 @@ conky.config = {
 	--alignment = 'bottom_right', -- where to count from when specifiying gap_x,y
 	--gap_x = 20,                 -- distance in pixels from alignment
 	gap_y     = 60,
-	gap_x     = -280,           -- for 2x 1920x1080 monitor setup (right side of left monitor)
+	gap_x     = -280,           -- for 2x 1920x1080 monitor setup (right side of left monitor) -280 = -20 (gap) - 170 (minimum width???) or -1900 = -1900 == 1920 - 20 (true gap)
     alignment = 'bottom_left',
 
 	draw_borders = false,       -- draws simple non-rounded one-colored borders around widget
@@ -76,6 +76,24 @@ conky.config = {
 conky.text = [[
 ${voffset -8}\
 #-------------------------------------------------------------------------------
+#                                  Other
+#-------------------------------------------------------------------------------
+#${color2}${voffset 2}${hr 1}${color}
+#${color2}${alignc}Other${color}
+#${color2}${voffset -5}${hr 1}${color}
+#${color2}Bitmex XBTZ17${color}\
+#${goto 105}${texeci 3 sleep 1s; curl -q -X GET --header 'Accept: application/json' 'https://www.bitmex.com/api/v1/quote?symbol=XBTZ17&count=1&reverse=true' 2>/dev/null | sed -n -r 's|.*"askPrice":([0-9.]+).*|\1|p' }$$ \
+#${goto 165}${color2}BTCUSD${color}\
+#${goto 210}${texeci 3 sleep 2s; curl -q -X GET --header 'Accept: application/json' 'https://www.bitmex.com/api/v1/quote?symbol=XBTUSD&count=1&reverse=true' 2>/dev/null | sed -n -r 's|.*"askPrice":([0-9.]+).*|\1|p' }$$
+#${color2}Bitfinex${color}\
+#${goto 105}${texeci 5 wget -q -O- 'https://api.bitfinex.com/v1/pubticker/btcusd' | sed -nr 's|.*"ask":"([0-9.]+).*|\1|p' }$$\
+#${goto 165}${color2}GDAX${color}\
+#${goto 210}${texeci 5 wget -q -O- 'https://api.gdax.com/products/BTC-USD/ticker' | sed -nr 's|.*"ask":"([0-9]+).*|\1|p' }$$
+#${color2}Bittrex USDT-BTC${color}\
+#${goto 105}${texeci 3 wget -q -O- 'https://bittrex.com/api/v1.1/public/getticker?market=USDT-BTC' | sed -nr 's|.*"Ask":([0-9]+.[0-9]{2}).*|\1|p' }$$
+#${color2}Kraken BTC${color}\
+#${goto 105}${texeci 10 printf '%s$ %s€' $( wget -q -O- 'https://api.kraken.com/0/public/Ticker?pair=XBTEUR,XBTUSD' | sed 's|,|\n|g' | tac | sed -nr 's|.*"c":\["([0-9]+.[0-9]{2}).*|\1|p' ) }
+#-------------------------------------------------------------------------------
 #                                   CPU
 #-------------------------------------------------------------------------------
 ${color2}${voffset 2}${hr 1}$color
@@ -125,7 +143,7 @@ ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Memory$color
 ${color2}${voffset -5}${hr 1}$color
 #${color2}Memory used$color${alignr}${mem} / ${memmax}
-${color0}${membar 8,110}${alignr}${mem} / ${memmax}  [${memperc}%]
+${color0}${membar 8,110}${alignr}${mem}/${memmax} [${memperc}%]
 ${color2}${voffset 5}Name${goto 122}PID${goto 163}CPU%${goto 210}Mem%$color${voffset 3}
 ${top_mem name 1}${goto 115}${top_mem pid 1}${goto 160}${top_mem cpu 1}${goto 205}${top_mem mem 1}
 ${top_mem name 2}${goto 115}${top_mem pid 2}${goto 160}${top_mem cpu 2}${goto 205}${top_mem mem 2}
@@ -137,21 +155,23 @@ ${top_mem name 4}${goto 115}${top_mem pid 4}${goto 160}${top_mem cpu 4}${goto 20
 ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Syslog$color
 ${color2}${voffset -5}${hr 1}$color
-${voffset 5}${execi 10 tail -n 4 /var/log/syslog | fold -w 47}
+# hard to say what fold value to use here, because of variable width font -.-
+# but 47 was too large on one day for width 170
+${voffset 5}${texeci 10 tail -n 4 /var/log/syslog | fold -w 46}
 #-------------------------------------------------------------------------------
 #                                  Logging
 #-------------------------------------------------------------------------------
 ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Authentication Log$color
 ${color2}${voffset -5}${hr 1}$color
-${voffset 5}${execi 10 tail -n 4 /var/log/auth.log | fold -w 47}
+${voffset 5}${texeci 10 tail -n 4 /var/log/auth.log | fold -w 46}
 #-------------------------------------------------------------------------------
 #                                    HDD
 #-------------------------------------------------------------------------------
 ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}HDD$color
 ${color2}${voffset -5}${hr 1}$color
-${execpi 10 ~/etc/conky/list_mounted.sh}
+${texecpi 20 ~/etc/conky/list_mounted.sh}
 #-------------------------------------------------------------------------------
 #                                  Network
 #-------------------------------------------------------------------------------
@@ -159,11 +179,9 @@ ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Network$color
 ${color2}${voffset -5}${hr 1}$color
 #
-# public ip address
-# this command creates traffic permanently, not good :S
-#${color2}Public IP${color0}${alignr}${execi 3600 wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1}
 # Arguably this may not find the public IP, if behind a NAT or Router, but what use would the IP have then
-${color2}Public${color0}${alignr}${execi 3600 ifconfig eth0 | sed -nE 's|.*inet ([^ ]*).*|\1|p'}
+${color2}IP Local: ${color0}${execi 1 ifconfig eth0 | sed -nE 's|.*inet ([^ ]*).*|\1|p'}\
+${alignr}${color2}Public: ${color0}${texeci 3600 wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1}
 #
 #${color2}${voffset 5}Hostname: $color$alignr$nodename
 ######## wlan0 #########
