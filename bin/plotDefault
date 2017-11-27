@@ -37,6 +37,8 @@ def readNamedColFile( fname, requiredSpecifier=[], allowedSpecifier=None, forbid
         if firstcomment is None:
             firstcomment = line
             break
+    if firstcomment is None:
+        firstcomment = '# x y'
 
     separator = getSeparator( firstcomment[1:] ) # exclude # from search
 
