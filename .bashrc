@@ -1,5 +1,7 @@
 #!/bin/bash
 
+xset -b
+
 ########################### Log session with script ############################
 
 # add before opening history file. Open script to log session
@@ -153,8 +155,13 @@ fi
 alias lc='locate -i'
 alias sup='sudo apt-get update'
 alias si='sudo apt-get install -t sid'
+# go into old upper diretory on cd .., even if the current folder was moved e.g. to trash
+# use command cd for original behavior. Unfortunately 'cd' does not work, because
+# that only prevents alias lookup, not function lookup it seems (This also puts
+# my usage of 'command' in scripts into persepctive :S
+cd(){ if [ "$1" == '..' ]; then command cd "${PWD%/*}"; else command cd "$@"; fi; }
 
-alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait -r -p -E -e robots=off -U mozilla'
+alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias splitImages='for file in *; do convert -crop 50%x100% "$file" "${file%.*}-%0d.${file##*.}"; done'
 
 
@@ -198,7 +205,14 @@ sp(){
     if [ -z "$DISPLAY" ]; then
         export DISPLAY=:0
     fi
-    xfce4-session-logout --suspend
+    xfce4-session-logout --suspend &&
+    sleep 10s && (
+        refreshWallpaper;
+        if [ -n "$( pgrep hostapd )" ]; then
+            sleep 2s
+            startap
+        fi
+    )
 }
 
 lb(){ locate -i -b '*'"$*"'*'; }
@@ -228,13 +242,22 @@ getUrls() {
 }
 
 getmac() {
-    if [ ! -z "$1" ]; then
-        ip addr ls "$1" | sed -nE 's|[ \t]*link/ether ([a-f0-9:]+) brd.*|\1|p'
-    else
-        ip addr ls | sed -nE '/[ \t]*[0-9]+: ([A-Za-z0-9]*):/{
-            s|[ \t]*[0-9]+: ([A-Za-z0-9]*):.*|\1|p;
-            n;s|[ \t]*link/ether ([a-f0-9:]+) brd.*|  \1|p}';
-    fi
+    #if [ ! -z "$1" ]; then
+    #    ip addr ls "$1" | sed -nE 's|[ \t]*link/ether ([a-f0-9:]+) brd.*|\1|p'
+    #else
+    #    ip addr ls | sed -nE '/[ \t]*[0-9]+: ([A-Za-z0-9]*):/{
+    #        s|[ \t]*[0-9]+: ([A-Za-z0-9]*):.*|\1|p;
+    #        n;s|[ \t]*link/ether ([a-f0-9:]+) brd.*|  \1|p}';
+    #fi
+    local file
+    for file in /sys/class/net/*/address; do
+        printf '%-40s ' "$file"
+        printf '%-20s ' "$( cat "$file" )" # this also removes \n from cat
+        file=${file%/*}
+        file=${file##*/}
+        if commandExists ethtool; then ethtool -P "$file"; else echo; fi
+    done
+    #ifconfig eth0 | sed -nr 's|.*ether[ \t]*([0-9a-f:]+).*|\1|p'
 }
 
 offSteamUpdates() {
@@ -291,7 +314,11 @@ EOF
         if [ -d "./$fname" ]; then fname=$fname/; fi
         newname=$( printf "%s" "$fname" | sed -r '"'$1'"' )
         if [ "$fname" != "$newname" ]; then
-            '"$dryrun"' mv "./$fname" "./$newname"
+            if [ -n "'$dryrun'" ]; then
+                '"printf \"mv '%s'\n-> '%s'\n\" "'"$fname" "$newname"
+            else
+                mv "./$fname" "./$newname"
+            fi
         fi
     ' bash {} \;
 }
@@ -459,4 +486,17 @@ function findPath()
             break
         fi
     done
+}
+
+function toUTF8()
+{
+    iconv -f ISO8859-15 -t UTF8 "$1" -o "$1".utf8
+    echo -ne '\xEF\xBB\xBF' > "$1".utf8 && iconv -f ISO8859-15 -t UTF8 "$1" >> "$1".utf8
+    trash "$1"
+    mv --no-clobber "$1.utf8" "$1"
+}
+
+function splitCue()
+{
+    shnsplit -f "$1" -t '%n - %t' -o flac -- "${1%.cue}".[^c]*
 }
