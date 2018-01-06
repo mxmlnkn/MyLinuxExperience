@@ -73,7 +73,7 @@ packagelistsid=(
     libjavascriptcoregtk-1.0-0 libwebkitgtk-1.0-0 libwebkitgtk-1.0-common
 
     # networking
-    hostname openssh-client openssh-server sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap
+    hostname openssh-client openssh-server sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap telnet
     # needed for extract macro function
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge
     # parallel compression tools

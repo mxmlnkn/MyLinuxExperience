@@ -72,20 +72,24 @@ duplicates=0
 dir=.
 checkComplexExtension=0
 restoreNames=0
+verbose=0
 while [ "$1" != "" ]; do
   case $1 in
-    "-r" | "--dry-run")
-      dryrun=1
-      ;;
     "--chk")    # fucking chkdsk deleting all my files with invalid linux filenames into found.000 -.-
-      restoreNames=1
-      ;;
+        restoreNames=1
+        ;;
     "-d" | "--check-duplicates")
-      duplicates=1
-      ;;
+        duplicates=1
+        ;;
     "-e" | "--check-extensions")
-      checkComplexExtension=1
-      ;;
+        checkComplexExtension=1
+        ;;
+    "-r" | "--dry-run")
+        dryrun=1
+        ;;
+    "-v" | "--verbose")
+        verbose=1
+        ;;
     *)  # default case (neither one of the options from above, nor empty)
         if [ ${1:0:1} == '-' ]; then
             echo "Wrong parameters specified! (\$1=$1)"
@@ -114,7 +118,7 @@ if [ $duplicates -eq 1 ]; then
 fi
 
 export -f cleanFilenames
-FIND=( find "$dir" -type f )
+FIND=( find "$dir" )
 echo -n "Counting how many files need to be checked ... "
 # if ${FIND[@]} is unqoted, then spaces in $dir will cause problems
 nFiles=$("${FIND[@]}" | wc -l)
@@ -128,7 +132,7 @@ echo "$nFiles"
     name=$( basename -- "$path" )
     cd "$(dirname -- "$path")"
     newname=$( printf "%s" "$name" | cleanFilenames )
-if [ "'$checkComplexExtension'" -eq 1 ]; then
+if [ "'$checkComplexExtension'" -eq 1 ] && [ -f "$name" ]; then
     mime=$( file --mime -- "$name" | sed -r "s|.*: ([^;]*); .*|\1|" )
     # http://www.iana.org/assignments/media-types/media-types.xhtml
     # /etc/mime.types
@@ -213,7 +217,10 @@ if [ "'$checkComplexExtension'" -eq 1 ]; then
         newname=$newname.$mext
     fi
 fi
-    if [ ! -z "$newname" ] && [ "$name" != "$newname" ]; then
+    if [ '$verbose' -eq 1 ]; then
+        printf "rename: %s\n -> to: %s\n\n" "$(realpath -- "$name")" "$(realpath -- "$newname")"
+    fi
+    if [ -n "$newname" ] && [ "$name" != "$newname" ]; then
         # $name -> ext: $ext -> mime: $mime -> mext: $mext\n
         printf "rename: %s\n -> to: %s\n\n" "$(realpath -- "$name")" "$(realpath -- "$newname")"
         if [ ! "'$dryrun'" -eq 1 ]; then

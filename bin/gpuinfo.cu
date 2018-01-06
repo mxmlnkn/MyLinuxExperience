@@ -9,7 +9,7 @@
 
 /**
  * compile with:
- *   'nvcc' -ccbin=/usr/bin/g++-4.9 -std=c++11 --compiler-options -Wall,-Wextra -DCUDACOMMON_GPUINFO_MAIN -o gpuinfo --x cu cudacommon.hpp
+ *   'nvcc' -ccbin=/usr/bin/g++-4.9 -std=c++11 --compiler-options -Wall,-Wextra -DCUDACOMMON_GPUINFO_MAIN -o gpuinfo --x cu gpuinfo.cu
  */
 
 
@@ -367,6 +367,16 @@ inline void getCudaDeviceProperties
         printf( "| Memory Clock Rate        : %f GHz\n"    , prop->memoryClockRate/1.0e6f );
         printf( "| Memory Pitch             : %lu\n"       , prop->memPitch );
         printf( "| Unified Addressing       : %i\n"        , prop->unifiedAddressing );
+        printf( "| Texture Alignment        :  %ld\n"      , prop->textureAlignment );
+        printf( "| Max 1D Texture Size      : %i\n"        , prop->maxTexture1D );
+        printf( "| Max 2D Texture Size      : (%i,%i)\n"   , prop->maxTexture2D[0],
+                                                             prop->maxTexture2D[1] );
+        // this really is ONLY in CUDA 3.2. (maybe 3.x) available Oo
+        //printf( "| Max 2D Texture Array Size: (%i,%i)\n"   , prop->maxTexture2DArray[0],
+        //                                                     prop->maxTexture2DArray[1] );
+        printf( "| Max 3D Texture Size      : (%i,%i,%i)\n", prop->maxTexture3D[0],
+                                                             prop->maxTexture3D[1] ,
+                                                             prop->maxTexture3D[2] );
 		printf( "|--------------------- Graphics ---------------------\n" );
 		printf( "| Compute mode             : %s\n"        ,      computeModeString );
 		printf( "|---------------------- Other -----------------------\n" );
@@ -382,6 +392,7 @@ inline void getCudaDeviceProperties
     }
 }
 
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
 /**
  * atomicAdd for double is not natively implemented, because it's not
  * supported by (all) the hardware, therefore resulting in a time penalty.
@@ -400,6 +411,7 @@ inline __device__ double atomicAdd(double* address, double val)
     } while (assumed != old);
     return __longlong_as_double(old);
 }
+#endif
 
 
 template< class T >

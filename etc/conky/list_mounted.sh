@@ -10,6 +10,6 @@ cat /proc/mounts |  awk '{
       {
          str_array[num_elem] = "/";
       }
-      printf "%5.5s:${goto 40}${fs_type %s}${goto 80}${fs_bar 8,50 %s}${alignr}${fs_used %s} / ${fs_size %s} [${fs_used_perc %s}%]${voffset -2}\n", str_array[num_elem], $2, $2, $2, $2, $2, $2
+      printf "%.5s:${goto 40}${fs_type %s}${goto 80}${fs_bar 8,50 %s}${alignr}${fs_used %s} / ${fs_size %s} [${fs_used_perc %s}%]${voffset -2}\n", str_array[num_elem], $2, $2, $2, $2, $2, $2
    }
 }'

@@ -17,8 +17,8 @@ int main( void )
         assert( props != NULL );
         int iDeviceToUse = 0;
         for ( auto iDevice = 0; iDevice < nCudaDevices; ++iDevice )
-        {
             if ( ! props[iDevice].kernelExecTimeoutEnabled )
+        {
             {
                 iDeviceToUse = iDevice;
                 break;
