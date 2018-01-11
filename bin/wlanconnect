@@ -59,8 +59,10 @@ sudo pkill dhclient
 if [ ! $verbose -eq 0 ]; then
     echo "If WLAN adapter down, try to activate it"
 fi
-if ! sudo ip link | grep -q 'wlan0.*UP'; then
-    sudo ip link set wlan0 up
+wlanInterface=$( ip link | sed -nr 's/^[0-9]: (w[a-z0-9]*l[a-z0-9]*): .*(UP|DOWN).*/\1/p' )
+echo "Interface: $wlanInterface"
+if ! ip link | 'grep' -q "$wlanInterface:.* UP"; then
+    sudo ip link set "$wlanInterface" up
     sleep 0.25
 fi
 
@@ -78,7 +80,7 @@ for curnet in "${networks[@]}"; do
         fi
     done
     if [ -z "$confPath" ]; then
-        echo "\e[31mCouldn't find '$curnet.conf' in ${searchPaths[@]}\e[0m"
+        echo -e "\e[31mCouldn't find '$curnet.conf' in ${searchPaths[@]}\e[0m"
         continue
     fi
 
@@ -87,25 +89,31 @@ for curnet in "${networks[@]}"; do
         echo "SSID = $ssid"
     fi
 
-    if sudo iw wlan0 scan | grep -i -q "$ssid"; then
+    if sudo iw $wlanInterface scan | grep -i -q "$ssid"; then
         echo "Connecting to WLAN-SSID: $ssid"
         if [ ! $verbose -eq 0 ]; then
             # use tee and -d
-            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c '$confPath' -d | tee /var/log/nohup/wpasupp-$curnet.log &"
+            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -i$wlanInterface -c '$confPath' -d | tee /var/log/nohup/wpasupp-$curnet.log &"
         else
-            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -iwlan0 -c '$confPath' > /var/log/nohup/wpasupp-$curnet.log &"
+            sudo bash -c "nohup /sbin/wpa_supplicant -Dnl80211 -i$wlanInterface -c '$confPath' > /var/log/nohup/wpasupp-$curnet.log &"
         fi
         sleep 0.25
         break
     fi
 done
 
+if [ -z "$confPath" ]; then
+    echo "Couldn't connect to any network, exiting now!"
+    exit 1
+fi
+
 # only start this if no ip given. somehow check given ip
 # using ipv4 (-4) reduces problems
+sudo mkdir -p '/var/log/nohup'
 if [ ! $verbose -eq 0 ]; then
-    sudo bash -c 'nohup dhclient -4 -v wlan0 | tee /var/log/nohup/dhclient.log &'
+    sudo bash -c "nohup dhclient -4 -v $wlanInterface | tee /var/log/nohup/dhclient.log &"
 else
-    sudo bash -c 'nohup dhclient -4 -v wlan0 > /var/log/nohup/dhclient.log &'
+    sudo bash -c "nohup dhclient -4 -v $wlanInterface > /var/log/nohup/dhclient.log &"
 fi
 #sleep 0.25
 #echo "Trying to look up google.de to check connection"
