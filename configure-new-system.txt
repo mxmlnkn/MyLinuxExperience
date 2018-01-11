@@ -1,0 +1,58 @@
+#/bin/bash
+
+adduser hypatia sudo
+# allow short ssh access to add new user by setting 'PasswordAuthentication" in "/etc/ssh/sshd_config" to yes
+ssh-keygen -f ~/.ssh/id_rsa_lenovo_v110
+ssh-copy-id 10.0.0.1 -i ~/.ssh/id_rsa_lenovo_v110
+ssh -i ~/.ssh/id_rsa_lenovo_v110
+    mkdir -p /media/f/Linux/backups
+	# execute on remote in order to copy settings and execute on local host in order to backup old settings!
+	cd && tar --format=posix --absolute-names --exclude=.config/smplayer/file_settings --exclude=/media/f/Linux/opt -cjf "/media/f/Linux/backups/home-$( hostname )-settings-$( date +%Y-%m-%dT%H-%M-%S ).tar.bz2" .xnviewmp/ .Xmodmap .xscreensaver .vimrc .selected_editor .SciTEUser.properties rainlendar2.ini .profile .mime.types .inputrc .gtkrc.mine .gtkrc-2.0 .themes/ .gitconfig .dingrc .bashrc .bash_logout .wallpaper/ wallpaper/ .VeraCrypt/ .texmf/ .templates/ .ssh/ .screenlayout/ .remarkable/ .jitsi/ .icons/ .gnupg/ .gnome2/ .fonts/ files/Bilder/ .audacity-data/ .config/aacs/ .config/{audacious,autostart,bdplus,blather,caja,caja-actions,dconf,enchant,evince,filezilla,galculator,geany,GIMP,gpick,graceful-logout,gthumb,inkscape,kazam,libreoffice,nemo,octave,orage,pulse,qpdfview,.rainlendar2,ristretto,smplayer,streamtuner2,teamviewer,Thunar,VirtualBox,vlc,xarchiver,xfburn,xfce4,xfce4-dict,xm1}/ .config/{alarm.wav,compton.conf,lain-angel-wings-login.png,mimeapps.list,timerle.png,user-dirs.dirs,user-dirs.locale} .local/share/{applications,fonts,gthumb,icons,orage,xfce4} /media/f/Linux
+
+    cd /media/f/Linux && tar --format=posix --absolute-names --exclude=./backups/ -cjf "/media/f/Linux/backups/opt-$( hostname )-$( date +%Y-%m-%dT%H-%M-%S ).tar.bz2" /opt/{conky,firefox,firefox-56-en-us,FreeFileSync,IrfanView-32Bit,freac,FoxitReader,ristretto-0.8.2,zkanjiv0731}/ /opt/anime-firefox.{ico,png} /usr/share/applications/{XnView,firefox,freefilesync,nvvp,IrfanView,freac,FoxitReader,ZKanji}.desktop
+	# .config/{Bitcoin,bitpay,Digibyte,Exodus,Jaxx,Litecoin,Mist,NanoWallet,PIVX,Reddcoin,Sia-UI}
+
+    sudo tar --format=posix --absolute-names -cjpf "/media/f/Linux/backups/etc-$( hostname )-$( date +%Y-%m-%dT%H-%M-%S ).tar.bz2" /etc/apt/{preferences,apt.conf.d/30norecommends,sources.list} /etc/cron.daily/autocommit /etc/cron.weekly/backuphypatiahome /etc/fail2ban/ /etc/X11/xorg.conf.d/50-synaptics.conf /usr/share/images/desktop-base/lain-red-sitting-1920x1080.png /etc/lightdm/lightdm-gtk-greeter.conf /etc/ssh/ /root/ /usr/share/images/desktop-base/desktop-grub.png /etc/wpa_supplicant/TUD-CACert.pem
+
+    # On old notebook, not PC:
+    tar --format=posix -cjf "/media/f/Linux/backups/home-$( hostname )-personal-settings-$( date +%Y-%m-%dT%H-%M-%S ).tar.bz2" .thunderbird/ .purple/ .local/share/TelegramDesktop/ .config/opera
+cd
+scp -i ~/.ssh/id_rsa_lenovo_v110 10.0.0.1:'~/home-*settings.tar /media/f/Linux/opt.tar' .
+# best to do this in tty terminal, because if xfce is running it might be, that on logout the settings are reverted back to those cached in memory.
+# --overwrite not necessary, it should be default behavior
+sudo chmod a+w /media
+sudo chmod a+r /var/log/{syslog,auth.log}
+tar --atime-preserve --overwrite -xvf home-hypatia-pc-settings.tar
+sudo tar --atime-preserve --absolute-names -xvf --overwrite opt.tar
+sudo tar --atime-preserve --absolute-names -xvf --overwrite etc.tar
+tar --atime-preserve -xf home-LenovoE330-personal-settings.tar.bz2
+ln -s /media/f/Linux/bin ~/bin
+ln -s /media/f/Linux/etc ~/etc
+# reboot -> WUNDERBAR. sieht mit einem mal schon sehr stark nach meinem PC aus :333
+
+sudo chmod a+r /var/log/{syslog,auth.log}   # for conky to work
+sudo update-grub # apply lain wallpaper
+/media/f/Linux/install-packets.sh
+si libxfce4ui-1-dev libexif-dev && cd /opt/ristretto-0.8.2. && ./configure && sudo make install
+
+
+
+### Old copy-config script
+
+sshSrc=homepc
+
+xfconf-query -c xfwm4 -p /general/easy_click -s none
+homeConfigFiles=(
+    '.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml'
+)
+for hcf in ${homeConfigFiles[@]}; do
+    iBak=0; while [ -f "$HOME/$hcf.bak$iBak" ]; do (( ++iBak )); done
+    echo mv "$HOME/$hcf"{,.bak$iBak}
+    scp "$sshSrc:~/$hcf" "$HOME/$hcf"
+done
+
+xfdesktop --reload
+kill -HUP `pidof xfdesktop`
+xfwm4 --replace
+xfsettingsd --replace
+xfce4-panel -r
