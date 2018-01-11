@@ -464,9 +464,9 @@ EOF
     cd "$oldDir"
 }
 
-function o() { xdg-open "$*"; }
+o() { xdg-open "$*"; }
 
-function downo() {
+downo() {
     local link
     for link in $@; do
         wget "$link"
@@ -477,7 +477,7 @@ function downo() {
 
 alias getip='wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1'
 
-function findPath()
+findPath()
 {
     local path
     for path in "$@"; do
@@ -488,7 +488,7 @@ function findPath()
     done
 }
 
-function toUTF8()
+toUTF8()
 {
     iconv -f ISO8859-15 -t UTF8 "$1" -o "$1".utf8
     echo -ne '\xEF\xBB\xBF' > "$1".utf8 && iconv -f ISO8859-15 -t UTF8 "$1" >> "$1".utf8
@@ -496,7 +496,17 @@ function toUTF8()
     mv --no-clobber "$1.utf8" "$1"
 }
 
-function splitCue()
+splitCue()
 {
     shnsplit -f "$1" -t '%n - %t' -o flac -- "${1%.cue}".[^c]*
+}
+
+trash-empty()
+{
+    local mountpoint
+    for mountpoint in $( cat /proc/mounts | awk '{ print $2; }' ); do
+        if [ -d "$mountpoint/.Trash/$UID"    ]; then echo "Deleting '$mountpoint/.Trash/$UID/' ..." ; command rm -r "$mountpoint/.Trash/$UID/" ; fi
+        if [ -d "$mountpoint/.Trash-$UID"    ]; then echo "Deleting '$mountpoint/.Trash-$UID/' ..." ; command rm -r "$mountpoint/.Trash-$UID/" ; fi
+        if [ -d "$mountpoint"'/$RECYCLE.BIN' ]; then echo "Deleting '$mountpoint/\$RECYCLE.BIN' ..."; command rm -r "$mountpoint/\$RECYCLE.BIN"; fi
+    done
 }
