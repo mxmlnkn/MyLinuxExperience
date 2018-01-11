@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echoerr() { echo "$@" 1>&2; }
+
 cd "$(mktemp -d)"
 cp /var/log/auth.log* .
 i=0
@@ -25,18 +27,45 @@ cat auth.log* | sed -nE '
     s|(141\.75\..*)|#\1|;
     # 1&1
     # s|(87\.157\..*)|#\1|;
-' | sort | uniq > found.lst
+' > found.lst
+# append already existing blocks deleting the existing timestamps in order to find duplicates
+'cp' /etc/fail2ban/ip.blacklist .
+sed 's|[ \t]*\[.*\]$||' ip.blacklist >> found.lst # delete timestamps and append old blacklist to new one
+sort -n found.lst | uniq | sponge found.lst
 # Block ranges if more than one in a range attacked
-sed 's|[0-9]*$||' found.lst | uniq -c | sed '/^[ \t]*1 /d; s|\.$|.0/24|; s|^[ \t]*[0-9]* ||' >> found.lst
+# delete last range and count multiples (already sorted, so not needed)
+sed 's|[0-9]*[ \t]*$||' found.lst | uniq -c | sed '/^[ \t]*1 /d; s|\.$|.0/24|; s|^[ \t]*[0-9]* ||' > ip.blacklist.ranges
+sed -n '/.0\/24/p' found.lst >> ip.blacklist.ranges
+# https://unix.stackexchange.com/questions/76049/what-is-the-difference-between-sort-u-and-sort-uniq
+sort -u -n ip.blacklist.ranges | sponge ip.blacklist.ranges
 
-cp /etc/fail2ban/ip.blacklist .
-sed 's|[ \t]\[.*\]$||' ip.blacklist >> found.lst
-sort -n found.lst -u -o found.lst
+# Find multiple (>=3) range bans with same initial IPs like:
+#     221.194.44.0/24
+#     221.194.47.0/24
+#     221.194.49.0/24
+# and range ban the next higher range i.e.
+#     221.194.0.0/16
+sed 's|[0-9]*\.0/24[ \t]*$||' ip.blacklist.ranges | uniq -c | sed '/^[ \t]*[12] /d; s|\.$|.0.0/16|; s|^[ \t]*[0-9]* ||' > ip.blacklist.ranges
 
+# Delete ips which are already included in range bans
+while read iprange; do
+    ipraw=${iprange%\.0/24}
+    ipraw=${iprange%\.0\.0/16}
+    sed -i "/^${ipraw//./\\.}/d" found.lst
+done < ip.blacklist.ranges
+cat ip.blacklist.ranges >> found.lst
+# for some reason I had a case with \r which results in uniq not deleting two seemingly identical lines
+# similarly end of line whitespaces need to be deleted
+sort -n found.lst | sed 's|\r||g; s|[ \t]*$||;' | uniq | sponge found.lst
+
+# And add timestamps to ips from either old ip.blacklist or the auth.logs
 echo '' > found.lst.unpretty
+nIps=$( wc -l found.lst )
+iIp=1
 while read ip; do
-    ipraw=${ip%.0/24}
-    ipraw=${ipraw#\#}
+    ipraw=${ip%.0/24}   # delete ranging to get e.g. 2.105.219
+    ipraw=${ipraw#\#}   # delete hashtag e.g. as in #::1
+    # find timestamp in auth.log by using $ipraw
     timestamp=$( 'grep' --no-filename -F "$ipraw" auth.log* |
                  'sed' -nr '1s|^([A-Za-z]+[ \t]+[0-9]+[ \t]+[0-9:]+).*|\1|p' )
     if [ -z "$timestamp" ]; then
@@ -46,14 +75,34 @@ while read ip; do
     if [ -z "$timestamp" ]; then
         echo "No timestamp corresponding to found IP: '$ipraw' found. This should not happen. Using 'now' as timestamp"
         timestamp='now'
+    elif [ "$( date --date="$timestamp" '+%s' )" -gt "$( date +%s )" ]; then
+        # bug: timestamps in auth.log are like 'Nov 16 01:37:07' ... But when using
+        #      this with -date --date=$timetamp, the current year will be assumed,
+        #      possibly yielding a date in the future
+        timestamp="$timestamp last year"
     fi
-    echo "${ip}+[$(date --date="$timestamp" '+%y-%m-%d %H:%M:%S')]" >> found.lst.unpretty
-done < found.lst
+    #echoerr "Reformat timestamp: '$timestamp' to [$( date --date="$timestamp" '+%y-%m-%d %H:%M:%S' )]"
+    echo "${ip}+[$( date --date="$timestamp" '+%y-%m-%d %H:%M:%S' )]" >> found.lst.unpretty
+    echoerr -n -e "\e[37mAdding timestamp to IPs [$iIp/$nIps]\e[0m\r"
+    (( iIp += 1 ))
+done
+echoerr
+# align timestamps to be on the same character column
 #sed -i 's;[ \t]+$;|+['"$(date '+%d/%m/%y %H:%M:%S')"'];' found.lst
 #cp found.lst found.lst.unpretty
 column -s '+' -t -e found.lst.unpretty > found.lst
 
+cat found.lst # cat before echo 'cp', because I missed it and thought I had to copy it myself
 echo sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
 sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
-cat  found.lst
 #rm -r "$(pwd)"
+
+exit 0
+
+# https://unix.stackexchange.com/questions/7399/ip-to-country-console-command
+url='http://www.geoiptool.com/en/?IP='
+while read ip; do
+    #lynx -dump "$url$ip" | sed -n '/Hostname:/,/City:/p'
+    #printf '% -16s ' "$ip"; lynx -dump "$url$ip" | sed -nr 's|.*Country Code:[ \t]*(.*)[ \t]*|\1|p' | head -1
+    geoiplookup "$ip" | sed 's|.*: ||'
+done < <( sed 's|[ \t]*$||' found.lst )
