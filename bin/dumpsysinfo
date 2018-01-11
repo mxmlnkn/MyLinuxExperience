@@ -1,0 +1,27 @@
+#!/bin/bash
+
+touch sysinfo
+
+commands=(
+    '/sbin/ifconfig'
+    'ip route'
+    'ip addr show'
+    'uname -a'
+    'lscpu'
+    'lsblk'
+    'lsusb'/
+    '/sbin/lspci'
+    '/sbin/lspci -v'
+    '/sbin/lspci -t'
+    'mount'
+    'ps aux'
+    'cat /proc/meminfo'
+    'cat /proc/cpuinfo'
+    'cat /proc/uptime'
+    'cat /etc/hosts'
+    'history'
+)
+for cmd in ${commands[@]}; do
+    echo -e "\n===== $command =====\n" >> sysinfo
+    $command >> sysinfo
+done
