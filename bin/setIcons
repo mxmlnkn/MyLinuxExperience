@@ -21,8 +21,8 @@ findThumbnailImage() {
     local file extension width
 
     # -a to also include hidden files, especially .folder.ico which this script generates
-    file=$('ls' -a -v | 'grep' -e '.ico$' | 'head' -1)
-    if [ ! -z "$file" ] && [ -f "$file" ] && $('identify' "$file" | 'grep' -q 'ICO'); then
+    file=$( 'ls' -a -v | 'grep' -e '.ico$' | 'head' -1 )
+    if [ ! -z "$file" ] && [ -f "$file" ] && $( 'identify' "$file" | 'grep' -q 'ICO' ); then
         echo "$file"
         return 0
     fi
@@ -50,14 +50,14 @@ findThumbnailImage() {
         # where line 48 was 'if [ "$width" -gt "$height" ]' this is because width as returned by convert would be all widths of the consecutive frames concatenated, in this example 27 frames each 850px wide
         # Trying to converte an animated gid to icon-temp.png would convert them to icon-tmp-0.png and so on, thereby polluting the folders. Clean this with:
         #   find /media/m/ -name 'icon-tmp*.png' -execdir bash -c 'echo "$(pwd)/{}"' \;
-        if [ "$extension" == "gif" ] && [ $('identify' "$file" | 'wc' -l) -gt 1 ] ; then
+        if [ "$extension" == "gif" ] && [ $( 'identify' "$file" | 'wc' -l ) -gt 1 ] ; then
             if [ $verbose -eq 1 ]; then
                 echoerr -e "\e[33m'$1': File is animated, won't be used for thumbnail"'!'"\e[0m"
             fi
             continue
         fi
 
-        width=$('convert' "$file" -format "%w" info: 2>/dev/null)
+        width=$( 'convert' "$file" -format "%w" info: 2>/dev/null )
         if [ -z "$width" ]; then
             # if it isn't an image, then width won't be available
             if [ $verbose -eq 1 ]; then
@@ -230,15 +230,16 @@ setCustomFolderIcon() {
         makeReadOnly .
         makeHidden desktop.ini
     fi
-    if commandExists gvfs-set-attribute; then
+    if commandExists gio; then # gvfs-set-attribute
         # test if it already has icon
-        if gvfs-info -a 'metadata::*' "$folder" | 'grep' -q 'custom-icon'; then
+        if gio info -a 'metadata::*' "$folder" | 'grep' -q 'custom-icon'; then  #gvfs-info
         #    echoerr -e "\e[35m[$(pwd)] '$1' already has an icon set.\e[0m"
             exit 2
         fi
         # gvfs-info --query-writable .
 
-        gvfs-set-attribute . metadata::custom-icon "$1"
+        # gvfs-set-attribute . metadata::custom-icon "$1" # deprecated since when?!
+        gio set . metadata::custom-icon "$1"
         # can be undone with: gvfs-set-attribute . -t unset metadata::custom-icon
     fi
 }
@@ -269,6 +270,7 @@ remove=0
 force=0
 verbose=0
 folder=.
+file=
 while [ "$1" != "" ]; do
   case $1 in
     "-h" | "--help")
@@ -299,26 +301,35 @@ while [ "$1" != "" ]; do
   esac
   shift
 done
+
+echo "folder=$folder"
 if [ ! -d "$folder" ]; then
-    # Fuck history expansion with exclamation mark -.-. Note that
-    # \! won't be interpreted as history expension, but it will still print
-    # the backslash -.-.
-    # http://unix.stackexchange.com/questions/33339/cant-use-exclamation-mark-in-bash
-    # http://superuser.com/questions/133780/in-bash-how-do-i-escape-an-exclamation-mark
-    echoerr -e "\e[31m[$(pwd)] '$1' is not a folder"'!'"\e[0m"
-    printHelpMessage
-    exit 1
+    if [ -f "$folder" ] && timeout 1s identify -- "$folder"; then
+        file=$( basename -- "$folder" )
+        folder=$( dirname -- "$folder" )
+        echo -e "\e[37mDetected file: folder='$folder', file='$file'\e[0m"
+    else
+        # Fuck history expansion with exclamation mark -.-. Note that
+        # \! won't be interpreted as history expension, but it will still print
+        # the backslash -.-.
+        # http://unix.stackexchange.com/questions/33339/cant-use-exclamation-mark-in-bash
+        # http://superuser.com/questions/133780/in-bash-how-do-i-escape-an-exclamation-mark
+        echoerr -e "\e[31m[$(pwd)] '$1' is neither a folder nor an image"'!'"\e[0m"
+        printHelpMessage
+        exit 1
+    fi
 fi
 
 #find . -type d -print0 | xargs -0 -P 3 -I {} setIcons \"{}\" -f
-olddir="$(pwd)"
+olddir=$( pwd )
 cd -- "$folder"
 
 # if force, then delete all pre-existing
 if [ $force -eq 1 ] || [ $remove -eq 1 ]; then
     rm -f 'desktop.ini' '.folder.ico'
     if ! isCygwin; then
-        gvfs-set-attribute . -t unset metadata::custom-icon
+        #gvfs-set-attribute . -t unset metadata::custom-icon    # deprecated... since when?!
+        gio set . -t unset metadata::custom-icon
     fi
     if [ $remove -eq 1 ]; then
         exit 0
@@ -326,7 +337,9 @@ if [ $force -eq 1 ] || [ $remove -eq 1 ]; then
 fi
 
 checkPrerequisites
-file=$(findThumbnailImage)
+if [ ! -f "$file" ]; then
+    file=$( findThumbnailImage )
+fi
 if [ -z "$file" ]; then
     echoerr -e "\e[31mCouldn't find suitable thumbnail image in '$(pwd)'\e[0m"
     exit 1
