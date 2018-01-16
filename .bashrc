@@ -503,10 +503,91 @@ splitCue()
 
 trash-empty()
 {
-    local mountpoint
+    local mountpoint folder dry
+    local ndays=$1
+    if [ "$1" == '-d' ] || [ "$2" == '-d' ]; then dry=echo; fi
     for mountpoint in $( cat /proc/mounts | awk '{ print $2; }' ); do
-        if [ -d "$mountpoint/.Trash/$UID"    ]; then echo "Deleting '$mountpoint/.Trash/$UID/' ..." ; command rm -r "$mountpoint/.Trash/$UID/" ; fi
-        if [ -d "$mountpoint/.Trash-$UID"    ]; then echo "Deleting '$mountpoint/.Trash-$UID/' ..." ; command rm -r "$mountpoint/.Trash-$UID/" ; fi
-        if [ -d "$mountpoint"'/$RECYCLE.BIN' ]; then echo "Deleting '$mountpoint/\$RECYCLE.BIN' ..."; command rm -r "$mountpoint/\$RECYCLE.BIN"; fi
+        for folder in ".Trash/$UID" ".Trash-$UID" '$RECYCLE.BIN'; do
+            if [ -d "$mountpoint/$folder" ]; then
+                echo "Deleting '$mountpoint/$folder/' ..." 1>&2
+                if [ "$ndays" -eq "$ndays" ] 2>/dev/null && [ "$ndays" != 0 ] && [ -d "$mountpoint/$folder/info/" ]; then
+                    # assuming that file modification date for .trashinfo files is the same as the DeletionDate stored inside that file
+                    # note that -mtime +0 will find all files older than 24h and +1 all files older than 2 days, ...
+                    find "$mountpoint/$folder/info/" -mtime "+$(( ndays-1 ))" -name '*.trashinfo' -print0 |
+                    sed -rz "s|^(.*)/${folder//./\\.}/info/(.*)\.trashinfo$|\1$folder/info/\2.trashinfo\x00\1$folder/files/\2|" |
+                    xargs -0 $dry 'rm' -r
+                else
+                    $dry command rm -r "$mountpoint/$folder/"
+                fi
+            fi
+        done
     done
 }
+
+# cleanes filename of files in current folder and its subdirectories
+# no target directory or file argument possible at the moment
+#
+# ToDo: create list of files, run sed over this whole list instead of per each file name and then diff this .... Something like find -print0 | tee original.lst | sed -z '...' > changed.lst; diff {original,changed}.lst | xargs -0 -L3 -l3 ...
+
+# takes piped input!
+cleanFilenames() {
+    # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
+    #    / \ * ? < > |
+    #    \x22->\x27 makes: double quote -> single quote
+    #    pipestroke -> hyphen
+    #    double quote -> single quote
+    # Windows: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
+    #   < > : " / \ | ? *
+    # Change HTML-Codes:
+    #    &#039; -> '
+    #    here is how to correct html codes in existing folder names:
+    #       find /media/m -type d -execdir bash -c 'if grep -q "&#039;" <(echo '"'{}'"'); then newname=$(printf "%s" '"'{}'"' | sed "s/&#039;/'"'"'/g"); echo mv "{}"; echo " -> $newname"; mv "{}" "$newname"; fi' \;
+    # Use printf instead of echo to make it work for file names starting with e.g. '-e'
+    sed -r '
+        # $! - If its not a end of file.
+        # N  - Append the next line with the pattern space delimited by \n
+        # b  - jump to label
+        :a
+            N
+        $!b a
+        s/\n/ /g
+        # for some reason s/\r//g wouldnt work now :S, that is why it is piped to another sed
+    ' | perl -C -MHTML::Entities -pe 'decode_entities($_);' | sed -r '
+        # windows restrictions -> the two most important replacements
+        s/[|/\:]/ - /g;
+        s/[*?<>]/_/g;
+        s|—|-|g;
+        s/\x22/\x27/g;
+        # .html.mht -> .mht
+        s/\.html\.mht/\.mht/g;
+        # intrusive and not really necessary. was just because I thought it could spell trouble in bad bash scripts -.-
+        #s/[$/_/g;
+        # delete dots at the end of line (windows has issue with empty extensions -.-)
+        s/\.+$//g;
+        s/&#039;/'\''/g;
+        # Replace & character. Also quite intrusive ...
+        # s|&| and |g;
+        s|";|'\''|g;
+        # delete leading spaces
+        s/^[ \t]+//g;
+        # delete white spaces at end of extension
+        s/[ \t]+$//g;
+        # delete white spaces at end of file name
+        s/[ \t]+(\.[0-9A-Za-z]{3})$/\1/g;
+        # delete newlines and returns and other non-printables
+        s/[\x01-\x1F\x7F]/ /g;
+        s|\t| |g;
+        s|[ \t]+| |g;
+        # convert hex codes
+        s|%20| |g;
+        # convert extensions to lowercase (quite intrusive)
+        # s|(\.[A-Za-z0-9]{3})$|\L\1|;
+        # some other obnoxious extensions
+        # intrusive
+        # s|\.jpeg$|.jpg|;
+        s|\.png\.jpg|.jpg|;
+        s|\.jpg\.png|.png|;
+    '
+}
+
+isodate() { date "$@" +%Y-%m-%dT%H-%M-%S; }
