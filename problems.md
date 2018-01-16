@@ -921,6 +921,7 @@ apt-cache policy xarchiver
  - http://redmine.audacious-media-player.org/projects/audacious/issues/new
    make bugreport or try to upgrade to newest version :S
  - http://audacious-media-player.org/download
+ - Press Ctrl+N
 
 **Solution:**
 ```Shell

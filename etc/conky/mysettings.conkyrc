@@ -157,14 +157,14 @@ ${color2}${alignc}Syslog$color
 ${color2}${voffset -5}${hr 1}$color
 # hard to say what fold value to use here, because of variable width font -.-
 # but 47 was too large on one day for width 170
-${voffset 5}${texeci 10 tail -n 4 /var/log/syslog | fold -w 46}
+${voffset 5}${texeci 10 tail -n 4 /var/log/syslog | fold -w 45}
 #-------------------------------------------------------------------------------
 #                                  Logging
 #-------------------------------------------------------------------------------
 ${color2}${voffset 2}${hr 1}$color
 ${color2}${alignc}Authentication Log$color
 ${color2}${voffset -5}${hr 1}$color
-${voffset 5}${texeci 10 tail -n 4 /var/log/auth.log | fold -w 46}
+${voffset 5}${texeci 10 tail -n 4 /var/log/auth.log | fold -w 45}
 #-------------------------------------------------------------------------------
 #                                    HDD
 #-------------------------------------------------------------------------------

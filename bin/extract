@@ -11,6 +11,10 @@
 #  - zip and unzip don't seem to have any way (like --) to allow file names
 #    starting with '-'!
 
+# log all stderr and stdout into files (but still display them)
+exec 1> >( tee -ia ~/logs/extract.log )
+exec 2> >( tee -ia ~/logs/extract.log >&2 )
+
 function echoerr() { echo "$@" 1>&2; }
 
 function getArchiveCommand() {
