@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# log all stderr and stdout into files (but still display them)
+exec 1> >( tee -ia ~/logs/addAnidbCovers.log )
+exec 2> >( tee -ia ~/logs/addAnidbCovers.log >&2 )
+
+# cleanes filename of files in current folder and its subdirectories
+# no target directory or file argument possible at the moment
+#
+# ToDo: create list of files, run sed over this whole list instead of per each file name and then diff this .... Something like find -print0 | tee original.lst | sed -z '...' > changed.lst; diff {original,changed}.lst | xargs -0 -L3 -l3 ...
+
+# takes piped input!
+cleanFilenames() {
+    # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
+    #    / \ * ? < > |
+    #    \x22->\x27 makes: double quote -> single quote
+    #    pipestroke -> hyphen
+    #    double quote -> single quote
+    # Windows: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
+    #   < > : " / \ | ? *
+    # Change HTML-Codes:
+    #    &#039; -> '
+    #    here is how to correct html codes in existing folder names:
+    #       find /media/m -type d -execdir bash -c 'if grep -q "&#039;" <(echo '"'{}'"'); then newname=$(printf "%s" '"'{}'"' | sed "s/&#039;/'"'"'/g"); echo mv "{}"; echo " -> $newname"; mv "{}" "$newname"; fi' \;
+    # Use printf instead of echo to make it work for file names starting with e.g. '-e'
+    sed -r '
+        # $! - If its not a end of file.
+        # N  - Append the next line with the pattern space delimited by \n
+        # b  - jump to label
+        :a
+            N
+        $!b a
+        s/\n/ /g
+        # for some reason s/\r//g wouldnt work now :S, that is why it is piped to another sed
+    ' | perl -C -MHTML::Entities -pe 'decode_entities($_);' | sed -r '
+        # windows restrictions -> the two most important replacements
+        s/[|/\:]/ - /g;
+        s/[*?<>]/_/g;
+        s|—|-|g;
+        s/\x22/\x27/g;
+        # .html.mht -> .mht
+        s/\.html\.mht/\.mht/g;
+        # intrusive and not really necessary. was just because I thought it could spell trouble in bad bash scripts -.-
+        #s/[$/_/g;
+        # delete dots at the end of line (windows has issue with empty extensions -.-)
+        s/\.+$//g;
+        s/&#039;/'\''/g;
+        # Replace & character. Also quite intrusive ...
+        # s|&| and |g;
+        s|";|'\''|g;
+        # delete leading spaces
+        s/^[ \t]+//g;
+        # delete white spaces at end of extension
+        s/[ \t]+$//g;
+        # delete white spaces at end of file name
+        s/[ \t]+(\.[0-9A-Za-z]{3})$/\1/g;
+        # delete newlines and returns and other non-printables
+        s/[\x01-\x1F\x7F]/ /g;
+        s|\t| |g;
+        s|[ \t]+| |g;
+        # convert hex codes
+        s|%20| |g;
+        # convert extensions to lowercase (quite intrusive)
+        # s|(\.[A-Za-z0-9]{3})$|\L\1|;
+        # some other obnoxious extensions
+        # intrusive
+        # s|\.jpeg$|.jpg|;
+        s|\.png\.jpg|.jpg|;
+        s|\.jpg\.png|.png|;
+    '
+}
+
+if ! declare -f cleanFilenames > /dev/null; then
+    echo -e "\e[31mNo 'cleanFilenames' bash function found"'!'" This is needed for some names like 'Risky/Safety'.\e[0m"
+    return 1
+fi
+export -f cleanFilenames
+for folder in "$@"; do (
+    if [ ! -d "$folder" ]; then
+        echo -e "\e[31m'$folder' is not a folder"'!'"\e[0m"
+    fi
+    echo -e "\e[37mDescending into folder '$folder'\e[0m"
+    cd "$folder"
+    if [ "$( find . -maxdepth 1 -regextype 'posix-extended' -regex '\./[0-9]+ - .*\.jpg' | wc -l )" -gt 0 ]; then
+        echo -e "\e[35mAlready found files matching AniDB-Cover naming scheme. Skipping this folder. Files:\e[0m"
+        find . -maxdepth 1 -regextype 'posix-extended' -regex '\./[0-9]+ - .*\.jpg'
+    fi
+    name=$folder; name=${name%/}; name=${name##*/}; name=${name%(*)}; name=${name%\[*\]}; name=${name// - / }
+    echo -e "\e[37mSearching for '$name'\e[0m"
+    if [ -z "$name" ]; then
+        echo -e "\e31mSomething went wrong, name to serach for is empty"'!'"\e[0m"
+        continue
+    fi
+    wget -q -O result.html --user-agent='Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36' "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
+    if [ ! -f result.html ]; then
+        echo -e "\e[31mSomething went wrong, can't find 'result.html'"'!'"\e[0m"
+        rm result.html
+        continue
+    fi
+    if 'grep' -q 'No results.' result.html; then
+        echo -e "\e[31mNo results found"'!'" Please check manually whether there might be a typo in the Anime name.\e[0m"
+        rm result.html
+        continue
+    fi
+    title=$( sed -nr 's|.*<title>([^<]*)</title>.*|\1|p' result.html )
+    if [ "$title" == 'Anime List - AniDB' ]; then
+        sed -nr '
+            s|.*<a href="animedb\.pl\?show=anime&amp;aid=[0-9]*">([^<]*)</a>.*|\1|p;
+            s|.*<source srcset="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p
+        ' result.html
+    else
+        sed -nr '
+            s|.*<h1 class="anime">Anime: ([^<]*)</h1>.*|\1|p;
+            s|.*<img [^>]*src="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p
+        ' result.html | tac
+    fi | xargs -L 2 -d '\n' bash -c '
+            fname="${0##*/}"
+            fname="${fname%.*} - $1.${fname##*.}"
+            echo -e "\e[37mDownloading \"$fname\"\e[0m"
+            wget -q -O "$( printf "%s" "$fname" | cleanFilenames )" "$0"
+        '
+    rm result.html
+); done
