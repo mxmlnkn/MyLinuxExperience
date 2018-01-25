@@ -591,3 +591,120 @@ cleanFilenames() {
 }
 
 isodate() { date "$@" +%Y-%m-%dT%H-%M-%S; }
+
+hexdump()
+{
+    # introduces artifical line breaks in hexdump output at newline characters
+    # might be useful for comparing files linewise, but still be able to
+    # see the differences in non-printable characters utilizing hexdump
+    # first argument must be -n else normal hexdump will be used
+    local isTmpFile=0
+    if [ "$1" != '-n' ]; then command hexdump "$@"; else
+        if [ -p /dev/stdin ]; then
+            local file="$( mktemp )" args=( "${@:2}" )
+            isTmpFile=1
+            cat > "$file" # save pipe to temporary file
+        else
+            local file="${@: -1}" args=( "${@:2:$#-2}" )
+        fi
+        # sed doesn't seem to work on file descripts for some very weird reason,
+        # the linelength will always be zero, so check for that, too ...
+        local readfile="$( readlink -- "$file" )"
+        if [ -n "$readfile" ]; then
+            # e.g. readlink might return pipe:[123456]
+            if [ "${readfile::1}" != '/' ]; then
+                readfile="$( mktemp )"
+                isTmpFile=1
+                cat "$file" > "$readfile"
+                file="$readfile"
+            else
+                file="$readfile"
+            fi
+        fi
+        # we can't use read here else \x00 in the file gets ignored.
+        # Plus read will ignore the last line if it does not have a \n!
+        # Unfortunately using sed '<linenumbeer>p' prints an additional \n
+        # on the last line, if it wasn't there, but I guess still better than
+        # ignoring it ...
+        local linelength offset nBytes="$( cat "$file" | wc -c )" line=1
+        for (( offset = 0; offset < nBytes; )); do
+            linelength=$( sed -n "$line{p;q}" -- "$file" | wc -c )
+            (( ++line ))
+            head -c $(( offset + $linelength )) -- "$file" |
+            command hexdump -s $offset "${args[@]}" | sed '$d'
+            (( offset += $linelength ))
+        done
+        # Hexdump displays a last empty line by default showing the
+        # file size, bute we delete this line in the loop using sed
+        # Now insert this last empty line by letting hexdump skip all input
+        head -c $offset -- "$file" | command hexdump -s $offset "$args"
+        if [ "$isTmpFile" -eq 1 ]; then rm "$file"; fi
+    fi
+}
+
+hexdiff()
+{
+    # compares two files linewise in their hexadecimal representation
+    # create temporary files, because else the two 'hexdump -n' calls
+    # get executed multiple times alternatingly when using named pipes:
+    # colordiff <( hexdump -n -C "${@: -2:1}" ) <( hexdump -n -C "${@: -1:1}" )
+    local a="$( mktemp )" b="$( mktemp )"
+    hexdump -n -v -C "${@: -2:1}" | sed -r 's|^[0-9a-f]+[ \t]*||;' > "$a"
+    hexdump -n -v -C "${@: -1:1}" | sed -r 's|^[0-9a-f]+[ \t]*||;' > "$b"
+    colordiff "$a" "$b"
+    rm "$a" "$b"
+}
+
+#hexlinedump()
+#{
+#    # real	0m6.554s
+#    # user	0m6.796s
+#    # sys	0m0.204s
+#    local nChars=$1 file=$2 a="$( mktemp )" b="$( mktemp )"
+#    od -w$( cat -- "$file" | wc -c ) -tx1 -v -An -- "$file" |
+#    sed 's| 0a| 0a\n|g' | sed -r 's|(.{'"$(( 3*nChars ))"'})|\1\n|g' |
+#    sed '/^ *$/d' > "$a"
+#    # need to delete empty lines, because 0a might be at the end of a char
+#    # boundary, so that not only 0a, but also the character limit introduces
+#    # a line break
+#    sed -r 's|(.{'"$nChars"'})|\1\n|g' -- "$file" | sed -r 's|(.)| \1 |g' > "$b"
+#    paste -d$'\n' -- "$a" "$b"
+#    rm "$a" "$b"
+#}
+
+hexlinedump()
+{
+    # https://unix.stackexchange.com/questions/40694/why-real-time-can-be-lower-than-user-time
+    # real	0m5.363s
+    # user	0m7.224s
+    # sys	0m0.192s
+    # => is slower in total user time, but parallelizes better therefore smaller real time!
+    local nChars=$1 file=$2
+    paste -d$'\n' -- <( od -w$( cat -- "$file" | wc -c ) -tx1 -v -An -- "$file" |
+        sed 's| 0a| 0a\n|g' | sed -r 's|(.{'"$(( 3*nChars ))"'})|\1\n|g' |
+        sed '/^ *$/d' ) <(
+    # need to delete empty lines, because 0a might be at the end of a char
+    # boundary, so that not only 0a, but also the character limit introduces
+    # a line break
+    sed -r 's|(.{'"$nChars"'})|\1\n|g' -- "$file" | sed -r 's|(.)| \1 |g' )
+}
+
+#hexdiff()
+#{
+#    # real	0m16.114s
+#    # user	0m19.792s
+#    # sys	0m0.644s
+#    local a="$( mktemp )" b="$( mktemp )"
+#    hexlinedump 16 "${@: -2:1}" > "$a"
+#    hexlinedump 16 "${@: -1:1}" > "$b"
+#    colordiff --difftype=diffy "$a" "$b"
+#    rm "$a" "$b"
+#}
+
+hexdiff()
+{
+    # real	0m12.958s
+    # user	0m18.908s
+    # sys	0m0.564s
+    colordiff <( hexlinedump 16 "${@: -2:1}" ) <( hexlinedump 16 "${@: -1:1}" )
+}

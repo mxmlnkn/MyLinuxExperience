@@ -22,6 +22,9 @@ packagelistsid=(
     # only pc
     #cuda
 
+    # hexdump, ...
+    bsdmainutils
+
     # scala 2.11 doesn't work with spark 1.6.0 yet -.-
     scala scala-doc
 
@@ -175,6 +178,7 @@ packagelistsid=(
     libreoffice-common libreoffice-core libreoffice-pdfimport libreoffice-l10n-de libreoffice-help-de hyphen-de myspell-de-de mythes-de libreoffice-help-en-us libreoffice-writer libreoffice-impress
 
     marble-qt # 3D offline globe
+    virtualbox-qt virtualbox-guest-utils
 )
 
 for package in "${packagelistsid[@]}"; do
