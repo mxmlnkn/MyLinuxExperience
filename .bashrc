@@ -70,9 +70,11 @@ isGitRepo() { git rev-parse --git-dir &>/dev/null; }
 if ! type GitPS1 &>/dev/null | grep -q 'function'; then
     GitPS1() {
         if isGitRepo; then
-            local branchName=$(git symbolic-ref --short HEAD -q 2>/dev/null)
+            # not using --short, because it's not available in Git 1.7.1
+            local branchName=$( git symbolic-ref HEAD -q 2>/dev/null )
+            branchName=${branchName##*/}
             if [ -z "$branchName" ]; then
-                branchName=$(git rev-parse --short HEAD)
+                branchName=$( git rev-parse --short HEAD )
             fi
             echo "($branchName)"
         fi
@@ -707,4 +709,62 @@ hexdiff()
     # user	0m18.908s
     # sys	0m0.564s
     colordiff <( hexlinedump 16 "${@: -2:1}" ) <( hexlinedump 16 "${@: -1:1}" )
+}
+
+sourceWhitspaces()
+{
+    folder=$1
+    tmp=$( mktemp )
+    for file in "$folder"/*.cu "$folder"/*.?pp; do
+        sed 's|[ \t]*$||g; s|\t|    |g; s|\r||g' -- "$file" > "$tmp"
+        if ! diff "$tmp" "$file"; then # returns nonzero (no success) if they differ
+            echo "Adjusted whitespaces in: $file" 1>&2
+            command mv "$tmp" "$file"
+        fi
+    done
+}
+
+dumpsysinfo()
+{
+    local file='sysinfo.log'
+    if [ -n "$1" ]; then file=$1; fi
+    touch "$file"
+    local command commands=(
+        'ifconfig'
+        'ip route'
+        'ip addr show'
+        'uname -a'              # includes hostname as second word on line
+        'lscpu'
+        'lsblk'
+        'lsusb'
+        'lspci'
+        'lspci -v'
+        'lspci -t'
+        'mount'
+        'ps aux'
+        'cat /proc/meminfo'
+        'cat /proc/cpuinfo'
+        'cat /proc/uptime'
+        'cat /etc/hosts'
+        'nvidia-smi'
+        'nvidia-smi -q'
+    )
+    local path paths=(
+        ''
+        '/usr/local/bin'
+        '/usr/local/sbin'
+        '/usr/bin'
+        '/usr/sbin'
+        'bin'
+        'sbin'
+    )
+    for command in "${commands[@]}"; do
+        echo -e "\n===== $command =====\n" >> "$file"
+        for path in "${paths[@]}"; do
+            if commandExists $command; then
+                $command >> "$file"
+                break
+            fi
+        done
+    done
 }
