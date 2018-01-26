@@ -41,7 +41,7 @@ This script plays an alarm sound after the given duration or at the given time a
     shift
 done
 
-echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will will finish in ${waitTime}"
+echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will finish in ${waitTime}" # at $(date --date=@$(( $( date +%s ) + ${waitTime%m} * 60 )) '+%Y-%m-%d %H-%M-%S')"
 sleep "$waitTime"
 if [ "$quiet" -eq 0 ]; then
     ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &

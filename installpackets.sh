@@ -75,7 +75,7 @@ packagelistsid=(
     # some programming libraries often used
     libfftw3-dev
     # cmake newest + dependendencies
-    cmake cmake-doc cmake-qt-gui hexchat
+    cmake cmake-doc cmake-qt-gui cmake-curses-gui hexchat
     # Rainlendar prerequisites
     libjavascriptcoregtk-1.0-0 libwebkitgtk-1.0-0 libwebkitgtk-1.0-common
 
