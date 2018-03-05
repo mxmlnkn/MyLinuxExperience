@@ -1,3 +1,4 @@
+# bind -f ~/.inputrc to reload this file
 # See https://www.gnu.org/software/bash/manual/html_node/Readline-Init-File-Syntax.html#Readline-Init-File-Syntax
 # See man readline
 
