@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# converts whole folders into MP3 appending [MP3] to the new folder name
+# can be used directly in ~/.config/caja/scripts/
+
+isMusicFile()
+{
+    if [ ! -f "$1" ]; then return 2; fi
+    local mime=$( file --dereference --mime-type -- "$1" | 'sed' 's|^.*: ||' )
+    local fileVerbose=$( file --dereference -- "$1" | 'sed' 's|^.*: ||' )
+    local ext=${1##*.}
+    # see /etc/mime.types -> does not seem to be an exhaustive list -.- e.g. audio/x-m4a is missing for me, same for audio/x-flac ...
+    local musicTypes='
+application/octet-stream
+audio/3gpp
+audio/flac
+audio/midi
+audio/mp4a-latm
+audio/mpa-robust
+audio/mpeg
+audio/ogg
+audio/x-aiff
+audio/x-flac
+audio/x-m4a
+audio/x-ms-wma
+audio/x-pn-realaudio
+audio/x-realaudio
+audio/x-wav
+video/mp4
+'
+    printf '%s' "$musicTypes" | 'grep' -q '^'"$mime"'$'
+    local result=$?
+    # Files with ID3 tags are not recognized correctly by file --mime. but without --mime it somewhat works: "Audio file with ID3 version 2.3.0"
+    # ffmpeg -i '/media/d/Downloads/JD/OSTs/Psy-Dance-Global/va_psy-voyages_psydg007/03-Subivk_-_Dream_a_Dream.mp3'
+    case "$mime" in
+        'application/octet-stream')
+            printf '%s' "$fileVerbose" | 'grep' -q 'Audio file with ID3'
+            result=$?
+            ;;
+        'video/mp4')
+            test "${ext,,}" == "m4a"
+            result=$?
+    esac
+    return $result
+}
+
+if [ $# -eq 0 ] && [ -n "$CAJA_SCRIPT_CURRENT_URI" ]; then
+    paths=${CAJA_SCRIPT_CURRENT_URI#file://}
+    paths=( "$( python -c "import sys, urllib as ul; print ul.unquote_plus(sys.argv[1])" "$folder" )" )
+else
+    paths=( "$@" )
+fi
+
+export -f isMusicFile
+
+for path in "${paths[@]}"; do if [ -d "$path" ]; then (
+    cd "$path/.."
+    folder=$( basename "$path" )
+    newFolder="$folder [MP3]"
+    echo "Converting all files in '$folder' into '$newFolder'"
+    if [ -e "$newFolder" ]; then
+        echo "$newFolder already exists"
+        #continue
+    fi
+    mkdir -p "$newFolder"
+    find "$folder" -type f -print0 | xargs -0 -I {} -P 3 bash -c '
+        newFile="$1/$( printf "%s" "$0" | sed "s|[^/]*/||" )"
+        mkdir -p "${newFile%/*}"
+        if isMusicFile "$0"; then
+            echo "Converting $0"
+            ffmpeg -i "$0" "${newFile%.*}.mp3"
+        else
+            echo "Just copy $0"
+            "cp" -- "$0" "$newFile"
+        fi
+    ' {} "$newFolder" \;
+); fi; done
