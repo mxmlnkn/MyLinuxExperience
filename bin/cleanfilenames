@@ -28,6 +28,7 @@ cleanFilenames() {
         s/\n/ /g
         # for some reason s/\r//g wouldnt work now :S, that is why it is piped to another sed
     ' | perl -C -MHTML::Entities -pe 'decode_entities($_);' | sed -r '
+        s|\.jpg:large|.jpg|;
         # windows restrictions -> the two most important replacements
         s/[|/\:]/ - /g;
         s/[*?<>]/_/g;
