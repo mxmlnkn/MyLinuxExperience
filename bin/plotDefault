@@ -38,11 +38,10 @@ def readNamedColFile( fname, requiredSpecifier=[], allowedSpecifier=None, forbid
             firstcomment = line
             break
     if firstcomment is None:
-        firstcomment = '# x y'
-
-    separator = getSeparator( firstcomment[1:] ) # exclude # from search
-
-    format = [ x for x in firstcomment.strip().split( separator )[1:] if x ]  # strip hashtag
+        format = [ "column " + str(i) for i in range( data.shape[0] ) ]
+    else:
+        separator = getSeparator( firstcomment[1:] ) # exclude # from search
+        format = [ x for x in firstcomment.strip().split( separator )[1:] if x ]  # strip hashtag
 
     # check if all required columns are available and if none is forbidden
     correct  = True
@@ -86,7 +85,7 @@ def finishPlot( fig, ax, fname, loc='best', left = None, bottom = None, right = 
         ax = [ ax ]
     for a in ax:
         l = a.legend( loc=loc, prop={'size':10}, labelspacing=0.2, # fontsize=10 also works
-                      fancybox=True, framealpha=0.5 )
+                      fancybox=True, framealpha=0.5, frameon=True )
     #if l != None:
     #    l.set_zorder(0)  # alternative to transparency
     fig.tight_layout()
@@ -117,7 +116,7 @@ with sns.axes_style( "whitegrid", { 'axes.linewidth':0.85, 'xtick.major.size': 3
         if not isinstance( y, np.ndarray ):
             continue
         x = np.arange( len(y) )
-        ax.plot( x, y, label = key )
+        ax.plot( x, y, label = key, marker = '.' )
 
     for ax in axes:
         ax.tick_params( direction='out', pad=3 ) # move tick labels closer to axis (standard

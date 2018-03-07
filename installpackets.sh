@@ -32,7 +32,7 @@ packagelistsid=(
     libcdio-utils
 
     # Programming toolchain
-    linux-tools gcc gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev
+    linux-tools gcc g++ g++-5 g++-6 g++-7 gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev
     python ipython python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
     python3 python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn
 
@@ -85,9 +85,9 @@ packagelistsid=(
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge
     # parallel compression tools
     pxz plzip pigz pbzip2 lrzip
-    caja arj lzip lzop ncompress rzip sharutils unace unalz zoo unar
+    caja arj lzip lzop ncompress rzip sharutils unace unalz zoo unar jq
 
-    vlc libaacs0 libbluray-bdj libbluray1 libbluray-doc libbluray-bin smplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
+    vlc libaacs0 libbluray-bdj libbluray1 libbluray-doc libbluray-bin smplayer mplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
     streamripper streamtuner2
     thunderbird
 
@@ -125,7 +125,7 @@ packagelistsid=(
     xfwm4-themes gtk3-engines-xfce
 
     # ntfs read write support, necessary for truecrypt volumes !!
-    ntfs-3g attr xbacklight hibernate mlocate duplicity
+    ntfs-3g attr xbacklight hibernate mlocate duplicity go-mtpfs
     firmware-linux-nonfree firmware-linux-free
     # data recovery
     testdisk disktype scalpel
