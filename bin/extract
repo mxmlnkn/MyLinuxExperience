@@ -52,17 +52,17 @@ function getArchiveCommand() {
             echoerr "raw type: $mime"
         fi
         case "$mime" in
-            x-7z-compressed) echo '7z'    ;;
-            octet-stream)    echo 'lzma'  ;;
-            x-rar)           echo 'rar'   ;;
-            x-tar)           echo 'tar'   ;;
-            x-bzip2)         echo 'bzip2' ;;
-            gzip)            echo 'gzip'  ;;
-            x-xz)            echo 'xz'    ;;
-            #zip)             echo 'zip'   ;;
-            zip)             echo '7z'    ;;
-            pdf)             echo 'pdfimages' ;;
-            vnd.debian.binary-package) echo 'ar' ;;
+            x-7z-compressed)            echo '7z'           ;;
+            octet-stream)               echo 'lzma'         ;;
+            x-rar)                      echo 'rar'          ;;
+            x-tar)                      echo 'tar'          ;;
+            x-bzip2)                    echo 'bzip2'        ;;
+            gzip)                       echo 'gzip'         ;;
+            x-xz)                       echo 'xz'           ;;
+            zip)                        echo 'zip'          ;;
+            pdf)                        echo 'pdfimages'    ;;
+            x-sqlite3)                  echo 'sqlite3'      ;;
+            vnd.debian.binary-package)  echo 'ar'           ;;
             *)
                 case "$1" in
                     *.7z)      echo '7z'            ;;
@@ -260,6 +260,13 @@ function singleFileInArchive() {
             return $?
         }
         ;;
+        'sqlite3')
+        {
+            #test "$( sqlite3 "$1" .tables | wc -l )" -le 1
+            #return $?
+            return 1
+        }
+        ;;
         'ar')
         {
             test "$( ar -t -- "$1" | wc -l )" -le 1
@@ -371,7 +378,6 @@ function isEncrypted() {
                 # http://www.info-zip.org/mans/zipinfo.html
                 'zipinfo' -1 -s   | 'sed' '1d;2d;$d' | 'awk' '{ print $5; }' | 'grep' '[BT]' -q
             fi
-            return $?
             ;;
         *)
             return 1;
@@ -447,7 +453,7 @@ function extractHere() {
     fi
 
     case "$ext" in
-        '7z')
+        '7z'|'zip')  # because unzip doesn't work well with unicode names
             # if verbose is 0 we can't redirect to /dev/null, because then
             # the user would miss a command prompt if the file to extract
             # already exists and we would wait forever!
@@ -542,6 +548,21 @@ function extractHere() {
         'pdfimages')
             pdfimages -all -p -- "$1" 'page'
             return 1 # hacky... return error, because by default pdf are not to be deleted, because more often than not PDF are more than just images ...
+            ;;
+        'sqlite3')
+            (
+                # https://github.com/darrentu/convert-db-to-csv/blob/master/convert-db-to-csv.sh
+                local table tables=( $( sqlite3 "$1" .tables ) )
+                for table in "${tables[@]}"; do
+                    sqlite3 "$1" <<EOF
+.mode csv
+.headers on
+.output $table.csv
+SELECT * FROM $table;
+.exit
+EOF
+                done
+            )
             ;;
         'ar')
             ar -x -- "$1"
