@@ -1,3 +1,13 @@
+# Binaries with no extension at all, I think this must come at first, else the negating pattern undoes all other rules
+https://stackoverflow.com/questions/19023550/how-do-i-add-files-without-dots-in-them-all-extension-less-files-to-the-gitign
+*
+!/**/
+!*.*
+
+# hidden files
+.*
+!/.git*
+
 # Compiled Object files
 *.slo
 *.lo
@@ -22,6 +32,9 @@
 *.a
 *.lib
 
+# Precompiled Python
+*.pyc
+
 # Executables
 *.exe
 *.out
@@ -31,36 +44,45 @@
 *.fatbin
 *.stub.c
 
+# CUDA profiling data
+*.nvvp
+*.prof
 
 #Visual Studio compile files
 *.exp
 
-# TeX
-
+## Core latex/pdflatex auxiliary files:
+# For managing cross references (label, ref)
 *.aux
-*.glo
-*.idx
+*.lof
 *.log
+*.lot
+*.fls
+# HyperRef for creating PDF bookmarks
+*.out
+# table of contents from sections
 *.toc
+*.synctex.gz
+
+*.glo
 *.ist
 *.acn
 *.acr
 *.alg
-*.bbl
-*.blg
 *.dvi
 *.glg
 *.gls
 *.ilg
 *.ind
-*.lof
-*.lot
 *.maf
 *.mtc
 *.mtc1
-*.out
-*.synctex.gz
-*.fls
+# LaTeX Beamer "file is to assist you with including images of slides into an article version of the document."
+*.snm
+# LaTeX Beamer navigation bars on slides
+*.nav
+# LaTex Beamer temporary file for fragile-declared frames
+*.vrb
 
 ## Bibliography auxiliary files (bibtex/biblatex/biber):
 *.bbl
@@ -70,9 +92,6 @@
 *-blx.bib
 *.brf
 *.run.xml
-
-# Python Byte Code
-*.pyc
 
 # Java
 *.class
@@ -90,8 +109,29 @@
 *.tbz2
 *.tgz
 
+*.stackdump
+*.nb
+
+# Basically binaries, file size intesive -> use --force to add, if really necessary
+*.pdf
+*.mkv
+*.dat
+*.csv
+*.pptx
+*.ppt
+
+# Images
+*.jpg
+*.gif
+*.png
+*.tif
+*.tiff
+*.bmp
+
 # CMake build files
 **/build*/
+**/CMakeFiles/
+**/CMakeCache.txt
 
 # temporary files
 .*~
@@ -117,15 +157,17 @@
 # original backup files
 *.orig
 
-# uncompressed images (use png or tiff)
-*.bmp
-
-# hidden files
-.*
-!/.git*
-
-# Test Files (use .md for important notes instead)
+# Text Files (use .md for important notes instead)
 *.txt
+
+# Log files
+*.err
+*.out
+*.log
+
+*.html
+*.json
 
 # Personal standard folders
 KNOWLEDGE/*
+output/*
