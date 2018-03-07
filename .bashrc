@@ -2,6 +2,9 @@
 
 xset -b
 
+# https://unix.stackexchange.com/questions/332791/how-to-permanently-disable-ctrl-s-in-terminal
+stty -ixon
+
 ########################### Log session with script ############################
 
 # add before opening history file. Open script to log session
@@ -762,9 +765,56 @@ dumpsysinfo()
         echo -e "\n===== $command =====\n" >> "$file"
         for path in "${paths[@]}"; do
             if commandExists $command; then
-                $command >> "$file"
+                $command 2>&1 >> "$file"
                 break
             fi
         done
     done
+}
+
+crawlTwitterData()
+(
+    # scroll to bottom (ctrl+end), save es HTML (on my system this takes several minutes) and call this bash function with that html file. Use the "No Image" addon to save time and bandwidth for this step.
+    mkdir -p "$1-crawled"
+    cp "$1" "$1-crawled"
+    cd "$1-crawled"
+    while read line; do
+        if [ "${line:0:4}" != 'http' ]; then
+            sTime="$line"
+        elif [ ! -f "$sTime-${line##*/}" ]; then
+            wget -O "$sTime-${line##*/}" "${line}:large"
+            sleep 1s
+        fi
+    done < <( sed -nr ' s|.*data-image-url="([^"]*)".*|\1|p;
+                        s|.*data-time="([^"]*)".*|\1|p;' -- "$1" )
+    # crawlTwitterData 'Twitter Name | Twitter9.html'
+)
+
+sqlToCsv()
+(
+    # also included in 'extract' command
+    # https://github.com/darrentu/convert-db-to-csv/blob/master/convert-db-to-csv.sh
+    local fname=$1
+    local folder=${fname%.*}
+    mkdir -p "$folder" && cd "$folder"
+    local table tables=( $( sqlite3 "$1" .tables ) )
+    for table in "${tables[@]}"; do
+        sqlite3 "$1" <<EOF
+.mode csv
+.headers on
+.output $table.csv
+SELECT * FROM $table;
+.exit
+EOF
+    done
+    cd ..
+)
+
+getOpenTabs(){
+    local profile=$( sed -n -r '/^Path=/,/^Default=1/{ s|^Path=(.*)|\1|p; q; }' "$HOME/.mozilla/firefox/profiles.ini" )
+    # https://github.com/avih/dejsonlz4/blob/master/src/dejsonlz4.c
+    dejsonlz4 "$HOME/.mozilla/firefox/$profile/sessionstore-backups/recovery.jsonlz4" |
+        jq -c '.windows[].tabs[].entries[-1].url' |
+        sed 's|^"||; s|"$||;' |
+        xclip -selection c
 }
