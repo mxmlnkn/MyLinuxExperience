@@ -1,0 +1,161 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Precompiled Python
+*.pyc
+
+# Executables
+*.exe
+*.out
+*.app
+*.gpu
+*.cubin
+*.fatbin
+*.stub.c
+*.ptx
+
+#Visual Studio compile files
+*.exp
+
+## Core latex/pdflatex auxiliary files:
+# For managing cross references (label, ref)
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+# HyperRef for creating PDF bookmarks
+*.out
+# table of contents from sections
+*.toc
+*.synctex.gz
+
+*.glo
+*.ist
+*.acn
+*.acr
+*.alg
+*.dvi
+*.glg
+*.gls
+*.ilg
+*.ind
+*.maf
+*.mtc
+*.mtc1
+# LaTeX Beamer "file is to assist you with including images of slides into an article version of the document."
+# see 21.2.3 "Including Slides from the Presentation Version in the Article Version" in the beamer user guide
+# this enables to insert screenshots of slides into the article version
+*.snm
+# LaTeX Beamer navigation bars on slides
+*.nav
+# LaTex Beamer temporary file for fragile-declared frames
+*.vrb
+
+## Bibliography auxiliary files (bibtex/biblatex/biber):
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.brf
+*.run.xml
+
+# Java
+*.class
+*.jar
+*.tmp
+
+# Archives (Git compresses files itself, or use --force to add)
+*.7z
+*.zip
+*.xz
+*.bz2
+*.gz
+*.tar
+*.rar
+*.tbz2
+*.tgz
+
+*.stackdump
+*.nb
+
+# Basically binaries, file size intesive -> use --force to add, if really necessary
+*.pdf
+*.gif
+*.mkv
+*.png
+*.dat
+*.tif
+*.bmp
+*.pptx
+*.ppt
+
+# CMake build files
+**/build*/
+**/CMakeFiles/
+**/CMakeCache.txt
+
+# temporary files
+.*~
+*~
+*.old
+*.bak
+*.stackdump
+
+# Files created on some filesystems when deleting a file still in use
+.fuse*
+.nfs*
+
+# Geany
+*.geany
+
+# netbeans project files
+/nbproject/
+
+# Code::Blocks project files
+/*.cbp
+/*.layout
+
+# original backup files
+*.orig
+
+# hidden files
+.*
+!/.git*
+
+# Test Files (use .md for important notes instead)
+*.txt
+
+# Log files
+*.err
+*.out
+*.log
+
+*.html
+*.json
+
+# Personal standard folders
+KNOWLEDGE/*
+output/*
