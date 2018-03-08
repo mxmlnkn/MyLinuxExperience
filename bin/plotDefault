@@ -41,7 +41,7 @@ def readNamedColFile( fname, requiredSpecifier=[], allowedSpecifier=None, forbid
         format = [ "column " + str(i) for i in range( data.shape[0] ) ]
     else:
         separator = getSeparator( firstcomment[1:] ) # exclude # from search
-        format = [ x for x in firstcomment.strip().split( separator )[1:] if x ]  # strip hashtag
+        format = [ x for x in firstcomment.strip().split( separator )[1:] if x and len(x) > 0 ]  # strip hashtag
 
     # check if all required columns are available and if none is forbidden
     correct  = True
@@ -67,9 +67,19 @@ def readNamedColFile( fname, requiredSpecifier=[], allowedSpecifier=None, forbid
         exit()
 
     datadict = {}
+    datadict[ 'properties' ] = {}
 
-    assert( data.shape[0] == len(format) )
+    implicitXAxis = 1+data.shape[0] == len(format)
+    datadict[ 'properties' ][ 'implicitXAxis' ] = implicitXAxis
+    if implicitXAxis:
+        if False:
+            data = np.concatenate( [ [ np.arange( len( data[0] ) ) ], data ] )
+        else:
+            datadict[ 'properties' ][ 'xlabel' ] = format[0]
+            format = format[1:]
+
     # copy columns in respective dictionary entries
+    assert( data.shape[0] == len(format) )
     for i in range(len(format)):
         datadict.update( { format[i] : data[i] } )
 
@@ -108,19 +118,31 @@ data = readNamedColFile( fname )
 with sns.axes_style( "whitegrid", { 'axes.linewidth':0.85, 'xtick.major.size': 3, 'xtick.minor.size': 3, 'ytick.major.size': 3, 'ytick.minor.size': 3 } ):
     fig = plt.figure()
     ax = fig.add_subplot( 111 )
+    omitLegend = False
+    if data['properties']['implicitXAxis']:
+        ax.set_xlabel( data['properties']['xlabel'] )
+        if len( data ) == 2:
+            omitLegend = True
+            for key in data:
+                if key == 'properties':
+                    continue
+                ax.set_ylabel( key )
     axes = [ ax ]
 
     for key in data:
+        if key == 'properties':
+            continue
         y = data[key]
         print key,y
         if not isinstance( y, np.ndarray ):
             continue
         x = np.arange( len(y) )
-        ax.plot( x, y, label = key, marker = '.' )
+        label = None if omitLegend else key
+        ax.plot( x, y, label = label, marker = '.' )
 
     for ax in axes:
         ax.tick_params( direction='out', pad=3 ) # move tick labels closer to axis (standard
 
-    finishPlot( fig, axes, "plot-" + fname, left=0.06, bottom = 0.15, right = 0.96, top = 0.93, wspace = 0.24 )
+    finishPlot( fig, axes, "plot-" + fname ) #, left=0.06, bottom = 0.15, right = 0.96, top = 0.93, wspace = 0.24 )
 
 plt.show()
