@@ -69,6 +69,16 @@ if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
+# find out if we are connected to some server with SSH
+REMOTE_SESSION=0
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
+    REMOTE_SESSION=1
+else
+    case "$( ps -o comm= -p $PPID )" in
+        sshd|*/sshd) REMOTE_SESSION=1 ;;
+    esac
+fi
+
 isGitRepo() { git rev-parse --git-dir &>/dev/null; }
 if ! type GitPS1 &>/dev/null | grep -q 'function'; then
     GitPS1() {
@@ -123,7 +133,12 @@ xterm*|rxvt*)
     # escape characters explained in man bash | grep PROMPTING:
     # \w  the current working directory, with $HOME abbreviated with
     #     a tilde (uses the value of the PROMPT_DIRTRIM variable)
-    PS1='\[\e]0;$(pswd)\a\]'"$PS1"
+    if [ "$REMOTE_SESSION" -eq 1 ]; then
+        PS1_REMOTE_HOSTNAME="[$( hostname )] "
+    else
+        PS1_REMOTE_HOSTNAME=
+    fi
+    PS1='\[\e]0;$PS1_REMOTE_HOSTNAME$(pswd)\a\]'"$PS1"
     ;;
 *)
     ;;
