@@ -171,6 +171,7 @@ alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
 if commandExists 'git'; then
     alias gb='git branch --color=always'
     alias gs='git status'
+    alias gl='git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short'
 fi
 alias lc='locate -i'
 alias sup='sudo apt-get update'
@@ -182,12 +183,18 @@ alias si='sudo apt-get install -t sid'
 cd(){ if [ "$1" == '..' ]; then command cd "${PWD%/*}"; else command cd "$@"; fi; }
 
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
-alias splitImages='for file in *; do convert -crop 50%x100% "$file" "${file%.*}-%0d.${file##*.}"; done'
-
+alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
 
 # function keyword necessary if function name already is defined as an alias!
 
-function prettyPrintSeconds() {
+function splitImages(){
+    local file
+    for file in "$@"; do
+        convert -crop 50%x100% "$file" "${file%.*}-%0d.${file##*.}";
+    done
+}
+
+function prettyPrintSeconds(){
     local d h m s
     r=$1
     (( s = r % 60 ))
@@ -337,6 +344,9 @@ EOF
             if [ -n "'$dryrun'" ]; then
                 '"printf \"mv '%s'\n-> '%s'\n\" "'"$fname" "$newname"
             else
+                if [ ! -d "$( dirname -- "./$newname" )" ]; then
+                    mkdir -p -- "$( dirname -- "./$newname" )"
+                fi
                 mv "./$fname" "./$newname"
             fi
         fi
@@ -428,6 +438,7 @@ igcc() {
 
 #include <array>                                // template fixed size arrays
 #include <algorithm>                            // sort, find, ...
+#include <bitset>
 #include <chrono>
 #include <complex>
 #include <deque>
@@ -448,6 +459,7 @@ igcc() {
 #include <string>
 #include <thread>
 #include <typeinfo>
+#include <type_traits>
 #include <utility>                              // pair
 #include <vector>
 
@@ -825,11 +837,64 @@ EOF
     cd ..
 )
 
-getOpenTabs(){
-    local profile=$( sed -n -r '/^Path=/,/^Default=1/{ s|^Path=(.*)|\1|p; q; }' "$HOME/.mozilla/firefox/profiles.ini" )
+getOpenTabs()
+{
+    local profile=$( sed -n -r -z 's|.*Path=([^\n]*)\nDefault=1.*|\1|p' "$HOME/.mozilla/firefox/profiles.ini" )
     # https://github.com/avih/dejsonlz4/blob/master/src/dejsonlz4.c
     dejsonlz4 "$HOME/.mozilla/firefox/$profile/sessionstore-backups/recovery.jsonlz4" |
         jq -c '.windows[].tabs[].entries[-1].url' |
         sed 's|^"||; s|"$||;' |
         xclip -selection c
+}
+
+getffpasswords()
+{
+    local profile=$( sed -n -r -z 's|.*Path=([^\n]*)\nDefault=1.*|\1|p' "$HOME/.mozilla/firefox/profiles.ini" )
+    # si pass && pass init defaultGpgID
+    local iProfile=$( ~/bin/firefox_decrypt/firefox_decrypt.py --list | 'grep' -F "$profile" | sed -n -r 's|^([0-9]+) -> .*|\1|p;' | head -1 )
+    ( read -sp "Master Password: " PASSWORD && printf '%s' "$PASSWORD" | python ~/bin/firefox_decrypt/firefox_decrypt.py --export --no-interactive --choice "$iProfile" )
+}
+
+# https://unix.stackexchange.com/a/4529/111050
+stripColors(){ perl -pe 's/\e\[?.*?[\@-~]//g'; }
+stripControlCodes(){ perl -pe 's/\e\[[\d;]*m//g'; }
+
+
+resolveAptHosts()
+{
+    mapfile -t hosts < <(
+        sed -n -r '/^#/d; s;deb(-src)? (http://|ftp://)?([^/ ]+).*;\3;p'\
+        /etc/apt/sources.list | sort | uniq )
+    # delete all hosts from /etc/hosts, e.g., from an earlier call
+    sudo sed -i -r '/^[0-9]{1,3}(\.[0-9]{1,3}){3}[ \t]+('"$( printf '|%s'\
+        "${hosts[@]//./\\.}" | sed 's/^|//' )"')[ \t]*$/d' /etc/hosts
+    for host in ${hosts[@]}; do
+        ip=$( nslookup "$host" | sed -n -r 's|Address:[ \t]*([0-9.]+).*|\1|p' |
+              tail -1 )
+        sudo bash -c "echo $ip $host >> /etc/hosts"
+    done
+}
+
+refreshPanels()
+{
+    # fixes: https://bugzilla.xfce.org/show_bug.cgi?id=10725
+    for plugin in $( xfconf-query -c xfce4-panel -lv | grep tasklist | cut -f1 -d' ' ); do
+        xfconf-query -c xfce4-panel -p $plugin/include-all-monitors -s true
+        xfconf-query -c xfce4-panel -p $plugin/include-all-monitors -s false
+    done
+}
+
+getCurrentScreen()
+{
+    # Returns Monitor ID to be used with 'xrandr --output $monitorID'
+    # https://superuser.com/a/992924/240907
+    eval "$( xdotool getmouselocation --shell )" # sets X and Y variables
+    monitor=
+    while read name width height xoff yoff; do
+        if [ "${X}" -ge "$xoff" -a "${X}" -lt "$(($xoff+$width))" -a \
+             "${Y}" -ge "$yoff" -a "${Y}" -lt "$(($yoff+$height))" ]; then
+            monitor=$name; break
+        fi
+    done < <( xrandr --current | sed -n -r 's|(.+) .*connected.* (([0-9]+[x+]){3}[0-9]+).*|\1 \2|p' | sed 's|[x+]| |g' )
+    printf '%s' "$monitor"
 }

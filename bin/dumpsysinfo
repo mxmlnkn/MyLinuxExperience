@@ -1,0 +1,83 @@
+#!/bin/bash
+
+commandExists() {
+    # http://stackoverflow.com/questions/592620/check-if-a-program-exists-from-a-bash-script
+    command -v "$1" > /dev/null 2>&1;
+}
+
+dumpsysinfo()
+{
+    local file='sysinfo.log'
+    if [ -n "$1" ]; then file=$1; fi
+    local prefix=$2 # intended for e.g. srun on clusters
+    touch "$file"
+
+    local command commands=(
+        # System Hardware Information
+        'ifconfig'
+        'ip route'
+        'ip addr show'
+        'uname -a'              # includes hostname as second word on line
+        'lscpu'
+        'lsblk'
+        'lsusb'
+        'lspci'
+        'lspci -v'
+        'lspci -t'
+        'mount'
+        'ps aux'
+        'cat /proc/meminfo'
+        'cat /proc/cpuinfo'
+        'cat /proc/uptime'
+        'cat /etc/hosts'
+        'nvidia-smi'
+        'nvidia-smi -q'
+        'nvidia-smi -q -d SUPPORTED_CLOCKS'
+        # System Software Information
+        'printenv'
+        'pwd'
+        'ls -la'
+        'git log --oneline'
+        'make --version'
+        'cmake --version'
+        'g++ --version'
+        'nvcc --version'
+        'dpkg -l'
+        'yum list'
+        'module list'
+        'module avail'
+        # Cluster Workload Manager Information
+        'sinfo --all --long'
+        'squeue'
+        "sacct --starttime $( date --date='-7 days' +%Y-%m-%d )"
+        'pbsnodelist'
+        'pbssummary'
+        'qstat -Q'
+        'qstat -a'
+        'pbsuserlist'
+        'lsb_release -a'
+    )
+
+    local path paths=(
+        ''
+        '/usr/local/bin/'
+        '/usr/local/sbin/'
+        '/usr/bin/'
+        '/usr/sbin/'
+        'bin/'
+        'sbin/'
+    )
+
+    for command in "${commands[@]}"; do
+        for path in "${paths[@]}"; do
+            if commandExists $path$command; then
+                echo -e "\n===== $path$command =====\n" >> "$file"
+                $prefix $path$command &>> "$file"
+                break
+            fi
+        done
+    done
+}
+
+dumpsysinfo "$@"
+

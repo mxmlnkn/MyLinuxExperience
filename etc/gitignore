@@ -1,8 +1,11 @@
 # Binaries with no extension at all, I think this must come at first, else the negating pattern undoes all other rules
-https://stackoverflow.com/questions/19023550/how-do-i-add-files-without-dots-in-them-all-extension-less-files-to-the-gitign
+# @see https://stackoverflow.com/questions/19023550/how-do-i-add-files-without-dots-in-them-all-extension-less-files-to-the-gitign
+# Note that !/**/ does not work in Git 1.7.1 but works in 1.9.0 and later (tested 2.11, 2.15, 2.9), because ** was only added in 1.8.2! Therefore I added the !*/ version to reinclude directories
 *
+!*/
 !/**/
 !*.*
+!Makefile
 
 # hidden files
 .*

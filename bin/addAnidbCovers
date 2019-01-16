@@ -75,6 +75,22 @@ if ! declare -f cleanFilenames > /dev/null; then
     return 1
 fi
 export -f cleanFilenames
+
+# command line arguments
+
+cookieFile=
+while [ $# -gt 0 ]; do case "$1" in
+    '-c'|'--cookie')
+        cookieFile="$2"
+        shift
+        ;;
+    *) break; ;;
+esac; shift; done
+wgetOptions=( --user-agent='Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36' )
+if [ -n "$cookieFile" ]; then
+    wgetOptions+=( --load-cookies="$cookieFile" )
+fi
+
 for folder in "$@"; do (
     if [ ! -d "$folder" ]; then
         echo -e "\e[31m'$folder' is not a folder"'!'"\e[0m"
@@ -91,7 +107,7 @@ for folder in "$@"; do (
         echo -e "\e31mSomething went wrong, name to serach for is empty"'!'"\e[0m"
         continue
     fi
-    wget -q -O result.html --user-agent='Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36' "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
+    wget -q -O result.html "${wgetOptions[@]}" "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
     if [ ! -f result.html ]; then
         echo -e "\e[31mSomething went wrong, can't find 'result.html'"'!'"\e[0m"
         rm result.html
@@ -103,6 +119,17 @@ for folder in "$@"; do (
         continue
     fi
     title=$( sed -nr 's|.*<title>([^<]*)</title>.*|\1|p' result.html )
+    echo -e "\e[37mGot title: '$title'\e[0m"
+    if printf '%s' "$title" | 'grep' -i -q 'AntiLeech'; then
+        echo -e "\e[31mAntiLeech triggered, please fill out online CAPTCHA.\e[0m"
+        rm result.html
+        exit
+    fi
+    if printf '%s' "$title" | 'grep' -i -q 'Adult Content'; then
+        echo -e "\e[31mAdult content warning, please specify a cookie file for your account.\e[0m"
+        rm result.html
+        continue
+    fi
     if [ "$title" == 'Anime List - AniDB' ]; then
         sed -nr '
             s|.*<a href="animedb\.pl\?show=anime&amp;aid=[0-9]*">([^<]*)</a>.*|\1|p;
@@ -120,4 +147,5 @@ for folder in "$@"; do (
             wget -q -O "$( printf "%s" "$fname" | cleanFilenames )" "$0"
         '
     rm result.html
+    sleep 1s
 ); done

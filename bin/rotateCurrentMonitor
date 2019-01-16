@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+getCurrentMonitor()
+{
+    # Returns Monitor ID to be used with 'xrandr --output $monitorID'
+    # https://superuser.com/a/992924/240907
+    eval "$( xdotool getmouselocation --shell )" # sets X and Y variables
+    monitor=
+    while read name width height xoff yoff; do
+        if [ "${X}" -ge "$xoff" -a "${X}" -lt "$(($xoff+$width))" -a \
+             "${Y}" -ge "$yoff" -a "${Y}" -lt "$(($yoff+$height))" ]; then
+            monitor=$name; break
+        fi
+    done < <( xrandr | sed -n -r 's|(.+) .*connected.* (([0-9]+[x+]){3}[0-9]+).*|\1 \2|p' | sed 's|[x+]| |g' )
+    printf '%s' "$monitor"
+}
+
+getCurrentRotation()
+{
+    local rotation=$( xrandr | sed -n -r "s/^$1 .* (normal|left|inverted|right) \(.*/\1/p" )
+    if [ -z "$rotation" ]; then rotation='normal'; fi
+    printf '%s' "$rotation"
+}
+
+rotate()
+{
+    # returns the next $2=(+1) or previous $2=(-1) orientation name based on
+    # the input orientation in $1 (not that $0=$SHELL)
+    local orientations=( normal right inverted left )
+    local iOrientation=
+    for (( i=0; i<${#orientations[@]}; ++i )); do
+        if [ "${orientations[i]}" == $1 ]; then iOrientation=$i; break; fi
+    done
+    if [ "$iOrientation" -lt "${#orientations[@]}" ] 2>/dev/null; then
+        (( iOrientation = ( iOrientation + $2 ) % ${#orientations[@]} ))
+        printf '%s' "${orientations[iOrientation]}"
+    else printf 'normal'; fi
+}
+
+toRotate=$1
+currentMonitor=$( getCurrentMonitor )
+if [ "$toRotate" == '-1' -o "$toRotate" == '+1' ]; then
+    toRotate=$( rotate $( getCurrentRotation "$currentMonitor" ) $toRotate )
+fi
+if printf '%s' "$toRotate" | 'grep' -q -E '^(normal|inverted|right|left)$'; then
+    xrandr --output "$currentMonitor" --rotate "$toRotate"
+    echo xrandr --output "$currentMonitor" --rotate "$toRotate"
+fi

@@ -1,0 +1,3 @@
+[submodule "bin/XCreateMouseVoid"]
+	path = bin/XCreateMouseVoid
+	url = https://github.com/cas--/XCreateMouseVoid

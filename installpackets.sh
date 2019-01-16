@@ -14,6 +14,8 @@ packagelistsid=(
     # linux headers for compiling new kernel e.g. for CUDA-installation
     linux-headers-$(uname -r)
 
+    wkhtmltopdf pandoc
+
     # printer prerequesite
     xsltproc
 
@@ -22,8 +24,8 @@ packagelistsid=(
     # only pc
     #cuda
 
-    # hexdump, ...
-    bsdmainutils
+    # hexdump, ... might be linux-tools-common on ubuntu?
+    bsdmainutils htop cpulimit cpuinfo read-edid get-edid
 
     # scala 2.11 doesn't work with spark 1.6.0 yet -.-
     scala scala-doc
@@ -32,14 +34,14 @@ packagelistsid=(
     libcdio-utils
 
     # Programming toolchain
-    linux-tools gcc g++ g++-5 g++-6 g++-7 gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev
-    python ipython python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
-    python3 python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn
+    linux-tools gcc g++ g++-5 g++-6 g++-7 gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev uncrustify clang-tidy linux-perf heaptrack heaptrack-gui
+    python ipython python-pip python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
+    python3 ipython3 jupyter python3-pip python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn python3-venv python3-virtualenv
 
     # steam things like glxinfo
     mesa-utils
 
-    filezilla audacity gimp pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm xdotool lynx telegram-desktop
+    filezilla audacity gimp ristretto pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm xdotool lynx telegram-desktop
     scite meld gnome-themes-standard gnome-themes-extras pdftk
     fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
 
@@ -80,16 +82,16 @@ packagelistsid=(
     libjavascriptcoregtk-1.0-0 libwebkitgtk-1.0-0 libwebkitgtk-1.0-common
 
     # networking
-    hostname openssh-client openssh-server sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap telnet
+    hostname openssh-client openssh-server fail2ban sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap telnet
     # needed for extract macro function
-    zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge
+    zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge tnef
     # parallel compression tools
     pxz plzip pigz pbzip2 lrzip
     caja arj lzip lzop ncompress rzip sharutils unace unalz zoo unar jq
 
     vlc libaacs0 libbluray-bdj libbluray1 libbluray-doc libbluray-bin smplayer mplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
     streamripper streamtuner2
-    thunderbird
+    thunderbird lightning
 
     # Programming toolchain
     colorgcc nasm selfhtml lsof colordiff wdiff valgrind cppcheck splint doxygen doxygen-doc graphviz debian-history mercurial git git-doc gitk subversion subversion-tools
@@ -125,7 +127,7 @@ packagelistsid=(
     xfwm4-themes gtk3-engines-xfce
 
     # ntfs read write support, necessary for truecrypt volumes !!
-    ntfs-3g attr xbacklight hibernate mlocate duplicity go-mtpfs
+    ntfs-3g attr xbacklight hibernate mlocate duplicity go-mtpfs gvfs-backends gvfs-mtp exfat-fuse exfat-utils
     firmware-linux-nonfree firmware-linux-free
     # data recovery
     testdisk disktype scalpel
@@ -142,7 +144,7 @@ packagelistsid=(
     # Programming with SDL (udev and co are necessary prerequesits, does not work with jessie-versions)
     udev systemd-ui bootlogd libsdl2-dev libsdl2-* libsdl-dev # savh ???
 
-    git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark
+    git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
     time
 
     ###### documentation (partially this means manuals) ######
@@ -179,6 +181,13 @@ packagelistsid=(
 
     marble-qt # 3D offline globe
     virtualbox-qt virtualbox-guest-utils
+
+    gimagereader tesseract-ocr-jpn tesseract-ocr-jpn-vert
+
+    opera-stable chromium cups imagemagick imagemagick-common
+
+    # machine learning
+    python3-keras keras-doc
 )
 
 for package in "${packagelistsid[@]}"; do
