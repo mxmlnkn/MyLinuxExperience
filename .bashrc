@@ -181,6 +181,7 @@ alias si='sudo apt-get install -t sid'
 # that only prevents alias lookup, not function lookup it seems (This also puts
 # my usage of 'command' in scripts into persepctive :S
 cd(){ if [ "$1" == '..' ]; then command cd "${PWD%/*}"; else command cd "$@"; fi; }
+alias ..='cd ..'
 
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
@@ -234,7 +235,11 @@ sp(){
     fi
     xfce4-session-logout --suspend &&
     sleep 10s && (
-        refreshWallpaper;
+        # only necessary for NVIDIA driver bug ...
+        #if lspci | 'grep' -i --color 'hdmi\|vga\|3d\|2d' | 'grep' -q -i nvidia; then
+        if lshw -class display 2>/dev/null | 'grep' -q -i 'vendor: .*nvidia'; then
+            refreshWallpaper;
+        fi
         if [ -n "$( pgrep hostapd )" ]; then
             sleep 2s
             startap
@@ -538,21 +543,35 @@ trash-empty()
     local mountpoint folder dry
     local ndays=$1
     if [ "$1" == '-d' ] || [ "$2" == '-d' ]; then dry=echo; fi
-    for mountpoint in $( cat /proc/mounts | awk '{ print $2; }' ); do
+
+    local foldersToTry=()
+    # Filtering the mount points is not that important because most of them would be filtered anyway
+    # by checking for existence of mountPoint/.Trash folder.
+    for mountpoint in $( cat /proc/mounts | sed -r '/(cgroup|devpts|hugetlbfs|mqueue|tmpfs|veracrypt) /d; / \/(boot|sys|proc)[/ ]/d; /^\/dev\/loop/d' | awk '{ print $2; }' ); do
         for folder in ".Trash/$UID" ".Trash-$UID" '$RECYCLE.BIN'; do
-            if [ -d "$mountpoint/$folder" ]; then
-                echo "Deleting '$mountpoint/$folder/' ..." 1>&2
-                if [ "$ndays" -eq "$ndays" ] 2>/dev/null && [ "$ndays" != 0 ] && [ -d "$mountpoint/$folder/info/" ]; then
-                    # assuming that file modification date for .trashinfo files is the same as the DeletionDate stored inside that file
-                    # note that -mtime +0 will find all files older than 24h and +1 all files older than 2 days, ...
-                    find "$mountpoint/$folder/info/" -mtime "+$(( ndays-1 ))" -name '*.trashinfo' -print0 |
-                    sed -rz "s|^(.*)/${folder//./\\.}/info/(.*)\.trashinfo$|\1$folder/info/\2.trashinfo\x00\1$folder/files/\2|" |
-                    xargs -0 $dry 'rm' -r
-                else
-                    $dry command rm -r "$mountpoint/$folder/"
-                fi
-            fi
+            foldersToTry+=( "$mountpoint/$folder" )
         done
+    done
+
+    if [ -d "$XDG_DATA_HOME" ]; then
+        foldersToTry+=( "$XDG_DATA_HOME/Trash" )
+    elif [ -d "$HOME" ]; then
+        foldersToTry+=( "$HOME/.local/share/Trash" )
+    fi
+
+    for folder in "${foldersToTry[@]}"; do
+        if [ -d "$folder" ]; then
+            echo "Deleting '$folder/' ..." 1>&2
+            if [ "$ndays" -eq "$ndays" ] 2>/dev/null && [ "$ndays" != 0 ] && [ -d "$folder/info/" ]; then
+                # assuming that file modification date for .trashinfo files is the same as the DeletionDate stored inside that file
+                # note that -mtime +0 will find all files older than 24h and +1 all files older than 2 days, ...
+                find "$folder/info/" -mtime "+$(( ndays-1 ))" -name '*.trashinfo' -print0 |
+                sed -rz "s|^(.*)/${folder//./\\.}/info/(.*)\.trashinfo$|\1$folder/info/\2.trashinfo\x00\1$folder/files/\2|" |
+                xargs -0 $dry 'rm' -r
+            else
+                $dry command rm -rf "$folder/"
+            fi
+        fi
     done
 }
 
