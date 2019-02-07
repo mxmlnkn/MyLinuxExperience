@@ -1,36 +1,76 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys, numpy as np
 
+
 def uncertainValueToStr( x, sx ):
     import numpy as np
+
     def getMagnitude( x ):
-        return int( np.floor( np.log10( np.abs( x ) ) ) ) # -0 for < 10, 1 for 10 <= x < 100, -1 for 0.1 < x < 0, ...
+        """
+        Returns:
+            x in [0.1, 1  ) -> -1
+            x in [1  , 10 ) ->  0
+            x in [10 , 100) -> +1
+        """
+        return int( np.floor( np.log10( np.abs( x ) ) ) )
+
     def roundToSignificant( x, n ):
         mag = getMagnitude( x )
-        # around only rounds to n-given decimals AFTER the dot, therefore we need to do the magnitude scaling, but this is actually helpful later for rounding the value in respect to the precision of the standard deviation
-        return np.around( x / 10**mag, n-1 ) * 10**mag
+        # around can also round to 10 or 100, ... by specifying negative values for the second argument
+        return np.around( x, -mag + n-1 )
+
     def getFirstDigit( x ):
         mag = getMagnitude( x )
         return int( x / 10**mag )
+
+    def existingDigits( s ):
+        """
+        Counts the number of significant digits. Examples:
+        Returns:
+            0.00013 -> 2
+            1.3013  -> 5
+            0.13    -> 2
+            1000.3  -> 5
+            1.20e-5 -> 3
+        """
+        s = str( s ).split( 'e' )[0].lstrip( '+-0.' )
+
+        nDigits = 0
+        for i in range( len( s ) ):
+            if s[i] in '0123456789':
+                nDigits += 1
+
+        return nDigits
 
     # Format exponent and error https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4483789/
     # Can't find that particular standard right now, but I thought some standard specified two significant digits for the first digit being < 3 and else one significant digits on the errors. And of course the mean should have as much precision as the error has
     nDigitsErr = 2 if getFirstDigit( sx ) in [1,2] else 1
     magSx   = getMagnitude( sx )
     sxShort = str( roundToSignificant( sx, nDigitsErr ) )
-    # pad with 0s if necessary, showing the rounding, i.e. avoid situations like 2.093 +- 0.02 (0.0213...)
-    def existingDigits( s ):
-        s = str(s)
-        firstNonZero = [ s.find(d) for d in '123456789' if d in s ]
-        firstNonZero = min( firstNonZero ) if len( firstNonZero ) > 0 else len(s)
-        nDigits = np.sum( [ s[ firstNonZero: ].split('e')[0].count(d) for d in '0123456789' ] )
-        #print( s, "first non-zero:", firstNonZero, "# digits:", nDigits )
-        return nDigits
-    xShort  = str( np.around( x / 10**magSx, nDigitsErr ) * 10**magSx )
-    xShort += '0' * max( 0, nDigitsErr - existingDigits( str( np.around( x / 10**magSx, nDigitsErr ) ).split('.')[-1] ) )
+    sxShort += '0' * max( 0, nDigitsErr - existingDigits( sxShort ) )
+
+    xShort = str( np.around( x, -magSx + nDigitsErr-1 ) )
+
+    # pad with 0s if necessary, showing the rounding, i.e., change "2.093 +- 0.02" (s = 0.0203...) to "2.093 +- 0.020"
+    xShort += '0' * max( 0, nDigitsErr - existingDigits( xShort ) )
     return xShort, sxShort
+
+def testUncertainValueToStr():
+    tests = [ [ 0.9183782255, 0.00081245, "0.9184", "0.0008" ] ]
+    tests = [ [ 12.5435892, 1.0234, "12.5", "1.0" ] ]
+    tests = [ [ 12.0123, 1.0234, "12.0", "1.0" ] ]
+    tests = [ [ 1.25435892, 0.10234, "1.25", "0.10" ] ]
+    tests = [ [ 19235198, 310, "19235200", "300" ] ]
+    tests = [ [ 52349e-15, 4.25315e-12, "5.2e-11", "4e-12" ] ]
+    for test in tests:
+        sm, ss = uncertainValueToStr( test[0], test[1] )
+        if sm != test[2] or ss != test[3]:
+            print( "Test failed! m={}, s={} => {} +- {} but should be {} +- {}".format(
+                test[0], test[1], sm, ss, test[2], test[3] ) )
+
+testUncertainValueToStr()
 
 x = np.array( [ float(x) for x in sys.argv[1:] ] )
 sx = np.std(x) / len(x)
