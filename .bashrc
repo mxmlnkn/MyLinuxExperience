@@ -84,10 +84,10 @@ if ! type GitPS1 &>/dev/null | grep -q 'function'; then
     GitPS1() {
         if isGitRepo; then
             # not using --short, because it's not available in Git 1.7.1
-            local branchName=$( git symbolic-ref HEAD -q 2>/dev/null )
-            branchName=${branchName##*/}
+            local branchName="$( git symbolic-ref HEAD -q 2>/dev/null )"
+            branchName="${branchName##*/}"
             if [ -z "$branchName" ]; then
-                branchName=$( git rev-parse --short HEAD )
+                branchName="$( git rev-parse --short HEAD )"
             fi
             echo "($branchName)"
         fi
@@ -112,13 +112,21 @@ pswd() {
     fi
 }
 
+ErrorCodePS1()
+{
+    local exitCode=$?
+    if ! test "$exitCode" -eq 0; then
+        echo -e "($exitCode) "
+    fi
+}
+
 color_prompt='yes'
 if [ "$color_prompt" = yes ]; then
     # Note that the \e[32m style of doing color codes will lead to line wrapping issues!
     # Instead use \033 instead of \e
     # Actually the reason was that all non-printable characters must be enclosed in \[  \]
     # http://stackoverflow.com/questions/1133031/shell-prompt-line-wrapping-issue
-    PS1='\[\e[0m\]${debian_chroot:+($debian_chroot)}\[\e[2m\]\u@\h\[\e[0m\]:\[\e[33m\]$(GitPS1)\[\e[0m\]\[\e[32m\]$(pswd)\[\e[0m\]\$ '
+    PS1='\[\e[0m\]\[\e[31m\]$( ErrorCodePS1 )\[\e[0m\]${debian_chroot:+($debian_chroot)}\[\e[2m\]\u@\h\[\e[0m\]:\[\e[33m\]$( GitPS1 )\[\e[0m\]\[\e[32m\]$( pswd )\[\e[0m\]\$ '
 else
     PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
@@ -168,11 +176,115 @@ alias la='ls -lah --group-directories-first'
 alias l='la'
 # make nvcc workw ith g++ 4.9 instead of default g+ 5.2, which it can't work with
 alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
+
 if commandExists 'git'; then
     alias gb='git branch --color=always'
     alias gs='git status'
-    alias gl='git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short'
+    alias gm='git commit'
+    alias gpf='git push -f'
+    alias grba='git rebase --abort'
+    alias grbc='git rebase --continue'
+    alias gls='git log --stat'
+    alias glp='git log --pretty --all --graph --decorate --oneline'
+
+    gl()
+    {
+        # show pretty-printed log history of current or specified branch to master if there is a common merge base
+
+        local range=
+
+        if test $# -le 1; then
+            local endPoint="$( git rev-parse HEAD )"
+            if test -n "$1" && git rev-parse "$1" &>/dev/null; then
+                endPoint="$( git rev-parse "$1" )"
+            fi
+
+            local startPoint="$( git merge-base master $endPoint )"
+            if test "$startPoint" != "$endPoint"; then
+                range=$startPoint..$endPoint
+            fi
+        fi
+
+        git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short $range
+    }
+
+    ga()
+    {
+        if ! 'git' diff --quiet --name-only --staged; then
+            # if there is something staged, then simply commit all staged
+            git commit --amend --no-edit
+        elif ! 'git' diff --quiet --name-only; then
+            # if there is noting staged but something changed, then simply commit all
+            git commit --amend --no-edit --all
+        else
+            # if no changed files, open without --no-edit to change last commit message
+            git commit --amend
+        fi
+    }
+
+    alias grh='git reset HEAD'
+    alias gss='git show --stat'
+
+    alias gp='git pull'
+    # delete merged branches (except specially named like master, dev, develop
+    alias gbdm='git branch --no-color --merged | command grep -vE "^(\*|\s*(master|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
+
+    # @todo open changed files (). either currently in staging and modified or in last commit (git show)
+    # goc()
+
+    gfd()
+    (
+        # sorts all modified uncommitted files into parent commits as fixups
+
+        if test -n "$( command git diff --cached --name-only )"; then
+            echo "Won't sort changed files into previous commits as fixups because there are staged files already"'!' 1&>2
+            return 1
+        fi
+
+        cd -- "$( git rev-parse --show-toplevel )"
+        local startPoint="$( git merge-base master HEAD )"
+
+        local changedFile changedFiles=()
+        readarray -t -d $'\n' changedFiles < <( command git diff --name-only )
+        for changedFile in "${changedFiles[@]}"; do
+            local lastFileTouchingCommit="$( git log --format='%H' --follow $startPoint..HEAD -- "$changedFile" | head -1 )"
+            if test -n "$lastFileTouchingCommit"; then
+                git add "$changedFile"
+                git commit -m "fixup $lastFileTouchingCommit"
+            fi
+        done
+
+        git commit -a -m 'changed files which were not changed in any previous commit until the merge base'
+
+        rebaseCommands="$( mktemp )"
+        touch "$rebaseCommands"
+
+        # output interactive rebasing instructions which can be copy-pasted into git rebase -i
+        for commit in $( git log --reverse --format='%H' $startPoint..HEAD ); do
+            local line="$( git log --format='%h %s' "$commit~1..$commit" )"
+            if command grep -q -F "$line" "$rebaseCommands"; then
+                continue
+            fi
+
+            printf 'pick %s\n' "$line" >> "$rebaseCommands"
+            # find and append all fixup commits after it
+            git log --format='%h %s' $commit..HEAD | command grep -F "fixup $commit" | sed 's|^|fixup |' >> "$rebaseCommands"
+        done
+
+        echo "Use git rebase -i with the following commit command list to apply the fixup commits at the correct parents\n" 1>&2
+        cat "$rebaseCommands"
+    )
+
+    grbi()
+    {
+        if test $# -eq 0; then
+            git rebase -i "$( git merge-base master HEAD )"
+        else
+            git rebase -i "$@"
+        fi
+    }
 fi
+
 alias lc='locate -i'
 alias sup='sudo apt-get update'
 alias si='sudo apt-get install -t sid'
@@ -758,6 +870,27 @@ hexdiff()
     # user	0m18.908s
     # sys	0m0.564s
     colordiff <( hexlinedump 16 "${@: -2:1}" ) <( hexlinedump 16 "${@: -1:1}" )
+}
+
+diffLines()
+{
+    if test $# -ne 3; then
+        echoerr "Got $# instead of 3 arguments"'!'
+        echo "Usage: diffLines <file> <sed command to extract first section> <sed command for second section>"
+        echo "Suggestion for sed commands: '<start line number>,<end line number>p'"
+        return 1
+    fi
+
+    local file="$1"
+    if ! test -f "$file"; then
+        echoerr "First argument must be file but is: $1"'!'
+        return 1
+    fi
+
+    # @todo Ignore all space might be difficult. Maybe, allow supplying colordiff options in diffLines call?
+    # use diff first because wdiff does not have --ignore-white-space
+    # use wdiff --avoid-wraps because colordiff is too simple to understand multiline word diffs
+    diff --unified --ignore-all-space <( sed -n -E "$2" "$file" ) <( sed -n -E "$3" "$file" ) | wdiff --diff-input --avoid-wraps | colordiff
 }
 
 sourceWhitspaces()
