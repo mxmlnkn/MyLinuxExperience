@@ -31,8 +31,12 @@ dumpsysinfo()
         'cat /proc/uptime'
         'cat /etc/hosts'
         'nvidia-smi'
+        'nvidia-smi -L'
         'nvidia-smi -q'
         'nvidia-smi -q -d SUPPORTED_CLOCKS'
+        'nvidia-smi topo -m'
+        'nvidia-smi nvlink -c'
+        'nvidia-smi nvlink -s'
         # System Software Information
         'printenv'
         'pwd'
