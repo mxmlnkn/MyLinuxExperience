@@ -45,7 +45,8 @@ function startap() {
         exit 0
     fi
     sleep 0.1
-    if ps -p "$(cat /var/run/dhcpd.pid &>/dev/null)"; then
+    local dhcpPid="$( cat /var/run/dhcpd.pid 2>/dev/null )"
+    if test -n "$dhcpPid" && ps -p "$dhcpPid"; then
         echo -e "\e[31mIt seems a rogue dhcpd process is still running with pid $(cat /var/run/dhcpd.pid) (see /var/run/dhcpd.pid)\e[0m"
         exit 1
     else
@@ -82,7 +83,7 @@ function startap() {
     export DAEMON_CONF=~/etc/hostapd/hostapd.conf
     export RUN_DAEMON=yes
     if [ -d "$1" ]; then home=$1; else home=$HOME; fi
-    sudo bash -c "nohup hostapd '$home/etc/hostapd/hostapd.conf' > '$home/nohupHostapd.out'" &
+    sudo bash -c "nohup hostapd '$home/etc/hostapd/hostapd.conf' > '$home/logs/hostapd.log'" &
 
     replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$home/etc/dhcp/dhcpd.conf"
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' '"wlxec086b13468f"'

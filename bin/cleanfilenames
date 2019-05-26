@@ -4,6 +4,55 @@
 #
 # ToDo: create list of files, run sed over this whole list instead of per each file name and then diff this .... Something like find -print0 | tee original.lst | sed -z '...' > changed.lst; diff {original,changed}.lst | xargs -0 -L3 -l3 ...
 
+cleanFilesInDirectory()
+{
+    fileList="$( mktemp )"
+    cleanedFileList="$( mktemp )"
+
+    find . -mindepth 1 -maxdepth 1 -print0 > "$fileList"
+    # translate hexcodes %ff -> \xff
+    # in contrast to recode perl leaves 😊 untouched
+    perl -C -MHTML::Entities -pe 'decode_entities($_);' "$fileList" > "$cleanedFileList"
+    sed -z -r -i '
+        s|:large$||;
+        # windows restrictions -> the two most important replacements
+        s/[|/\:]/ - /g;
+        s/[*?<>]/_/g;
+        s|—|-|g;
+        # replace double with single apostrophes
+        s/\x22/\x27/g;
+        # .html.mht -> .mht
+        s/\.m?html\.mht/\.mht/g;
+        # intrusive and not really necessary. was just because I thought it could spell trouble in bad bash scripts -.-
+        #s/[$/_/g;
+        # delete dots at the end of line (windows has issue with empty extensions -.-)
+        s/\.+$//g;
+        s/&#039;/'\''/g;
+        # Replace & character. Also quite intrusive ...
+        # s|&| and |g;
+        s|";|'\''|g;
+        # delete leading spaces
+        s/^[ \t]+//g;
+        # delete white spaces at end of extension
+        s/[ \t]+$//g;
+        # delete white spaces at end of file name
+        s/[ \t]+(\.[0-9A-Za-z]{3})$/\1/g;
+        # delete newlines and returns and other non-printables (will this bug out for UTF8 encoded strings?
+        s/[\x01-\x1F\x7F]/ /g;
+        s|\t| |g;
+        s|[ \t]+| |g;
+        # convert hex codes
+        s|%20| |g;
+        # convert extensions to lowercase (quite intrusive)
+        # s|(\.[A-Za-z0-9]{3})$|\L\1|;
+        # some other obnoxious extensions
+        # intrusive
+        # s|\.jpeg$|.jpg|;
+        s|\.png\.jpg|.jpg|;
+        s|\.jpg\.png|.png|;
+    '
+}
+
 # takes piped input!
 cleanFilenames() {
     # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
@@ -35,7 +84,7 @@ cleanFilenames() {
         s|—|-|g;
         s/\x22/\x27/g;
         # .html.mht -> .mht
-        s/\.html\.mht/\.mht/g;
+        s/\.m?html\.mht/\.mht/g;
         # intrusive and not really necessary. was just because I thought it could spell trouble in bad bash scripts -.-
         #s/[$/_/g;
         # delete dots at the end of line (windows has issue with empty extensions -.-)
@@ -109,14 +158,21 @@ if [ $duplicates -eq 1 ]; then
     echo "Finding and removing duplicates 'name(2).jpg'"
     # Find duplicates and delete them
     find "$dir" -name '*([0-9]).*' -execdir bash -c '
-        fname=$0
-        fnameorg=$(echo "$fname" | sed -r "s|\([0-9]\)\.(.*)|.\1|" )
+        fname="$0"
+        fnameorg="$( echo "$fname" | sed -r "s|\([0-9]\)\.([^.]{1-3})|.\1|" )"
+        if [ ! -f "$fnameorg" ]; then
+            # try windows scheme which also has a space before the "(2)" suffix
+            fnameorg="$( echo "$fname" | sed -r "s| \([0-9]\)\.([^.]{1-3})|.\1|" )"
+        fi
         if [ ! -f "$fnameorg" ]; then
             mv -- "$fname" "$fnameorg"
         elif "diff" -q -- "$fname" "$fnameorg"; then
             rm -- "$fname"
         fi' {} \;
 fi
+
+# find empty files
+find "$dir" -type f -size -1c -delete
 
 export -f cleanFilenames
 FIND=( find "$dir" )
@@ -180,6 +236,7 @@ if [ "'$checkComplexExtension'" -eq 1 ] && [ -f "$name" ]; then
             #printf "%s\n" "$subject"
             if [ -n "$subject" ]; then newname=$subject.mht; fi
         fi
+        # todo: try id3v2, exiftool, ffmpeg, pdfinfo, ... to create a name from metadaa information like author, date, title
     fi
 
     # Remove extension duplicates e.g. a.png.png.png -> a.png

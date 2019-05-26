@@ -170,6 +170,18 @@ if [ -x /usr/bin/dircolors ]; then
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
 if commandExists 'trash'; then alias rm='trash'; fi
+mv2dir()
+{
+    # if multiple files are moved, then create directory?
+    # Or can I catch this warning somehow? mv: target 'foo' is not a directory
+    local targetDidNotExist=0
+    if ! test -d "${@: -1}"; then
+        mkdir -p -- "${@: -1}"
+        targetDidNotExist=1
+    fi
+    ( mv --no-clobber "$@" && rm -r "${@:1:$#-1}" ) ||
+    if test "$targetDidNotExist" -eq 1; then rmdir -- "${@: -1}"; fi
+}
 alias mv='mv -i'
 alias cp='cp -i'
 alias la='ls -lah --group-directories-first'
@@ -187,7 +199,7 @@ if commandExists 'git'; then
     alias gls='git log --stat'
     alias glp='git log --pretty --all --graph --decorate --oneline'
 
-    gl()
+    function gl()
     {
         # show pretty-printed log history of current or specified branch to master if there is a common merge base
 
@@ -208,7 +220,7 @@ if commandExists 'git'; then
         git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short $range
     }
 
-    ga()
+    function ga()
     {
         if ! 'git' diff --quiet --name-only --staged; then
             # if there is something staged, then simply commit all staged
@@ -232,7 +244,7 @@ if commandExists 'git'; then
     # @todo open changed files (). either currently in staging and modified or in last commit (git show)
     # goc()
 
-    gfd()
+    function gfd()
     (
         # sorts all modified uncommitted files into parent commits as fixups
 
@@ -275,7 +287,7 @@ if commandExists 'git'; then
         cat "$rebaseCommands"
     )
 
-    grbi()
+    function grbi()
     {
         if test $# -eq 0; then
             git rebase -i "$( git merge-base master HEAD )"
@@ -359,9 +371,9 @@ sp(){
     )
 }
 
-lb(){ locate -i -b '*'"$*"'*'; }
+function lb(){ locate -i -b '*'"$*"'*'; }
 
-up() {
+function up() {
     if [ "$1" -lt 256 ] 2>/dev/null; then
         for ((i=0;i<$1;i++)); do
             cd ..;
@@ -369,8 +381,8 @@ up() {
     fi
 }
 
-echoerr() { echo "$@" 1>&2; }
-stringContains() {
+function echoerr() { echo "$@" 1>&2; }
+function stringContains() {
     #echo "    String to test: $1"
     #echo "    Substring to test for: $2"
     [ -z "${1##*$2*}" ] && [ ! -z "$1" ]
@@ -381,11 +393,11 @@ stringContains() {
 # because the format expected is: href="http://..."
 # This function is independent of the site to crawl! The returned links need
 # to be filtered differently depending on what to crawl. See filterUrls()
-getUrls() {
+function getUrls() {
     sed 's|<a href="|\nKEEP!!|g' "$1" | sed '/^KEEP!!/!d; s/KEEP!!//; s/".*$//g; s/ /%20/g'
 }
 
-getmac() {
+function getmac() {
     #if [ ! -z "$1" ]; then
     #    ip addr ls "$1" | sed -nE 's|[ \t]*link/ether ([a-f0-9:]+) brd.*|\1|p'
     #else
@@ -404,7 +416,7 @@ getmac() {
     #ifconfig eth0 | sed -nr 's|.*ether[ \t]*([0-9a-f:]+).*|\1|p'
 }
 
-offSteamUpdates() {
+function offSteamUpdates() {
     for lib in "$@"; do
         find "$lib" -name '*.acf' -execdir bash -c "
             if grep -q 'AutoUpdateBehavior.*\"[^1]\"' \"\$1\"; then
@@ -413,13 +425,13 @@ offSteamUpdates() {
             fi;
         " bash {} \; ; done
 }
-getLargestSide() {
+function getLargestSide() {
     local w=$(convert "$1" -format "%w" info:)
     local h=$(convert "$1" -format "%h" info:)
     if [ "$w" -gt "$h" ]; then echo $w; else echo $h; fi
 }
 
-makeIcon() {
+function makeIcon() {
     if [ -z "$1" ]; then
         echo -e "\e[31m Please specify a path to an image.\e[0m"
         exit 1
@@ -434,7 +446,7 @@ makeIcon() {
     #set +vx
 }
 
-mvsed() {
+function mvsed() {
     # $1 rule for sed how to work on file name
     local dryrun
     if [ "$1" == '-n' ]; then
@@ -470,7 +482,7 @@ EOF
     ' bash {} \;
 }
 
-lac() {
+function lac() {
     # show listing, but replace the second column (hard link count:
     # http://askubuntu.com/questions/19510/) with the number of files and
     # folders if it is a directory
@@ -506,7 +518,7 @@ lac() {
     done < <('ls' --color -lah --group-directories-first $@)
 }
 
-equalize-volumes() {
+function equalize-volumes() {
     local masterVolume sink
     masterVolume=$(amixer get 'Master' | sed -nr 's|.*\[([0-9]*%)\].*|\1|p' | head -1)
     for sink in $(pactl list sink-inputs | sed -nr 's/^Sink Input #(.*)/\1/p'); do
@@ -514,7 +526,7 @@ equalize-volumes() {
     done
 }
 
-githubSize() {
+function githubSize() {
     # expects a github clone link, e.g. https://github.com/chrissimpkins/Hack.git
     echo "$1" |
         perl -ne 'print $1 if m!([^/]+/[^/]+?)(?:\.git)?$!' |
@@ -523,7 +535,7 @@ githubSize() {
         sed -nr 's|.*: ([0-9]*).*|\1 KB|p'
 }
 
-colorinfo16() {
+function colorinfo16() {
     for clbg in {40..47} {100..107} 49 ; do
         for clfg in {30..37} {90..97} 39 ; do
             for attr in 0 1 2 4 5 7 ; do
@@ -534,7 +546,7 @@ colorinfo16() {
     done
 }
 
-igcc() {
+function  igcc() {
     # Use e.g. with:  igcc 'std::cout << "hello\n";'
     # to kinda test  things interactively
     local oldDir=$(pwd)
@@ -569,6 +581,7 @@ igcc() {
 #include <numeric>                              // accumulate
 #include <queue>
 #include <random>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <stdexcept>                            // invalid_argument
@@ -607,15 +620,15 @@ int main( int argc, char ** argv )
     return 0;
 }
 EOF
-    g++ tmp.cpp -std=c++11 -Wall -o a.out
+    g++ tmp.cpp -std=c++17 -Wall -o a.out
     ./a.out
     rm -r "$folder"
     cd "$oldDir"
 }
 
-o() { xdg-open "$*"; }
+function o() { xdg-open "$*"; }
 
-downo() {
+function downo() {
     local link
     for link in $@; do
         wget "$link"
@@ -626,7 +639,7 @@ downo() {
 
 alias getip='wget -q -O /dev/stdout http://checkip.dyndns.org/ | cut -d : -f 2- | cut -d \< -f -1'
 
-findPath()
+function findPath()
 {
     local path
     for path in "$@"; do
@@ -637,7 +650,7 @@ findPath()
     done
 }
 
-toUTF8()
+function toUTF8()
 {
     iconv -f ISO8859-15 -t UTF8 "$1" -o "$1".utf8
     echo -ne '\xEF\xBB\xBF' > "$1".utf8 && iconv -f ISO8859-15 -t UTF8 "$1" >> "$1".utf8
@@ -645,12 +658,12 @@ toUTF8()
     mv --no-clobber "$1.utf8" "$1"
 }
 
-splitCue()
+function splitCue()
 {
     shnsplit -f "$1" -t '%n - %t' -o flac -- "${1%.cue}".[^c]*
 }
 
-trash-empty()
+function trash-empty()
 {
     local mountpoint folder dry
     local ndays=$1
@@ -693,7 +706,7 @@ trash-empty()
 # ToDo: create list of files, run sed over this whole list instead of per each file name and then diff this .... Something like find -print0 | tee original.lst | sed -z '...' > changed.lst; diff {original,changed}.lst | xargs -0 -L3 -l3 ...
 
 # takes piped input!
-cleanFilenames() {
+function cleanFilenames() {
     # Windows restrictions: https://msdn.microsoft.com/en-us/library/aa493942%28v=exchg.80%29.aspx
     #    / \ * ? < > |
     #    \x22->\x27 makes: double quote -> single quote
@@ -753,9 +766,9 @@ cleanFilenames() {
     '
 }
 
-isodate() { date "$@" +%Y-%m-%dT%H-%M-%S; }
+function isodate() { date "$@" +%Y-%m-%dT%H-%M-%S; }
 
-hexdump()
+function hexdump()
 {
     # introduces artifical line breaks in hexdump output at newline characters
     # might be useful for comparing files linewise, but still be able to
@@ -805,7 +818,7 @@ hexdump()
     fi
 }
 
-hexdiff()
+function hexdiff()
 {
     # compares two files linewise in their hexadecimal representation
     # create temporary files, because else the two 'hexdump -n' calls
@@ -835,7 +848,7 @@ hexdiff()
 #    rm "$a" "$b"
 #}
 
-hexlinedump()
+function hexlinedump()
 {
     # https://unix.stackexchange.com/questions/40694/why-real-time-can-be-lower-than-user-time
     # real	0m5.363s
@@ -864,7 +877,7 @@ hexlinedump()
 #    rm "$a" "$b"
 #}
 
-hexdiff()
+function hexdiff()
 {
     # real	0m12.958s
     # user	0m18.908s
@@ -872,7 +885,7 @@ hexdiff()
     colordiff <( hexlinedump 16 "${@: -2:1}" ) <( hexlinedump 16 "${@: -1:1}" )
 }
 
-diffLines()
+function diffLines()
 {
     if test $# -ne 3; then
         echoerr "Got $# instead of 3 arguments"'!'
@@ -893,7 +906,7 @@ diffLines()
     diff --unified --ignore-all-space <( sed -n -E "$2" "$file" ) <( sed -n -E "$3" "$file" ) | wdiff --diff-input --avoid-wraps | colordiff
 }
 
-sourceWhitspaces()
+function sourceWhitspaces()
 {
     folder=$1
     tmp=$( mktemp )
@@ -906,7 +919,7 @@ sourceWhitspaces()
     done
 }
 
-dumpsysinfo()
+function dumpsysinfo()
 {
     local file='sysinfo.log'
     if [ -n "$1" ]; then file=$1; fi
@@ -951,7 +964,7 @@ dumpsysinfo()
     done
 }
 
-crawlTwitterData()
+function crawlTwitterData()
 (
     # scroll to bottom (ctrl+end), save es HTML (on my system this takes several minutes) and call this bash function with that html file. Use the "No Image" addon to save time and bandwidth for this step.
     mkdir -p "$1-crawled"
@@ -969,7 +982,7 @@ crawlTwitterData()
     # crawlTwitterData 'Twitter Name | Twitter9.html'
 )
 
-sqlToCsv()
+function sqlToCsv()
 (
     # also included in 'extract' command
     # https://github.com/darrentu/convert-db-to-csv/blob/master/convert-db-to-csv.sh
@@ -989,7 +1002,7 @@ EOF
     cd ..
 )
 
-getOpenTabs()
+function getOpenTabs()
 {
     local profile=$( sed -n -r -z 's|.*Path=([^\n]*)\nDefault=1.*|\1|p' "$HOME/.mozilla/firefox/profiles.ini" )
     # https://github.com/avih/dejsonlz4/blob/master/src/dejsonlz4.c
@@ -999,7 +1012,7 @@ getOpenTabs()
         xclip -selection c
 }
 
-getffpasswords()
+function getffpasswords()
 {
     local profile=$( sed -n -r -z 's|.*Path=([^\n]*)\nDefault=1.*|\1|p' "$HOME/.mozilla/firefox/profiles.ini" )
     # si pass && pass init defaultGpgID
@@ -1008,11 +1021,11 @@ getffpasswords()
 }
 
 # https://unix.stackexchange.com/a/4529/111050
-stripColors(){ perl -pe 's/\e\[?.*?[\@-~]//g'; }
-stripControlCodes(){ perl -pe 's/\e\[[\d;]*m//g'; }
+function stripColors(){ perl -pe 's/\e\[?.*?[\@-~]//g'; }
+function stripControlCodes(){ perl -pe 's/\e\[[\d;]*m//g'; }
 
 
-resolveAptHosts()
+function resolveAptHosts()
 {
     mapfile -t hosts < <(
         sed -n -r '/^#/d; s;deb(-src)? (http://|ftp://)?([^/ ]+).*;\3;p'\
@@ -1027,7 +1040,7 @@ resolveAptHosts()
     done
 }
 
-refreshPanels()
+function refreshPanels()
 {
     # fixes: https://bugzilla.xfce.org/show_bug.cgi?id=10725
     for plugin in $( xfconf-query -c xfce4-panel -lv | grep tasklist | cut -f1 -d' ' ); do
@@ -1036,7 +1049,7 @@ refreshPanels()
     done
 }
 
-getCurrentScreen()
+function getCurrentScreen()
 {
     # Returns Monitor ID to be used with 'xrandr --output $monitorID'
     # https://superuser.com/a/992924/240907
