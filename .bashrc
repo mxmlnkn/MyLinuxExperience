@@ -453,30 +453,53 @@ function mvsed() {
         dryrun='echo'
         shift
     fi
-    if [ -z "$1" ]; then
+
+    local sedCommand="$1"
+    if [ -z "$sedCommand" ]; then
         cat <<EOF
 mvsed [-n] <sed-rule>
  -n   dry-run, just show mv commands
 EOF
         return
     fi
-    if ! echo '' | sed -r "$1"; then
+
+    if ! echo | sed "$sedCommand"; then
+        echoerr "sed command '$sedCommand' seems to be invalid."
+        return
+    fi
+
+    if ! echo '' | sed -r "$sedCommand"; then
         # E.g. if sed rule is wrong
         return
     fi
+
+    local tmpFile="$( mktemp )"
+    find . -mindepth 1 -maxdepth 1 -print0 | sed -z 's|^\./||' | sed -z -E "$sedCommand" > "$tmpFile"
+    if test "$( cat "$tmpFile" | tr -cd '\0' | wc -c )" -ne "$( sort -uz "$tmpFile" | tr -cd '\0' | wc -c )"; then
+        echo "The renaming sed command '$sedCommand' is not bijective"'!' 1>&2
+        echo 'There are overlapping target names, which leads to data loss!' 1>&2
+        echo '' 1>&2
+        echo 'Overlaps | Target Name' 1>&2
+        sort -z "$tmpFile" | uniq -cz | sort -nz | sed -zE '/^1[ \t]+/d' | tr '\0' '\n'
+        echo 'Will quit now. Please use "rm" to delete your files instead.' 1>&2
+        return
+    fi
+
     find . -mindepth 1 -maxdepth 1 -execdir bash -c '
         fname=$1
         fname=$( basename "$fname" ) # this strips the leading ./ and trailing / for directories, find doesnt give trailing /
         if [ -d "./$fname" ]; then fname=$fname/; fi
-        newname=$( printf "%s" "$fname" | sed -r '"'$1'"' )
+        newname=$( printf "%s" "$fname" | sed -r '"'$sedCommand'"' )
         if [ "$fname" != "$newname" ]; then
             if [ -n "'$dryrun'" ]; then
                 '"printf \"mv '%s'\n-> '%s'\n\" "'"$fname" "$newname"
             else
-                if [ ! -d "$( dirname -- "./$newname" )" ]; then
-                    mkdir -p -- "$( dirname -- "./$newname" )"
+                mkdir -p -- "$( dirname -- "./$newname" )"
+                if test -f "./$newname"; then
+                    echo "Will not move \"$fname\" -> \"$newname\" because the target already exists and data loss would ensue. Please delete the file manually as this script is just a renamer." 1>&2
+                else
+                    mv "./$fname" "./$newname"
                 fi
-                mv "./$fname" "./$newname"
             fi
         fi
     ' bash {} \;
@@ -1062,4 +1085,39 @@ function getCurrentScreen()
         fi
     done < <( xrandr --current | sed -n -r 's|(.+) .*connected.* (([0-9]+[x+]){3}[0-9]+).*|\1 \2|p' | sed 's|[x+]| |g' )
     printf '%s' "$monitor"
+}
+
+function openUrls()
+{
+    while read line; do
+        xdg-open "$line" 2>/dev/null
+    done < <( xclip -o )
+}
+
+alias op=openUrls
+
+function demuxStreams()
+{
+    local file="$1"
+    if ! test -f "$file"; then
+        echo "Given file does not exist: $file"
+        return 1
+    fi
+
+    local i indexCodecs=( $( ffprobe -loglevel warning -show_streams "$file" | sed -nE 's/^(index|codec_name|TAG:language)=//p;' ) )
+    for (( i=0; i < ${#indexCodecs[@]}; ++i )); do
+        # load codec and language spefication if exists from list, knowing that language shouldn't be numeric but IDs are
+        local id="${indexCodecs[i]}" codec= numberRegex='^[0-9]+$'
+        local fname="$file.$id"
+        if [[ $(( i + 1 )) -lt ${#indexCodecs[@]} && ! ${indexCodecs[i+1]} =~ $numberRegex ]]; then
+            (( ++i ))
+            codec="${indexCodecs[i]}"
+            if [[ $(( i + 1 )) -lt ${#indexCodecs[@]} && ! ${indexCodecs[i+1]} =~ $numberRegex ]]; then
+                (( ++i ))
+                fname="$fname.${indexCodecs[i]}"
+            fi
+            fname="$fname.$codec"
+        fi
+        ffmpeg -loglevel warning -i "$file" -map 0:"$id" -codec copy "$fname"
+    done
 }
