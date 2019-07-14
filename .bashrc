@@ -198,17 +198,32 @@ if commandExists 'git'; then
     alias grbc='git rebase --continue'
     alias gls='git log --stat'
     alias glp='git log --pretty --all --graph --decorate --oneline'
+    alias grhh='git reset --hard HEAD'
 
     function gl()
     {
         # show pretty-printed log history of current or specified branch to master if there is a common merge base
 
         local range=
+        local options=()
+        while test $# -gt 0; do
+            if [[ "$1" =~ --.* ]]; then
+                options+=( "$1" )
+            elif test "$#" -eq 1; then
+                range="$1"
+            else
+                options+=( "$1" )
+                echo "Can't parse arguments, will simply forward all to git log call."
+                shift
+                break
+            fi
+            shift
+        done
 
-        if test $# -le 1; then
+        if test $# -eq 0; then
             local endPoint="$( git rev-parse HEAD )"
-            if test -n "$1" && git rev-parse "$1" &>/dev/null; then
-                endPoint="$( git rev-parse "$1" )"
+            if test -n "$range" && git rev-parse "$range" &>/dev/null; then
+                endPoint="$( git rev-parse "$range" )"
             fi
 
             local startPoint="$( git merge-base master $endPoint )"
@@ -217,7 +232,7 @@ if commandExists 'git'; then
             fi
         fi
 
-        git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short $range
+        git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short "${options[@]}" "$@" $range
     }
 
     function ga()
@@ -236,6 +251,7 @@ if commandExists 'git'; then
 
     alias grh='git reset HEAD'
     alias gss='git show --stat'
+    alias gco='git checkout'
 
     alias gp='git pull'
     # delete merged branches (except specially named like master, dev, develop
@@ -247,6 +263,7 @@ if commandExists 'git'; then
     function gfd()
     (
         # sorts all modified uncommitted files into parent commits as fixups
+        # basically only needs git add, commit, and log, so it should be fine to run this while rebasing interactively
 
         if test -n "$( command git diff --cached --name-only )"; then
             echo "Won't sort changed files into previous commits as fixups because there are staged files already"'!' 1&>2
@@ -262,11 +279,16 @@ if commandExists 'git'; then
             local lastFileTouchingCommit="$( git log --format='%H' --follow $startPoint..HEAD -- "$changedFile" | head -1 )"
             if test -n "$lastFileTouchingCommit"; then
                 git add "$changedFile"
-                git commit -m "fixup $lastFileTouchingCommit"
+                if ! git commit -m "fixup ${lastFileTouchingCommit:0:9} ${changedFile##*/}"; then
+                    echo 'Committing was not successful! Will quit now.' 1>&2
+                    return 1
+                fi
             fi
         done
 
-        git commit -a -m 'changed files which were not changed in any previous commit until the merge base'
+        if ! command git diff --name-only --quiet || ! command git diff --cached --quiet; then
+            git commit -a -m 'changed files which were not changed in any previous commit until the merge base'
+        fi
 
         rebaseCommands="$( mktemp )"
         touch "$rebaseCommands"
@@ -280,12 +302,59 @@ if commandExists 'git'; then
 
             printf 'pick %s\n' "$line" >> "$rebaseCommands"
             # find and append all fixup commits after it
-            git log --format='%h %s' $commit..HEAD | command grep -F "fixup $commit" | sed 's|^|fixup |' >> "$rebaseCommands"
+            git log --format='%h %s' $commit..HEAD | command grep -F "fixup ${commit:0:9}" | sed 's|^|fixup |' >> "$rebaseCommands"
         done
 
-        echo "Use git rebase -i with the following commit command list to apply the fixup commits at the correct parents\n" 1>&2
+        echo -e "Use git rebase -i with the following commit command list to apply the fixup commits at the correct parents\n" 1>&2
         cat "$rebaseCommands"
     )
+
+    function gdt()
+    {
+        # "git duplicate touches" finds files in a given range which were modified more than once
+        # and whose commits therefore might be a candidate for squashing
+        local nCommits="$( git log --format='%h' "$@" | wc -l )"
+        if test "$nCommits" -le 0; then
+            echo "'git log --oneline $@' returned no commits"'!' 1>&2
+            return 1
+        fi
+
+        local findMultipleModifiedFiles="$( mktemp --suffix='.py' )"
+        cat <<EOF > "$findMultipleModifiedFiles"
+#!/usr/bin/env python3
+
+import sys, string
+
+files = {}
+
+currentCommit = None
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+
+    if all( c in string.hexdigits for c in line ):
+        currentCommit = line
+        continue
+    assert( currentCommit is not None )
+
+    files[line] = files.setdefault( line, [] ) + [ currentCommit ]
+
+commitOverlap = {}
+for file, commits in files.items():
+    if len( commits ) > 1:
+        key = ' '.join( commits )
+        commitOverlap[key] = commitOverlap.setdefault( key, [] ) + [ file ]
+
+for commits, files in commitOverlap.items():
+    print( len( commits.split( ' ' ) ), "commits (" + commits + ") modify the following files:" )
+    for file in files:
+        print( '    ' + file )
+EOF
+
+        git log --format='%h' --name-only "$@" | sed '/^$/d' | python3 "$findMultipleModifiedFiles"
+        rm -- "$findMultipleModifiedFiles"
+    }
 
     function grbi()
     {
@@ -1121,3 +1190,15 @@ function demuxStreams()
         ffmpeg -loglevel warning -i "$file" -map 0:"$id" -codec copy "$fname"
     done
 }
+
+if commandExists scite; then
+function scite()
+{
+    # goto command documented here: https://www.scintilla.org/SciTEDoc.html
+    if test $# -eq 1 && test "${1##*:}" -eq "${1##*:}"  && test -f "${1%:*}"; then
+        command scite "${1%:*}" -goto:"${1##*:}"
+    else
+        command scite "$@"
+    fi
+}
+fi
