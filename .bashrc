@@ -195,10 +195,18 @@ if commandExists 'git'; then
     alias gm='git commit'
     alias gpf='git push -f'
     alias grba='git rebase --abort'
-    alias grbc='git rebase --continue'
     alias gls='git log --stat'
     alias glp='git log --pretty --all --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
+
+    function grbc()
+    {
+        # automatically stage all unstaged changes and merge conflicts if merge-conflict markers are removed
+        if ! git diff --quiet && git diff --check; then
+            git add --all
+        fi
+        git rebase --continue
+    }
 
     function gl()
     {
