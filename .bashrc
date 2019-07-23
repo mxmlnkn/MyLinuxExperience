@@ -196,7 +196,7 @@ if commandExists 'git'; then
     alias gpf='git push -f'
     alias grba='git rebase --abort'
     alias gls='git log --stat'
-    alias glp='git log --pretty --all --graph --decorate --oneline'
+    alias glp='git log --pretty --update --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
 
     function grbc()
@@ -260,6 +260,7 @@ if commandExists 'git'; then
     alias grh='git reset HEAD'
     alias gss='git show --stat'
     alias gco='git checkout'
+    alias gdc='git diff --cached'
 
     alias gp='git pull'
     # delete merged branches (except specially named like master, dev, develop
