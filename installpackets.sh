@@ -4,6 +4,14 @@
 # search installed dpkg-query -l '*wicd*"
 # see also /var/cache/apt/archives/
 
+if ! 'grep' -q 'n=sid' /etc/apt/preferences; then
+    sudo bash -c 'cat <<EOF >> /etc/apt/preferences
+Package: *
+Pin: release n=sid
+Pin-Priority: 54
+EOF
+'
+fi
 
 # lrzip needed for sage tarballs
 # apt-get install sudo
@@ -20,15 +28,15 @@ packagelistsid=(
     xsltproc
 
     # only notebook
-    firmware-iwlwifii xfce4-power-manager xfce4-power-manager-plugins
+    # xfce4-power-manager xfce4-power-manager-plugins
     # only pc
     #cuda
 
     # hexdump, ... might be linux-tools-common on ubuntu?
-    bsdmainutils htop cpulimit cpuinfo read-edid get-edid
+    coreutils bsdmainutils moreutils geoip-bin htop cpulimit cpuinfo read-edid get-edid
 
     # scala 2.11 doesn't work with spark 1.6.0 yet -.-
-    scala scala-doc
+    #scala scala-doc
 
     x11-apps screenruler # xclock for testing
     libcdio-utils
@@ -36,7 +44,7 @@ packagelistsid=(
     # Programming toolchain
     linux-tools gcc g++ g++-5 g++-6 g++-7 gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev uncrustify clang-tidy linux-perf heaptrack heaptrack-gui
     python ipython python-pip python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
-    python3 ipython3 jupyter python3-pip python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn python3-venv python3-virtualenv
+    python3 ipython3 jupyter python3-pip python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn python3-venv python3-virtualenv pylint
 
     # steam things like glxinfo
     mesa-utils
@@ -66,7 +74,7 @@ packagelistsid=(
     # slim
     xscreensaver
     # networking: hostapd (Create WiFi Access Point)
-    hostapd iw isc-dhcp-server firmware-atheros firmware-realtek haveged
+    hostapd iw isc-dhcp-server firmware-atheros firmware-realtek firmware-iwlwifi haveged
     # conky/conky-manager prerequesites
     lm-sensors xsensors psensor curl hddtemp dmidecode conky conky-all arandr realpath cpuid
     # install new window manager to prevent tearing
@@ -89,7 +97,7 @@ packagelistsid=(
     pxz plzip pigz pbzip2 lrzip
     caja arj lzip lzop ncompress rzip sharutils unace unalz zoo unar jq
 
-    vlc libaacs0 libbluray-bdj libbluray1 libbluray-doc libbluray-bin smplayer mplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
+    vlc libaacs0 libbluray* smplayer mplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
     streamripper streamtuner2
     thunderbird lightning
 
@@ -112,14 +120,14 @@ packagelistsid=(
     libfltk1.3-dev povray povray-includes povray-doc povray-examples
 
     # Tools
-    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-skype pidgin-plugin-pack pidgin-audacious pidgin-dev
+    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-skype pidgin-plugin-pack pidgin-audacious pidgin-dev pidgin-extprefs purple-discord pidgin-openpgp telegram-purple
     # https://launchpad.net/pidgin-character-counting
     # http://3d.benjamin-thaut.de/?p=12
     powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils
     cython cython-doc libhdf5-dev libhdf5-doc python-h5py python-h5py-doc python-pip vitables
     trans-de-en ding translate anacron scite rfkill trash-cli strace chm2pdf
     # catfish
-    galculator gdmap mysql-server mysql-client cpuburn fancontrol shred wipe
+    galculator gdmap sqlite3 cpuburn fancontrol shred wipe
     wine64-preloader wine wine64 wine32 libwine:i386 pv
 
     # XFCE
@@ -173,14 +181,13 @@ packagelistsid=(
     # nice GUI editor
     texmaker hunspell-en-gb myspell-de-de hunspell-de-de-frami
 
-    #octave
-    octave-general octave-signal octave-image octave-struct octave-io octave-specfun octave-doc octave-statistics octave-audio octave-bim octave-data-smoothing octave-fpl octave-ga octave-geometry octave-gsl octave-linear-algebra octave-ltfat octave-ltfat-common octave-missing-functions octave-mpi octave-openmpi-ext octave-msh octave-nan octave-nurbs octave-ocs octave-quaternion octave-secs1d octave-secs2d octave-sockets octave-splines octave-strings octave-symbolic octave-plplot octave-zenity
+    #octave-*
 
     # LibreOffice
     libreoffice-common libreoffice-core libreoffice-pdfimport libreoffice-l10n-de libreoffice-help-de hyphen-de myspell-de-de mythes-de libreoffice-help-en-us libreoffice-writer libreoffice-impress
 
     marble-qt # 3D offline globe
-    virtualbox-qt virtualbox-guest-utils
+    virtualbox-qt virtualbox virtualbox-guest-utils
 
     gimagereader tesseract-ocr-jpn tesseract-ocr-jpn-vert
 
@@ -188,11 +195,14 @@ packagelistsid=(
 
     # machine learning
     python3-keras keras-doc
+
+    progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
+    tidy calibre memtester memtest86 bless bash shellcheck oathtool
 )
 
 for package in "${packagelistsid[@]}"; do
     echo "Install '$package'"
-    sudo apt-get install --yes -t sid "$package"
+    sudo apt-get install --yes "$package" #-t sid
     sudo apt-get -f install
 done
 sudo apt-get autoremove
@@ -206,7 +216,7 @@ exit
 
 # hold some largish rarely used packages for traffic reason
 # hold openjdk-7, because a program didn't compile with jdk-8
-sudo apt-mark hold libreoffice* octave* openjdk-7* texlive*
+#sudo apt-mark hold libreoffice* octave* openjdk-7* texlive*
 
 exit
 
@@ -215,7 +225,13 @@ exit
 More programs installed manually in /opt/
     FoxitReader
     sudo dpkg -i conky-manager-latest-amd64.deb
-    sudo dpkg -i ~/files/programs/steam-latest.deb
+
+    Steam:
+        wget http://repo.steampowered.com/steam/archive/precise/steam_latest.deb
+        sudo dpkg -i steam_latest.deb
+        sudo apt-get install -f
+        or: sudo apt install steam_latest.deb
+
     OpenFOAM:
         apt-get install build-essential flex bison cmake zlib1g-dev libopenmpi-dev openmpi-bin gnuplot libreadline-dev libncurses-dev libxt-dev qt4-dev-tools libqt4-dev libqt4-opengl-dev freeglut3-dev libqtwebkit-dev libscotch-dev libcgal-dev
         git clone git://github.com/OpenFOAM/OpenFOAM-2.4.x.git /opt/OpenFOAM-2.4.x
@@ -265,7 +281,7 @@ More programs installed manually in /opt/
         from: https://www.mozilla.org/de/firefox/new/
     manually add manual programs to applications menu through entry in: /usr/share/applications
     http://sourceforge.net/projects/defragfs/files/defragfs/defragfs-1.1/defragfs-1.1.1.gz/download
-
+    JDownloader2
 
 sudo apt-get purge xterm
 

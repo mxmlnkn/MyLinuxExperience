@@ -4,7 +4,7 @@
 # memory in order to solve a NVIDIA bug where on resume from suspend the
 # wallpaper shows random noise (generally white with random colors) -.-
 for wd in $( xfconf-query -c xfce4-desktop -l | 'grep' 'last-image$' ); do
-    wp=$(  xfconf-query -c xfce4-desktop -p "$wd" ) # read old path
+    wp="$( xfconf-query -c xfce4-desktop -p "$wd" )" # read old path
     echo -e "\e[37m[refreshWallpaper] $wd -> $wp\e[0m" 1>&2
     xfconf-query -c xfce4-desktop -p "$wd" -s ' '   # set to nothing
     xfconf-query -c xfce4-desktop -p "$wd" -s "$wp" # set to old path

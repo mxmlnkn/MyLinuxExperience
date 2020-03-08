@@ -19,6 +19,7 @@
 *.csv
 *.pptx
 *.ppt
+*.jar
 
 # Images
 *.jpg
@@ -76,3 +77,6 @@
 KNOWLEDGE/*
 output/*
 etc/
+
+# Binaries
+bin/gpuinfo

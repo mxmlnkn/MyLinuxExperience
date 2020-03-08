@@ -209,7 +209,7 @@ makeReadOnly() {
 
 setCustomFolderIcon() {
     local folder
-    folder=$(dirname "$1")
+    folder=$( dirname -- "$1" )
     # The properties of a working custom icon folder under Windows are:
     #   attrib .
     #       A    R       .
@@ -289,6 +289,11 @@ while [ "$1" != "" ]; do
         ;;
     "-x" | "--remove-icons")
         remove=1
+        ;;
+    "--")
+        shift
+        folder=$1
+        break
         ;;
     *)  # default case (neither one of the options from above, nor empty)
         if [ ${1:0:1} == '-' ]; then

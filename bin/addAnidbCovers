@@ -91,7 +91,7 @@ if [ -n "$cookieFile" ]; then
     wgetOptions+=( --load-cookies="$cookieFile" )
 fi
 
-for folder in "$@"; do (
+for folder in "$@"; do
     if [ ! -d "$folder" ]; then
         echo -e "\e[31m'$folder' is not a folder"'!'"\e[0m"
     fi
@@ -101,16 +101,18 @@ for folder in "$@"; do (
         echo -e "\e[35mAlready found files matching AniDB-Cover naming scheme. Skipping this folder. Files:\e[0m"
         find . -maxdepth 1 -regextype 'posix-extended' -regex '\./[0-9]+ - .*\.jpg'
     fi
-    name=$folder; name=${name%/}; name=${name##*/}; name=${name%(*)}; name=${name%\[*\]}; name=${name// - / }
+
+    name=$( basename -- "$folder" | sed -r 's|( ?\[[0-9p]*\])?( ?\([^)]*\))?/?||g;' )
     echo -e "\e[37mSearching for '$name'\e[0m"
     if [ -z "$name" ]; then
         echo -e "\e31mSomething went wrong, name to serach for is empty"'!'"\e[0m"
         continue
     fi
-    wget -q -O result.html "${wgetOptions[@]}" "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
+
+    #wget -q -O result.html "${wgetOptions[@]}" "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
+    wget -q -O result.html "${wgetOptions[@]}" "https://anidb.net/anime/?adb.search=$name&do.search=1"
     if [ ! -f result.html ]; then
         echo -e "\e[31mSomething went wrong, can't find 'result.html'"'!'"\e[0m"
-        rm result.html
         continue
     fi
     if 'grep' -q 'No results.' result.html; then
@@ -118,6 +120,7 @@ for folder in "$@"; do (
         rm result.html
         continue
     fi
+
     title=$( sed -nr 's|.*<title>([^<]*)</title>.*|\1|p' result.html )
     echo -e "\e[37mGot title: '$title'\e[0m"
     if printf '%s' "$title" | 'grep' -i -q 'AntiLeech'; then
@@ -130,22 +133,42 @@ for folder in "$@"; do (
         rm result.html
         continue
     fi
+
+    # Sometimes the result of the search is a list fo search results,
+    # at other times we get directly redirected to the singular result
     if [ "$title" == 'Anime List - AniDB' ]; then
         sed -nr '
-            s|.*<a href="animedb\.pl\?show=anime&amp;aid=[0-9]*">([^<]*)</a>.*|\1|p;
-            s|.*<source srcset="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p
+            #s|.*<a href="animedb\.pl\?show=anime&amp;aid=[0-9]*">([^<]*)</a>.*|\1|p;
+            s|.*<a href="/anime/[0-9]+">([^<]*)</a>.*|\1|p;
+            #s|.*<source srcset="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p;
+            s|.*<img [^>]*src="(https://cdn.anidb.net/images)/[^/]*/([0-9]*.jpg)-thumb.jpg".*|\1/main/\2|p;
         ' result.html
     else
         sed -nr '
             s|.*<h1 class="anime">Anime: ([^<]*)</h1>.*|\1|p;
-            s|.*<img [^>]*src="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p
+            #s|.*<img [^>]*src="(http://[^"]*/pics/anime/[0-9]*.jpg)".*|\1|p
+            s|.*<img [^>]*src="(https://cdn.anidb.net/images/main/[0-9]*.jpg)".*|\1|p
         ' result.html | tac
     fi | xargs -L 2 -d '\n' bash -c '
-            fname="${0##*/}"
-            fname="${fname%.*} - $1.${fname##*.}"
-            echo -e "\e[37mDownloading \"$fname\"\e[0m"
-            wget -q -O "$( printf "%s" "$fname" | cleanFilenames )" "$0"
-        '
+            thumbUrl=$1
+            animeTitle=$2
+            if [[ $thumbUrl == bash || $# -ne 2 ]]; then
+                echo "Arguments ($#) seem to invalid format: $@"
+                exit
+            fi
+
+            fname="${thumbUrl##*/}"
+            fname="${fname%.*} - $animeTitle.${fname##*.}"
+            echo -e "\e[37mDownloading \"$fname\" from \"$thumbUrl\"\e[0m"
+            fname="$( printf "%s" "$fname" | cleanFilenames )"
+            wget -q -O "$fname" "$thumbUrl"
+            if ! identify "$fname" &>/dev/null; then
+                rm "$fname"
+            fi
+        ' bash
+
     rm result.html
-    sleep 1s
-); done
+    if [[ $# -gt 1 ]]; then
+        sleep 1s
+    fi
+done
