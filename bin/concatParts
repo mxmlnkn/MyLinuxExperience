@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+if 'find' -maxdepth 1 -iname '*.0000.zip.part' | grep -q '.'; then
+    for file in *.00000.zip.part; do
+        echo "extract $file.zip"
+        file=${file%%.00000.zip.part}
+        'cat' "$file.00000.zip.part" "$file.00001.zip.part" > "$file.zip"
+        unzip "$file.zip"
+    done
+elif 'find' -maxdepth 1 -iname '*.001' | grep -q '.'; then
+    for file in *.001; do
+        file=${file%%.001}
+        echo "Join:" "$file".[0-9][0-9][0-9] "-> $file"
+        'cat' "$file".[0-9][0-9][0-9] > "$file"
+    done
+fi
