@@ -1,3 +1,6 @@
 [submodule "bin/XCreateMouseVoid"]
 	path = bin/XCreateMouseVoid
 	url = https://github.com/cas--/XCreateMouseVoid
+[submodule "bin/include-spider"]
+	path = bin/include-spider
+	url = https://github.com/mxmlnkn/include-spider.git
