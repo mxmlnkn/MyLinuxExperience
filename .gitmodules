@@ -7,3 +7,6 @@
 [submodule "bin/dejsonlz4-git"]
 	path = bin/dejsonlz4-git
 	url = https://github.com/avih/dejsonlz4
+[submodule "bin/firefox_decrypt"]
+	path = bin/firefox_decrypt
+	url = https://github.com/unode/firefox_decrypt.git
