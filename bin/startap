@@ -5,48 +5,60 @@
 #   exit 1
 #fi
 # Don't use root home, but the home of the user using sudo
-if [ ! -z "$SUDO_USER" ]; then
-    HOME=$(getent passwd $SUDO_USER | cut -d: -f6)
+if [[ -n "$SUDO_USER" ]]; then
+    HOME="$( getent passwd $SUDO_USER | cut -d: -f6 )"
 fi
 
-function extractWlans() {
+function extractWlans()
+{
     # returns list of available wlan interfaces
-    interfaces=($(ip link show | sed -nE 's/[0-9]*: (wl[A-Za-z0-9]*): .*/\1/p'))
+    ip link show | sed -nE 's/[0-9]*: (wl[A-Za-z0-9]*): .*/\1/p'
 }
-function isUp() {
+
+function isUp()
+{
     # $1 : wlan interface name, e.g. wlan0, which to test for
     # returns if interface is up or not
-    ip link | grep -q "$1.*state UP"
+    ip link list dev "$1" | grep -q ',UP>'
 }
-function replaceOption() {
+
+function replaceOption()
+{
     # $1 file name
     # $2 option name
     # $3 new value to asign
     # searches for '$1=" and replaces all those with "$1=$2"
     if 'grep' -qE '^[ \t]*'"$2"'=' "$1"; then
         # Todo don't print warning for lines which already assign $3, meaning they don't effetively change
-        echo -e "\e[37mReplacing
+        if false; then
+            echo -e "\e[37mReplacing
     $('grep' -E '^[ \t]*'"$2"'=' "$1")
 with
     $2=$3
 in $1\e[0m"
+        fi
         sudo 'sed' -E -i 's|^([ \t]*'"$2"'=).*|\1'"$3"'|' "$1"
     else
-        echo "$2=$3" >> "$1"
+        sudo bash -c 'echo "$2=$3" >> "$1"' bash "$1" "$2" "$3"
     fi
 }
 
 ############################ Main ################################
 
-function startap() {
+function startap()
+{
     sudo pkill hostapd
-    sudo service isc-dhcp-server stop
+    sudo pkill wpa_supplicant
+    if sudo service network-manager status | 'grep' -q 'active (running)'; then
+        sudo service isc-dhcp-server stop
+    fi
+    sudo nmcli radio wifi off
+
     if [ "$1" == '-x' ]; then
         exit 0
     fi
     sleep 0.1
-    local dhcpPid="$( cat /var/run/dhcpd.pid 2>/dev/null )"
-    if test -n "$dhcpPid" && ps -p "$dhcpPid"; then
+    if [[ -f /var/run/dhcpd.pid ]] && ps -p "$( cat /var/run/dhcpd.pid &>/dev/null )"; then
         echo -e "\e[31mIt seems a rogue dhcpd process is still running with pid $(cat /var/run/dhcpd.pid) (see /var/run/dhcpd.pid)\e[0m"
         exit 1
     else
@@ -57,7 +69,7 @@ function startap() {
     # Parse e.g. if found:
     # [    7.402603] ath9k_htc 1-2.1.1:1.0 wlxec086b13468f: renamed from wlan0
     #interface=( $('dmesg' | 'sed' -nE 's/.* ([A-Za-z0-9]*): renamed from wlan[0-9]*/\1/p') )
-    extractWlans
+    interfaces=( $( extractWlans ) )
     if [ "${#interfaces[@]}" -eq 0 ]; then
         echo "No wlan interface using the new systemd scheme found"
         # Todo: do some other checks, e.g. in ifconfig, iw list, ip link show or old scheme in dmesg, and give hints as to what drivers to install, ...
@@ -69,43 +81,85 @@ function startap() {
     fi
     interface=$interfaces
 
-    if ! isUp $interface; then
-        sudo ip link set dev $interface up
+    if ! isUp "$interface"; then
+        if sudo ip link set dev "$interface" up 2>&1 | 'grep' -q -i 'due to RF-kill'; then
+            sudo rfkill unblock wlan
+            sudo ip link set dev "$interface" up
+        fi
         sleep 0.1s
     fi
-    if ! ifconfig | 'grep' -q "$1"; then
+    if ! isUp "$interface"; then
         echo -e "\e[31mCouldn't bring interface '$interface' up with 'ip link set dev $interface up'\e[0m"
         exit 1
     fi
-    echo "Starting hostapd and dhcp-server on interface '$interface'"
+    echo "Starting hostapd and dhcp-server on interface $interface"
 
     # echo 1 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
     export DAEMON_CONF=~/etc/hostapd/hostapd.conf
     export RUN_DAEMON=yes
-    if [ -d "$1" ]; then home=$1; else home=$HOME; fi
-    sudo bash -c "nohup hostapd '$home/etc/hostapd/hostapd.conf' > '$home/logs/hostapd.log'" &
+    if [ -d "$1" ]; then
+        home=$1
+        logs=$1
+    else
+        home=$HOME
+        logs=$HOME/logs
+        mkdir -p -- "$logs"
+    fi
+    sudo bash -c "nohup hostapd '$home/etc/hostapd/hostapd.conf' > '$logs/hostapd.log'" &>/dev/null &
 
     replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$home/etc/dhcp/dhcpd.conf"
-    replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' '"wlxec086b13468f"'
+    replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' "\"$interface\""
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv6' '""'
 
-    sudo ip address add 10.0.0.1/24 dev $interface
+    if ! ip address list dev "$interface" | 'grep' -q '10.0.0.1/24'; then
+        sudo ip address add 10.0.0.1/24 dev "$interface"
+    fi
     sudo service isc-dhcp-server restart
 
+    if sudo sysctl "net.ipv4.conf.$interface.forwarding" | 'grep' -q ' = 0$'; then
+        echo -e '\e[37mBeware that forwarding was not activated in the kernel.'
+        echo -e 'You might wanna activate it permenantly.\e[0m'
+        sudo sysctl "net.ipv4.ip_forward=1"
+        sudo sysctl "net.ipv4.conf.$interface.forwarding=1"
+    fi
+    #if iptables --version | 'grep' -q 'nf_tables'; then
+    #    function addRule() {
+    #        # test if rules already exist first and only add it if it does not exist
+    #        if sudo iptables --check $@; then
+    #            sudo iptables --append $@
+    #        fi
+    #    }
+    #    # use iptables-translate <arguments> to get the new nf_tables syntax
+    #    nft add rule ip nat POSTROUTING oifname "eth0" counter masquerade
+    #    nft add rule ip filter FORWARD ct state related,established counter accept
+    #    nft add rule ip filter FORWARD iifname "$interface" oifname "eth0" counter accept
+    #else
     function addRule() {
         # test if rules already exist first and only add it if it does not exist
-        if sudo iptables --check $@; then
-            sudo iptables --append $@
+        if ! sudo iptables --check "$@" 2>/dev/null; then
+            sudo iptables --append "$@"
         fi
     }
-    addRule POSTROUTING --table nat --out-interface eth0 --jump MASQUERADE
+    internetInterface="$( ip route list default | sed -n -r 's|.* dev *([A-Za-z0-9]+).*|\1|p' | head -1 )"
+    echo "Using interface $internetInterface to route traffic from $interface to the internet."
+    addRule POSTROUTING --table nat --out-interface "$internetInterface" --jump MASQUERADE
     addRule FORWARD --table filter --match conntrack --ctstate RELATED,ESTABLISHED --jump ACCEPT
-    addRule FORWARD --table filter --in-interface $interface --out-interface eth0 --jump ACCEPT
+    addRule FORWARD --table filter --in-interface "$interface" --out-interface "$internetInterface" --jump ACCEPT
+    # sudo iptables --append FORWARD --table filter --in-interface "$interface" --out-interface "$internetInterface" --jump LOG --log-prefix "FORWARD from WLAN to ETH"
 
     # Error checking if access point does not work (not yet automated):
     #  - does the interface used here has an IP address, if not, do: ip address add 10.0.0.1/24 dev $interface
-    #  - has the client the correct gateway configured? -> if not, then ping gateway works, but any other IP e.g. pign 8.8.8.8 won't work. Solution: set one manually with ip route or check the DHCP server configuration, whether it has a 'option router 10.0.0.1' at the correct place
-    #  - is a domain name server configured? Symptom: ping 8.8.8.8 works, but not ping google.de Solution: Check DHCP configuration for 'option domain-name-servers 8.8.8.8;' or set it manually by editing /etc/resolv.conf
+    #  - has the client the correct gateway configured? -> if not, then ping gateway works, but any other IP e.g. ping 8.8.8.8 won't work. Solution: set one manually with ip route or check the DHCP server configuration, whether it has a 'option router 10.0.0.1' at the correct place
+    #  - is forwarding working correctly on the gateway? If not, then ping 10.0.0.1 will work but not ping 8.8.8.8
+    #    debug iptables configuration: https://serverfault.com/questions/78240/debugging-rules-in-iptables
+    #    Use wireshark to see that packets arrive at gateway/router but nothing is sent back ...
+    #       sudo tcpdump -i $interface
+    #    One bug I had was to configure iptables with out-interface eth0 instead of enp4s0 (finding this was sheer luck)
+    #    I guess it could have been found by also looking at the ethernet interface and filter for "ip.addr == 8.8.8.8" (which I was pinging from my notebook), as to see whether the packets are sent out into the internet
+    #    Note that "sudo iptables --flush -t nat; sudo iptables --flush -t filter; sudo iptables-legacy --flush -t nat; sudo iptables-legacy --flush -t filter" is required when changing eth0 to enp4s0 because I check for preexisting rules!
+    #    https://unix.stackexchange.com/questions/85936/debugging-iptables-using-live-packet-views
+    #      => in the end it was because sudo sysctl net.ipv4.conf.wlxec12345abcdef.forwarding = 0 instead of 1!
+    #  - is a domain name server (DNS) configured? Symptom: ping 8.8.8.8 works, but not ping google.de Solution: Check DHCP configuration for 'option domain-name-servers 8.8.8.8;' or set it manually by editing /etc/resolv.conf
     #  - is a WPA connection established? Todo: how to test, except checking wpa-supplicant output for errrors?
 }
 
