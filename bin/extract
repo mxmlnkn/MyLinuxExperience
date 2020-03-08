@@ -94,11 +94,12 @@ function getArchiveCommand() {
 
 
 function singleFileInArchive() {
-    local file files nFiles firstFile folderRegex cmdW
+    local archive file files nFiles firstFile folderRegex cmd
+    archive=$( realpath -- "$1" )
     # test if archive contains single file or single folder so we can
     # extract it without polluting the working folder, but also without
     # creating unnecessary folders
-    local unpackCommand=$( getArchiveCommand "$1" )
+    local unpackCommand=$( getArchiveCommand "$archive" )
     case "$unpackCommand" in
         '7z')
         {
@@ -138,7 +139,7 @@ function singleFileInArchive() {
             #    Encrypted = -
             #    Method =
             #    Block =
-            if isEncrypted "$1"; then
+            if isEncrypted "$archive"; then
                 if [ -z "$password" ]; then
                     echoerr -e "File is encrypted, but no password set!"
                     return 1
@@ -149,7 +150,7 @@ function singleFileInArchive() {
             files=()
             while IFS= read -d $'\n' -r file ; do
                 files+=( "$file" )
-            done < <( "${cmd[@]}" "$1" |
+            done < <( "${cmd[@]}" "$archive" |
                       sed -nr '/^Path = /{N;s|^Path = (.*)\n(Size\|Folder) = .*|\1|p;}' )
         }
         ;;
@@ -169,7 +170,7 @@ function singleFileInArchive() {
             files=()
             while IFS= read -d $'\n' -r file ; do
                 files+=("$file")
-            done < <( "${cmd[@]}" "$1" )
+            done < <( "${cmd[@]}" "$archive" )
         }
         ;;
         'rar')
@@ -217,7 +218,7 @@ function singleFileInArchive() {
             #        Host OS: Unix
             #    Compression: RAR 3.0(v29) -m3 -md=128K
             cmd=( 'rar' 'lt' )
-            if isEncrypted "$1"; then
+            if isEncrypted "$archive"; then
                 if [ -z "$password" ]; then
                     echoerr -e "File is encrypted, but no password set!"
                     return 1
@@ -228,14 +229,14 @@ function singleFileInArchive() {
             files=()
             while IFS= read -d $'\n' -r file ; do
                 files+=("$file")
-            done < <( "${cmd[@]}" "$1" |
+            done < <( "${cmd[@]}" "$archive" |
                       sed -nr 's|^[ \t]+Name: (.*)$|\1|p' )
         }
         ;;
         'zip')
         {
             cmd=( 'zipinfo' '-1' )
-            #if isEncrypted "$1"; then
+            #if isEncrypted "$archive"; then
             #    if [ -z "$password" ]; then
             #        echoerr -e "File is encrypted, but no password set!"
             #        return 1
@@ -250,42 +251,42 @@ function singleFileInArchive() {
 
             files=()
             while IFS= read -d $'\n' -r file ; do
-                files+=("$file")
-            done < <( "${cmd[@]}" "$1" )
+                files+=( "$file" )
+            done < <( "${cmd[@]}" "$archive" )
         }
         ;;
         'pdfimages')
         {
-            test "$( pdfimages -q -list -- "$1" | wc -l )" -le 1
+            test "$( pdfimages -q -list -- "$archive" | wc -l )" -le 1
             return $?
         }
         ;;
         'sqlite3')
         {
-            #test "$( sqlite3 "$1" .tables | wc -l )" -le 1
+            #test "$( sqlite3 "$archive" .tables | wc -l )" -le 1
             #return $?
             return 1
         }
         ;;
         'ar')
         {
-            test "$( ar -t -- "$1" | wc -l )" -le 1
+            test "$( ar -t -- "$archive" | wc -l )" -le 1
             return $?
         }
         ;;
         # bzip2 and gz only work for single files
         'gzip'|'bzip2'|'lzma'|'xz')
-            local name=$(basename "$1")
+            local name=$(basename "$archive")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
-                echo "$1.un$unpackCommand"
+                echo "$archive.un$unpackCommand"
             else
                 echo "${name%.*}"
             fi
             return 0
             ;;
         *)
-            echoerr -e "\e[31m Listing files not supported for file '$1' with type '$(getArchiveCommand "$1")'"'!'"\e[0m" 1>&2
+            echoerr -e "\e[31m Listing files not supported for file '$archive' with type '$(getArchiveCommand "$archive")'"'!'"\e[0m" 1>&2
             return 1
             ;;
     esac
@@ -347,22 +348,23 @@ function singleFileInArchive() {
 }
 
 function isEncrypted() {
-    # tests $1 if encrypted. If $2 is given, then try if that is the correct
+    local archive=$1
+    # tests $archive if encrypted. If $2 is given, then try if that is the correct
     # password
     local pw=
     if [ ! -z "$2" ]; then pw="$2"; fi
     if [ $verbose -eq 1 ]; then
-        echoerr -e "\e[37mTest archive '$1' using password: $pw\e[0m"
+        echoerr -e "\e[37mTest archive '$archive' using password: $pw\e[0m"
     fi
-    case $( getArchiveCommand "$1" ) in
+    case $( getArchiveCommand "$archive" ) in
         7z)
             if [ -z "$pw" ]; then pw='-'; fi
-            '7z' t "-p$pw" -- "$1" 2>&1 | 'grep' -q 'Wrong password?'
+            '7z' t "-p$pw" -- "$archive" 2>&1 | 'grep' -q 'Wrong password?'
             return $?
             ;;
         rar)
             if [ -z "$pw" ]; then pw='-'; fi
-            'unrar' t "-p$pw" -- "$1" 2>&1 | 'grep' -q 'Corrupt file or wrong password'
+            'unrar' t "-p$pw" -- "$archive" 2>&1 | 'grep' -q 'Corrupt file or wrong password'
             return $?
             ;;
         zip)
@@ -373,10 +375,10 @@ function isEncrypted() {
             # Note that space after -P is possible, but leads to problems, if the password starts with a hyphen -
             if [ -n "$pw" ]; then
                 # This tests the whole archive and therefore will in total need twice the time -.-
-                'unzip' -t "-P$pw" "$1" 2>&1 | 'grep' -q 'because of incorrect password'
+                'unzip' -t "-P$pw" "$archive" 2>&1 | 'grep' -q 'because of incorrect password'
             else
                 # http://www.info-zip.org/mans/zipinfo.html
-                'zipinfo' -1 -s   | 'sed' '1d;2d;$d' | 'awk' '{ print $5; }' | 'grep' '[BT]' -q
+                'zipinfo' -1 -s "$archive" | 'sed' '1d;2d;$d' | 'awk' '{ print $5; }' | 'grep' '[BT]' -q
             fi
             ;;
         *)
@@ -387,8 +389,8 @@ function isEncrypted() {
 
 pwfile=$HOME/etc/extractpws
 if [ ! -f "$pwfile" ]; then
-    mkdir -p "$HOME/etc/"
-    touch "$pwfile"
+    mkdir -p -- "$HOME/etc/"
+    touch -- "$pwfile"
 fi
 
 function cachePassword() {
@@ -591,7 +593,7 @@ function trashArchive() {
         return 0
     fi
 
-    $dummy mkdir -p "$trashFolder"
+    $dummy mkdir -p -- "$trashFolder"
     # trash other parts of multipart archive
     if echo "$archive" | grep -q 'part[0-9]\{1,\}.rar$'; then
         # find doesn't seem to have an option for simply matching [0-9]+, so
@@ -660,7 +662,7 @@ function packTestArchives() {
 
     # redo same with password. Needs sudo apt-get install -t sid expect
     folder="$folder/password"
-    mkdir "$folder"
+    mkdir -- "$folder"
 
     7z  a -ptest        "$folder/test.7z"  "$@" 1>/dev/null
     rar a -ptest        "$folder/test.rar" "$@" 1>/dev/null
@@ -685,11 +687,11 @@ function testArchive() {
     if [ $# -le 0 ]; then
         echoerr -e "\e[31mNo file names specified to testArchive"'!'"\e[0m"
     fi
-    cd "$folder"
+    cd -- "$folder"
     local files=("$@")
     for file in "${files[@]}"; do
         if [ ! -d "$(dirname "$file")" ]; then
-            mkdir -p "$(dirname "$file")"
+            mkdir -p -- "$(dirname "$file")"
         fi
         touch "$file"
         echo "Test" > "$file"
@@ -707,11 +709,11 @@ function testArchive() {
         echoerr -n -e "\e[37m  $file ."
 
         ######## test while being in the same folder as the targeted archive ########
-        cd "$extract"
+        cd -- "$extract"
         local fname=$(basename "$file")
         rm -r ./* 2>/dev/null
         #ln -s -T "$file" "$fname"
-        cp "$file" "$fname"
+        cp -- "$file" "$fname"
         # Symbolic links aren't supported by bzip2 -.-, so we need to copy it
         #   echo test > a
         #   bzip2 --compress --keep a
@@ -738,7 +740,7 @@ function testArchive() {
 
         if [ $exitCode -eq 0 ]; then
             #unlink "$fname"
-            rm "$fname"
+            rm -- "$fname"
         fi
         echoerr -n "."
         local targetFolder=$extract
@@ -782,10 +784,10 @@ function testArchive() {
         echoerr -n "."
 
         ######## test while being in another folder ########
-        cd ".." # should normally be /tmp
-        rm -r "$extract"/* 2>/dev/null
+        cd -- ".." # should normally be /tmp
+        rm -r -- "$extract"/* 2>/dev/null
         #ln -s -T "$file" "$extract/$fname"
-        cp "$file" "$extract/$fname"
+        cp -- "$file" "$extract/$fname"
         main --keep "$extract/$fname" 1>/dev/null &
         local pid=$!
         local waitTill=$((SECONDS+2))
@@ -802,7 +804,7 @@ function testArchive() {
 
         if [ $exitCode -eq 0 ]; then
             #unlink "$extract/$fname"
-            rm "$extract/$fname"
+            rm -- "$extract/$fname"
         fi
         echoerr -n "."
         local targetFolder=$extract
@@ -923,8 +925,8 @@ Usage: extract <file> [<file> [...]]
     while [ ! -z "$1" ]; do
     {
         local archive=$(basename -- "$1")
-        cd "$oldPath"
-        cd "$(dirname -- "$1")"
+        cd -- "$oldPath"
+        cd -- "$(dirname -- "$1")"
         # just skip folders, makes calls like 'extract *' easier
         if [ -d "$archive" ]; then
             if [ "$verbose" -eq 1 ]; then
@@ -964,11 +966,11 @@ Usage: extract <file> [<file> [...]]
                 if [ "$dryrun" -eq 1 ]; then
                     couldCreateFolder=0
                 else
-                    mkdir "$folder" 2>/dev/null
+                    mkdir -- "$folder" 2>/dev/null
                     couldCreateFolder=$?
                 fi
                 if [ "$couldCreateFolder" -eq 0 ] || [ "$('ls' --almost-all "$folder" | 'wc' -l)" -eq 0 ]; then
-                    cd "$folder"
+                    cd -- "$folder"
                     extractHere "../$archive"
                     local success=$?
                     cd ..
