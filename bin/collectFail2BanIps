@@ -1,35 +1,53 @@
 #!/bin/bash
 
 echoerr() { echo "$@" 1>&2; }
-
-cd "$(mktemp -d)"
-cp /var/log/auth.log* .
-i=0
-for file in *.gz; do
-    if [ -f "${file%.gz}" ]; then
-        gzip -c "$file" > "auth.log.exists.$i"
-        (( ++i ))
-        rm "$file"
-    else
-        gzip -d "$file"  # deletes .gz files automatically
+commandExists() { command -v "$1" > /dev/null 2>&1; }
+checkCommand()
+{
+    if ! commandExists "$1"; then
+        echoerr "$1 command not found, please install the '$2' package"
+        exit 1
     fi
-done
-pwd && ls -la . && echo
-cat auth.log* | sed -nE '
+}
+
+checkCommand geoiplookup geoip-bin
+checkCommand sponge moreutils
+checkCommand gzip gzip
+checkCommand file file
+checkCommand grep grep
+checkCommand wc coreutils
+checkCommand colordiff colordiff
+
+cd -- "$( mktemp -d )"
+
+touch auth.log.all
+find /var/log -mindepth 1 -maxdepth 1 -type f -name 'auth.log*' -exec bash -c '
+    if file --brief --mime-type -- "$0" | command grep -q gzip; then
+        gzip -c -d "$0" >> auth.log.all
+    else
+        cat -- "$0" >> auth.log.all
+    fi
+' {} \;
+
+echoerr -e "\e[37mCollected $( cat auth.log.all | wc -l ) lines from /var/log/auth.log* into $( pwd )/auth.log.all\e[0m"
+
+cat auth.log.all | sed -nE '
     s|.*sshd.*User .* from ([^ ]*) not allowed.*|\1|p;
     s|.*sshd.*Invalid user .* from ([^ ]*).*|\1|p;
     s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p;
 ' | sed -r '
-    s|(127\.0\.0\.1)|#\1|;
-    s|(::1)|#\1|;
-    # TUD
-    s|(141\.30\..*)|#\1|;
-    s|(141\.75\..*)|#\1|;
-    # 1&1
-    # s|(87\.157\..*)|#\1|;
+    s|(10\.0\.0\..*)|#\1|; # Reserved IP range used for my WLAN hotspot
+    s|(127\.0\.0\.1)|#\1|; # Reserved Address for loopback addresses
+    s|(::1)|#\1|; # IPv6 loopback address
+    s|(141\.30\..*)|#\1|; # TUD
+    s|(141\.75\..*)|#\1|; # TUD
+    # s|(87\.157\..*)|#\1|; # 1&1
 ' > found.lst
+
+echoerr -e "\e[37mExtracted $( cat found.lst | wc -l ) possible intruder IPs into $( pwd )/found.lst\e[0m"
+
 # append already existing blocks deleting the existing timestamps in order to find duplicates
-'cp' /etc/fail2ban/ip.blacklist .
+'cp' /etc/fail2ban/ip.blacklist . # copy as backup
 sed 's|[ \t]*\[.*\]$||' ip.blacklist >> found.lst # delete timestamps and append old blacklist to new one
 sort -n found.lst | uniq | sponge found.lst
 # Block ranges if more than one in a range attacked
@@ -37,7 +55,10 @@ sort -n found.lst | uniq | sponge found.lst
 sed 's|[0-9]*[ \t]*$||' found.lst | uniq -c | sed '/^[ \t]*1 /d; s|\.$|.0/24|; s|^[ \t]*[0-9]* ||' > ip.blacklist.ranges
 sed -n '/.0\/24/p' found.lst >> ip.blacklist.ranges
 # https://unix.stackexchange.com/questions/76049/what-is-the-difference-between-sort-u-and-sort-uniq
-sort -u -n ip.blacklist.ranges | sponge ip.blacklist.ranges
+# DO NOT USE sort -u -n, it seems to compare only the first part of the string for uniqueness -.-! Imo, BUG!
+# Also, sort -n for IPs only seems to work for the first IP range -.- not all thereafter!? THIS FUCKING DUMB FUCK
+# https://www.gnu.org/software/coreutils/faq/coreutils-faq.html#Sort-does-not-sort-in-normal-order_0021
+sort -n ip.blacklist.ranges | uniq | sponge ip.blacklist.ranges
 
 # Find multiple (>=3) range bans with same initial IPs like:
 #     221.194.44.0/24
@@ -45,34 +66,46 @@ sort -u -n ip.blacklist.ranges | sponge ip.blacklist.ranges
 #     221.194.49.0/24
 # and range ban the next higher range i.e.
 #     221.194.0.0/16
-sed 's|[0-9]*\.0/24[ \t]*$||' ip.blacklist.ranges | uniq -c | sed '/^[ \t]*[12] /d; s|\.$|.0.0/16|; s|^[ \t]*[0-9]* ||' > ip.blacklist.ranges
+sed -n 's|[0-9]*\.0/24[ \t]*$||p' ip.blacklist.ranges | uniq -c | sed '/^[ \t]*[12] /d; s|\.$|.0.0/16|; s|^[ \t]*[0-9]* ||' > ip.blacklist.large.ranges
+
+echoerr -e "\e[37mFound enough suspicious IPs for $( cat ip.blacklist.large.ranges | wc -l ) subnet mask /16 range bans, see $( pwd )/ip.blacklist.large.ranges\e[0m"
 
 # Delete ips which are already included in range bans
-while read iprange; do
-    ipraw=${iprange%\.0/24}
-    ipraw=${iprange%\.0\.0/16}
-    sed -i "/^${ipraw//./\\.}/d" found.lst
-done < ip.blacklist.ranges
-cat ip.blacklist.ranges >> found.lst
+# sed 's|[.]|[.]|g' -> replaces "." with "[.]"!
+while read -u 5 ipescaped; do
+    sed -i "/^$ipescaped/d" found.lst
+done 5< <( sed -n 's|.0/24|.|p; s|.0.0/16|.|p;' ip.blacklist.ranges | sed 's|[.]|[.]|g' )
+
+# Delete ranges which are already included in large range bans
+while read -u 5 ipescaped; do
+    sed -i "/^$ipescaped/d" found.lst
+    sed -i "/^$ipescaped/d" ip.blacklist.ranges
+done 5< <( sed -n 's|.0/24|.|p; s|.0.0/16|.|p;' ip.blacklist.large.ranges | sed 's|[.]|[.]|g' )
+
+cat ip.blacklist.ranges ip.blacklist.large.ranges >> found.lst
+
 # for some reason I had a case with \r which results in uniq not deleting two seemingly identical lines
 # similarly end of line whitespaces need to be deleted
 sort -n found.lst | sed 's|\r||g; s|[ \t]*$||;' | uniq | sponge found.lst
+
+
+echoerr -e "\e[37mAppended to the existing blacklist with $( cat ip.blacklist | wc -l ) entries, removed duplicates and collapsed to IP ranges to get a new blacklist with $( cat found.lst | wc -l ) entries in $( pwd )/found.lst\e[0m"
 
 # And add timestamps to ips from either old ip.blacklist or the auth.logs
 echo '' > found.lst.unpretty
 nIps=$( wc -l found.lst )
 iIp=1
-while read ip; do
+while read -u 5 ip; do
     ipraw=${ip%.0/24}   # delete ranging to get e.g. 2.105.219
     ipraw=${ipraw#\#}   # delete hashtag e.g. as in #::1
     # find timestamp in auth.log by using $ipraw
     timestamp=$( 'grep' --no-filename -F "$ipraw" auth.log* |
                  'sed' -nr '1s|^([A-Za-z]+[ \t]+[0-9]+[ \t]+[0-9:]+).*|\1|p' )
-    if [ -z "$timestamp" ]; then
+    if [[ -z "$timestamp" ]]; then
         timestamp=$( 'grep' --no-filename -F "$ipraw" ip.blacklist |
                      'sed' -nr '1s|.*\[([0-9 :-]+)\]$|\1|p' )
     fi
-    if [ -z "$timestamp" ]; then
+    if [[ -z "$timestamp" ]]; then
         echo "No timestamp corresponding to found IP: '$ipraw' found. This should not happen. Using 'now' as timestamp"
         timestamp='now'
     elif [ "$( date --date="$timestamp" '+%s' )" -gt "$( date +%s )" ]; then
@@ -85,14 +118,18 @@ while read ip; do
     echo "${ip}+[$( date --date="$timestamp" '+%y-%m-%d %H:%M:%S' )]" >> found.lst.unpretty
     echoerr -n -e "\e[37mAdding timestamp to IPs [$iIp/$nIps]\e[0m\r"
     (( iIp += 1 ))
-done
+done 5< found.lst
+
+echo -e "\e[37mAdded timestamp information as contents to the blacklist file\e[0m"
+
 echoerr
 # align timestamps to be on the same character column
 #sed -i 's;[ \t]+$;|+['"$(date '+%d/%m/%y %H:%M:%S')"'];' found.lst
 #cp found.lst found.lst.unpretty
 column -s '+' -t -e found.lst.unpretty > found.lst
 
-cat found.lst # cat before echo 'cp', because I missed it and thought I had to copy it myself
+#cat found.lst # cat before echo 'cp', because I missed it and thought I had to copy it myself
+colordiff ip.blacklist found.lst
 echo sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
 sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
 #rm -r "$(pwd)"
@@ -101,8 +138,8 @@ exit 0
 
 # https://unix.stackexchange.com/questions/7399/ip-to-country-console-command
 url='http://www.geoiptool.com/en/?IP='
-while read ip; do
+while read -u 5 ip; do
     #lynx -dump "$url$ip" | sed -n '/Hostname:/,/City:/p'
     #printf '% -16s ' "$ip"; lynx -dump "$url$ip" | sed -nr 's|.*Country Code:[ \t]*(.*)[ \t]*|\1|p' | head -1
     geoiplookup "$ip" | sed 's|.*: ||'
-done < <( sed 's|[ \t]*$||' found.lst )
+done 5< <( sed 's|[ \t]*$||' found.lst )
