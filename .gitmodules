@@ -4,3 +4,6 @@
 [submodule "bin/include-spider"]
 	path = bin/include-spider
 	url = https://github.com/mxmlnkn/include-spider.git
+[submodule "bin/dejsonlz4-git"]
+	path = bin/dejsonlz4-git
+	url = https://github.com/avih/dejsonlz4
