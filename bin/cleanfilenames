@@ -6,30 +6,22 @@
 
 cleanFilesInDirectory()
 {
-    fileList="$( mktemp )"
-    cleanedFileList="$( mktemp )"
-
-    find . -mindepth 1 -maxdepth 1 -print0 > "$fileList"
     # translate hexcodes %ff -> \xff
     # in contrast to recode perl leaves 😊 untouched
-    perl -C -MHTML::Entities -pe 'decode_entities($_);' "$fileList" > "$cleanedFileList"
-    sed -z -r -i '
+    perl -C -MHTML::Entities -pe 'decode_entities($_);' |
+    sed -z -r '
+        # All replacements involving new whitespace characters should be done first, before whitespaces are cleaned!
+        s|\n| |g;
         s|:large$||;
-        # windows restrictions -> the two most important replacements
-        s/[|/\:]/ - /g;
-        s/[*?<>]/_/g;
-        s|—|-|g;
         # replace double with single apostrophes
         s/\x22/\x27/g;
         # .html.mht -> .mht
         s/\.m?html\.mht/\.mht/g;
-        # intrusive and not really necessary. was just because I thought it could spell trouble in bad bash scripts -.-
-        #s/[$/_/g;
         # delete dots at the end of line (windows has issue with empty extensions -.-)
         s/\.+$//g;
-        s/&#039;/'\''/g;
-        # Replace & character. Also quite intrusive ...
-        # s|&| and |g;
+        # convert hex codes (this is not done by perl as these are not HTML entities)
+        #   -> could be done with URI::Escape https://metacpan.org/pod/URI::Escape
+        s|%20| |g;
         s|";|'\''|g;
         # delete leading spaces
         s/^[ \t]+//g;
@@ -39,17 +31,19 @@ cleanFilesInDirectory()
         s/[ \t]+(\.[0-9A-Za-z]{3})$/\1/g;
         # delete newlines and returns and other non-printables (will this bug out for UTF8 encoded strings?
         s/[\x01-\x1F\x7F]/ /g;
-        s|\t| |g;
         s|[ \t]+| |g;
-        # convert hex codes
-        s|%20| |g;
-        # convert extensions to lowercase (quite intrusive)
-        # s|(\.[A-Za-z0-9]{3})$|\L\1|;
-        # some other obnoxious extensions
-        # intrusive
-        # s|\.jpeg$|.jpg|;
         s|\.png\.jpg|.jpg|;
         s|\.jpg\.png|.png|;
+
+        # Replace some special characters (especially on NTFS/Windows system) with similar other unicode characters
+        # Beware that tr does not work with UTF-8 unicode mulitbyte characters correctly ...
+        s|[?]|？|g;
+        s|[*]|＊|g;
+        s|<|＜|g;
+        s|>|＞|g;
+        s|:|：|g;
+        s|[\]|＼|g;
+        s|—|-|g; # replace unicode hyphen with normal one because it is allowed
     '
 }
 
@@ -118,11 +112,12 @@ cleanFilenames() {
 ##################################### Main #####################################
 
 dryrun=0
+fastNameCheck=0
 duplicates=0
 dir=.
 checkComplexExtension=0
 restoreNames=0
-verbose=0
+deleteEmptyFiles=0
 while [ "$1" != "" ]; do
   case $1 in
     "--chk")    # fucking chkdsk deleting all my files with invalid linux filenames into found.000 -.-
@@ -134,11 +129,37 @@ while [ "$1" != "" ]; do
     "-e" | "--check-extensions")
         checkComplexExtension=1
         ;;
+    "-f" | "--fast")
+        fastNameCheck=1
+        ;;
     "-r" | "--dry-run")
         dryrun=1
         ;;
-    "-v" | "--verbose")
-        verbose=1
+    "-h" | "--help")
+        echo "cleanfilenames [-d] [-e] [-r] [-h] [--chk] <folder>
+
+Removes special characters, which are especially troublesome with NTFS partitions
+but allowed on ext4 partitions and does some other file name corrections
+like removing the trailing ':large' from twitter image files.
+
+  --chk         Try to give sane file names from file contents alone.
+                To be used to name recovered files.
+  -d|--check-duplicates
+                Checks similar files, e.g., 'name.jpg' and 'name (2).jpg' or 'copy of name.jpg'
+                are actually identical and if so, removes them.
+  -e|--check-extensions
+                Checks wheter the file name extension is actually the same as the file contents.
+                E.g., renames PNG files wrongly named image.jpg.
+  -f|--fast     Use fast name checks, which can be done in parallel and without calling stat on files.
+  -r|--dry-run  Don't apply any changes, only show what would be done.
+  -h|--help     Show this help
+  -z|--delete-empty
+                Finds and deletes 0B files. Beware! Sometimes these files may have uses!
+"
+        exit 0
+        ;;
+    "-z" | "--delete-empty")
+        deleteEmptyFiles=1
         ;;
     *)  # default case (neither one of the options from above, nor empty)
         if [ ${1:0:1} == '-' ]; then
@@ -153,39 +174,101 @@ while [ "$1" != "" ]; do
   shift
 done
 
+if [[ $fastNameCheck -eq 1 ]]; then
+    duplicates=0
+    checkComplexExtension=0
+    restoreNames=0
+    deleteEmptyFiles=0
+fi
 
-if [ $duplicates -eq 1 ]; then
+
+if [[ $duplicates -eq 1 ]]; then
     echo "Finding and removing duplicates 'name(2).jpg'"
     # Find duplicates and delete them
     find "$dir" -name '*([0-9]).*' -execdir bash -c '
-        fname="$0"
+        dryrun="$1"
+        fname="$2"
+        if [[ $dryrun -eq 0 ]]; then
+            dryrun=""
+        else
+            dryrun=echo
+        fi
+
         fnameorg="$( echo "$fname" | sed -r "s|\([0-9]\)\.([^.]{1-3})|.\1|" )"
         if [ ! -f "$fnameorg" ]; then
             # try windows scheme which also has a space before the "(2)" suffix
             fnameorg="$( echo "$fname" | sed -r "s| \([0-9]\)\.([^.]{1-3})|.\1|" )"
         fi
+
         if [ ! -f "$fnameorg" ]; then
-            mv -- "$fname" "$fnameorg"
+            $dryrun mv -- "$fname" "$fnameorg"
         elif "diff" -q -- "$fname" "$fnameorg"; then
-            rm -- "$fname"
-        fi' {} \;
+            $dryrun rm -- "$fname"
+        fi
+    ' bash "$dryrun" {} \;
 fi
 
 # find empty files
-find "$dir" -type f -size -1c -delete
+if [[ $deleteEmptyFiles -eq 1 ]]; then
+    echo "Deleting empty files ..."
+    if [[ $dryrun -eq 1 ]]; then
+        find "$dir" -type f -size 0c -exec printf 'rm -- %s' {} \;
+    else
+        find "$dir" -type f -size 0c -delete
+    fi
+fi
+
+oldNamesFile=$( mktemp )
+newNamesFile=$( mktemp )
+allNamesFile=$( mktemp )
 
 export -f cleanFilenames
-FIND=( find "$dir" )
-echo -n "Counting how many files need to be checked ... "
-# if ${FIND[@]} is unqoted, then spaces in $dir will cause problems
-nFiles=$("${FIND[@]}" | wc -l)
+echo -n "Counting how many files in '$dir' need to be checked ... "
+find "$dir" -print0 > "$allNamesFile"
+nFiles=$( 'grep' -zc . -- "$allNamesFile" )
 echo "$nFiles"
+
+if [[ $fastNameCheck -eq 1 ]]; then
+    cleanedNamesFile=$( mktemp )
+    cat -- "$allNamesFile" | cleanFilesInDirectory > "$cleanedNamesFile"
+
+    dryrunArg=--dryrun
+    if [[ $dryrun -eq 0 ]]; then dryrunArg=""; fi
+    python3 -c '
+import os
+import shutil
+import sys
+
+dryrun = "--dryrun" in sys.argv
+renamed = filter( lambda x: x[0] != x[1],
+                  zip( open( sys.argv[1], "rb" ).read().split( b"\0" ),
+                       open( sys.argv[2], "rb" ).read().split( b"\0" ) ) )
+
+with open( sys.argv[3], "wb" ) as oldNames, open( sys.argv[4], "wb" ) as newNames:
+    # iterate in reversed order because find first prints the folders and then its containing files
+    # but we have to first rename the containing files before we can rename the folder!
+    for rename in list( renamed )[::-1]:
+        oldNames.write( rename[0] + b"\n" )
+        newNames.write( rename[1] + b"\n" )
+        if not dryrun:
+            #assert os.path.isfile( rename[0].decode() )
+            #print( "shutil.move( {}, {} )".format( rename[0].decode(), rename[1].decode() ) )
+            #shutil.move( rename[0].decode(), rename[1].decode() )
+            None
+' "$allNamesFile" "$cleanedNamesFile" "$oldNamesFile" "$newNamesFile"
+
+    mv "$allNamesFile" "$dir/all-file-names.lst"
+    mv "$cleanedNamesFile" "$dir/cleaned-file-names.lst"
+
+    exit 0
+fi
+
 # xargs already does its best to give {} as one command line argument no
 # matter the sepcial characters it contains! This comment is not inside the
 # bash source, because the {} would be replaced by xargs and lead to errors
 # it it contains \n! (Could also introduce space between curly braces in comment)
-"${FIND[@]}" -print0 | pv -0lps $nFiles | xargs -0 -I {} -P 1 bash -c '
-    path="$0"
+find "$dir" -print0 | pv -0lps $nFiles | xargs -0 -I {} -P 1 bash -c '
+    path="$1"
     name=$( basename -- "$path" )
     cd "$(dirname -- "$path")"
     newname=$( printf "%s" "$name" | cleanFilenames )
@@ -275,15 +358,22 @@ if [ "'$checkComplexExtension'" -eq 1 ] && [ -f "$name" ]; then
         newname=$newname.$mext
     fi
 fi
-    if [ '$verbose' -eq 1 ]; then
-        printf "rename: %s\n -> to: %s\n\n" "$(realpath -- "$name")" "$(realpath -- "$newname")"
-    fi
+
     if [ -n "$newname" ] && [ "$name" != "$newname" ]; then
         # $name -> ext: $ext -> mime: $mime -> mext: $mext\n
         printf "rename: %s\n -> to: %s\n\n" "$(realpath -- "$name")" "$(realpath -- "$newname")"
         if [ ! "'$dryrun'" -eq 1 ]; then
             mv -- "$name" "$newname"
         fi
+        printf "%s\n" "$name" >> "'"$oldNamesFile"'"
+        printf "%s\n" "$newname" >> "'"$newNamesFile"'"
     fi
-' {} \;
+' bash {} \;
 echo
+
+if [[ ! -f "$dir/old-file-names.lst" && ! -f "$new/old-file-names.lst" ]]; then
+    mv "$oldNamesFile" "$dir/old-file-names.lst"
+    mv "$newNamesFile" "$dir/new-file-names.lst"
+else
+    echo "File names are in $oldNamesFile and renamed in $newNamesFile"
+fi
