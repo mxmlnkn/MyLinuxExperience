@@ -1,0 +1,70 @@
+#!/bin/bash
+
+stringContains() { [ -z "${2##*$1*}" ]; }
+
+isTime(){
+    # expecting format like 12:34-23:45
+    local tspan=$1
+
+    local t0=${tspan%-*}
+    local t1=${tspan#*-}
+    local m0=$(( 10#${t0%%:*} * 60 + 10#${t0##*:} ))
+    local m1=$(( 10#${t1%%:*} * 60 + 10#${t1##*:} ))
+    local curt=$( date +%H:%M )
+    local curm=$(( 10#${curt%%:*} * 60 + 10#${curt##*:} ))
+    [ $m0 -le $curm ] && [ $curm -le $m1 ]
+}
+
+isLocked(){ stringContains "$(xscreensaver-command -time)" 'screen locked'; }
+
+# Actions:
+#   l - lock screen and keep it locked :)
+#   w - work, autokill smplayer, vlc, opera, telegram, firefox(?), hexchat(?), JD(?)
+timetable=(
+    # time span     name                actions
+    '16:00-18:00'   'Work!'             'w'
+    '18:30-19:00'   'Take a walk!'      'l'
+    '20:00-21:00'   'Sit-ups'           'l'
+    '21:00-23:59'   'Work!'             'w'
+)
+nCols=3
+
+programs=( 'smplayer' 'vlc' 'opera' 'telegram' )
+
+while true; do
+    for (( i = 0; i < ${#timetable[@]} / nCols; ++i )); do
+        tspan=${timetable[  i*nCols + 0 ]}
+        label=${timetable[  i*nCols + 1 ]}
+        action=${timetable[ i*nCols + 2 ]}
+
+        # Check correct time
+        while isTime "$tspan"; do
+            echo "isTime $tspan"
+            if stringContains "$action" 'l'; then
+                if ! isLocked; then
+                    echo "Lock screens."
+                    timeout 2s xscreensaver-command -lock
+                    # note that this takes as much time as configured in ~/.xscreensaver : fadeSeconds... not sure why that is necessary... just set it to 0:00:00 -> ah in settings fade can be activated... for some reason fade seconds is heeded even if fade is deactivated!33
+                    # @see https://wiki.archlinux.org/index.php/XScreenSaver#Automatically_lock_when_suspending.2Fsleeping.2Fhibernating
+                fi
+            elif stringContains "$action" 'w'; then
+                for program in "${programs[@]}"; do pkill "$program"; done
+                fapids=( $( ps ax -o pid=,args= | 'grep' -v grep |
+                          'grep' 'ristretto.*\(Doujins\|/media/veracrypt6|/media/m\)' |
+                          'sed' -r 's|([0-9])[ \t]+.*|\1|' ) )
+                #echo "fapid = ${fapids[@]}"
+                for pid in "${fapids[@]}"; do kill "$pid"; done
+            fi
+            sleep 1s
+        done
+    done
+
+done
+
+# https://unix.stackexchange.com/questions/49225/how-can-i-tell-if-xscreensaver-has-my-screen-locked
+# xscreensaver-command -time
+# XScreenSaver 5.15: screen locked since Wed Sep 26 16:26:15 2012
+# XScreenSaver 5.36: screen non-blanked since Sun Sep 17 15:00:35 2017 (hacks: #143, #143)
+
+
+
