@@ -190,11 +190,13 @@ alias l='la'
 alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
 
 if commandExists 'git'; then
+    alias gcl='git clone --recursive'
     alias gb='git branch --color=always'
     alias gs='git status'
     alias gm='git commit'
     alias gpf='git push -f'
     alias grba='git rebase --abort'
+    alias glo='git log --oneline'
     alias gls='git log --stat'
     alias glp='git log --pretty --update --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
@@ -211,6 +213,10 @@ if commandExists 'git'; then
     function gl()
     {
         # show pretty-printed log history of current or specified branch to master if there is a common merge base
+        if ! git rev-parse --verify master &>/dev/null; then
+            git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short "$@"
+            return
+        fi
 
         local range=
         local options=()
@@ -377,16 +383,28 @@ fi
 
 alias lc='locate -i'
 alias sup='sudo apt-get update'
-alias si='sudo apt-get install -t sid'
+#alias si='sudo apt-get install -t sid'
+alias si='sudo apt-get install'
 # go into old upper diretory on cd .., even if the current folder was moved e.g. to trash
 # use command cd for original behavior. Unfortunately 'cd' does not work, because
 # that only prevents alias lookup, not function lookup it seems (This also puts
 # my usage of 'command' in scripts into persepctive :S
-cd(){ if [ "$1" == '..' ]; then command cd "${PWD%/*}"; else command cd "$@"; fi; }
-alias ..='cd ..'
+cd()
+{
+    if [ "$1" == '..' ]; then
+        if [[ -z "${PWD%/*}" ]]; then
+            command cd /
+        else
+            command cd "${PWD%/*}"
+        fi
+    else
+        command cd "$@";
+    fi
+}
 
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
+alias ..='cd ..'
 
 # function keyword necessary if function name already is defined as an alias!
 
@@ -430,8 +448,8 @@ function t1(){
     fi
 }
 
-unalias sp lb 2>/dev/null
-sp(){
+function sp()
+{
     if [ -z "$DISPLAY" ]; then
         export DISPLAY=:0
     fi
@@ -441,6 +459,9 @@ sp(){
         #if lspci | 'grep' -i --color 'hdmi\|vga\|3d\|2d' | 'grep' -q -i nvidia; then
         if lshw -class display 2>/dev/null | 'grep' -q -i 'vendor: .*nvidia'; then
             refreshWallpaper;
+            if command -v xfce4-panel &>/dev/null; then
+                xfce4-panel -r
+            fi
         fi
         if [ -n "$( pgrep hostapd )" ]; then
             sleep 2s
@@ -541,12 +562,8 @@ EOF
         return
     fi
 
-    if ! echo | sed "$sedCommand"; then
+    if ! echo '' | sed -r "$sedCommand" 2>/dev/null; then
         echoerr "sed command '$sedCommand' seems to be invalid."
-        return
-    fi
-
-    if ! echo '' | sed -r "$sedCommand"; then
         # E.g. if sed rule is wrong
         return
     fi
@@ -1204,10 +1221,31 @@ if commandExists scite; then
 function scite()
 {
     # goto command documented here: https://www.scintilla.org/SciTEDoc.html
-    if test $# -eq 1 && test "${1##*:}" -eq "${1##*:}"  && test -f "${1%:*}"; then
+    if [[ ( $# -eq 1 ) && ( ${1##*:} =~ ^[0-9]+$ ) && -f "${1%:*}" ]]; then
         command scite "${1%:*}" -goto:"${1##*:}"
     else
         command scite "$@"
     fi
 }
 fi
+
+
+function dcat()
+{
+    local sizeB sizeMiB offsetMiB fileName
+
+    fileName=$1
+    if [[ ! -f $fileName ]]; then return 1; fi
+
+    sizeB=$( stat --format='%s' -- "$fileName" ) # bytes
+    sizeMiB=$(( ( $sizeB + 1024*1024 - 1 ) / ( 1024*1024 ) )) # ceil( Bytes / MiB )
+
+    for (( offsetMiB = 0; offsetMiB < $sizeMiB; ++offsetMiB )); do
+        dd bs=1M skip=$offsetMiB count=1 if="$fileName" 2> /dev/null
+        fallocate --punch-hole --offset="$offsetMiB"MiB --length=1MiB -- "$fileName"
+    done
+}
+
+function urldecode() {
+    python3 -c "import sys; from urllib.parse import unquote; print( unquote( sys.stdin.read() ) );"
+}
