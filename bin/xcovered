@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # Name: xcovered.sh
 # Find out if C is completely or only partially covered by A or B
 #  +-----------+

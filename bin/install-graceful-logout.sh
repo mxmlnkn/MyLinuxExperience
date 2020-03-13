@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # install-gracefuk-logout.sh
 # This script installs the .desktop links needed for the yad-Skript to work
 # and also missing icons (doesn't overwrite existing icons)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 networks=( '' ) # files WLAN_SSID.conf must be in searchPaths
 searchPaths=( "$HOME/etc/wpa_supplicant" "/etc/wpa_supplicant" )

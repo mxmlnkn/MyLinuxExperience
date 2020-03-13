@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # cleanes filename of files in current folder and its subdirectories
 # no target directory or file argument possible at the moment
 #

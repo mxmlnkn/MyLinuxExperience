@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ToDo
 #  - Handle .part1 files, normally E.g. part1.rar gets extracted and and moved

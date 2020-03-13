@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # synchronize with FreeFileSync first, for performance reasons files are not compared
 
 src=''

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # Reset default Policies to ACCEPT
 /sbin/iptables -P INPUT ACCEPT
 /sbin/iptables -P FORWARD ACCEPT

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # gracefully-close-windows
 
 # Get all Window IDs (doesn't work for tray only programs), send close

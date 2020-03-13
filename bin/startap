@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #if [ "$EUID" != 0 ]; then
 #   echo -e "\e[31mThis script must be run as root"'!'"\e[0m" 1>&2

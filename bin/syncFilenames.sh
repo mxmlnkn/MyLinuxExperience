@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script tries to "synchronize" the target folder file names to those
 # in the source folder. For that it manages a list of all file sizes and

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # graceful-logout
 
 # This script shows a dialog listing all .desktop links in ~/.config/grafecul-logout/

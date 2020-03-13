@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # log all stderr and stdout into files (but still display them)
 exec 1> >( tee -ia ~/logs/addAnidbCovers.log )

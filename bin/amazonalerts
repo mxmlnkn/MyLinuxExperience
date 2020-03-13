@@ -1,4 +1,5 @@
-#!/bin/bash
+
+#!/usr/bin/env bash
 
 urls=(
     # Twelve Kingdoms, The - Hardcover Edition Volume 1: Sea of Shadow (Gebundene Ausgabe)

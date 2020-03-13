@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # @todo open caja folders only have the path as window title -> get somehow proces name additionally to active window title
 

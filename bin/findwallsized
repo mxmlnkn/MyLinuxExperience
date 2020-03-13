@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 #~/bin/findwallsized
 #   findwallsized [ path-to-search [ target-for-finds [ min-width [ min height ] ] ] ]

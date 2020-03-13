@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # spawn drop in terminals
 getLastWid() {
     sleep 0.4s

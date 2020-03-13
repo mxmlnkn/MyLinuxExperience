@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This function resets and sets the wallpaper in order to refresh it in
 # memory in order to solve a NVIDIA bug where on resume from suspend the
