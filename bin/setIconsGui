@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# cool progress bar:
+#   for ((i=0; i<100; i++)); do echo "$i"; sleep 0.01s; done | zenity --progress --text="test"
+# interactive line counter:
+#   for ((i=0; i<100; i++)); do echo "hi"; sleep 0.01s; done | awk '{printf "%lu\n", NR}'
+#   for ((i=0; i<100; i++)); do echo "hi"; sleep 0.01s; done | while read -r line ; do ((a++)) ; echo $a ; done
+
+# because the find process is piped to zenity all parts are executed in
+# subshells, so that n can't be set
+i=0
+n=0
+
+#alias urldecode='python -c "import sys, urllib as ul; print ul.unquote_plus(sys.argv[1])"'
+#alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])"'
+
+# If no argument, then it was called for the current folder.
+# There is also a small branching for one file only because it requires no progress bar
+if [[ $# -eq 0 ]]; then
+    folder="${CAJA_SCRIPT_CURRENT_URI#file://}"
+    folder="$( python -c "import sys, urllib as ul; print ul.unquote_plus(sys.argv[1])" "$folder" )"
+elif [[ $# -eq 1 ]]; then
+    if [[ -d "$1" ]]; then
+        folder="$1"
+    else
+        ~/bin/setIcons -- "$1"
+        exit 0
+    fi
+fi
+
+echo "folder = $folder"
+
+tmp=$( mktemp )
+
+# Count subfolders and already show a window with an unitialized progress bar
+if [[ ( $# -eq 1 && -d "$1" ) || $# -eq 0 ]]; then
+    n="$( find "$folder" -type d -print0 | 'grep' -cz '^' )"
+    echo "$n" > "$tmp"
+elif [ $# -gt 1 ]; then
+    echo $# > "$tmp"
+fi |
+zenity --progress --pulsate --auto-close --auto-kill --title="Setting Icons ..." --text="Counting subfolders for '$folder' ..." --width=500
+
+n="$( cat "$tmp" )"
+
+if ( [ $# -eq 1 ] && [ -d "$1" ] ) || [ $# -eq 0 ]; then
+    find "$folder" -type d -print0 |
+    xargs -0 -P $( nproc ) -I {} bash -c '~/bin/setIcons -- "$0" &>/dev/null; printf "# %s\n" "$0"' {}
+elif [ $# -gt 1 ]; then
+    for path in "$@"; do
+        printf "$path\0"
+    done |
+    xargs -0 -P $( nproc ) -I {} bash -c '~/bin/setIcons -- "$0" &>/dev/null; printf "# %s\n" "$0"' {}
+fi |
+while read -r line; do
+    i=$((i+1))
+    echo "$line" | sed -r 's|.*\[(.*)\] Changing icon to.*|# ['"$i/$n"'] \1|'
+    perc=$(( i*100 / n ))
+    if ! [ "$perc" -lt 100 ]; then echo "99"; else echo "$perc"; fi
+done |
+zenity --progress --auto-close --auto-kill --time-remaining --title="Setting Icons ..." --width=500
+
+'rm' "$tmp"
