@@ -94,7 +94,7 @@ packagelistsid=(
     # needed for extract macro function
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge tnef
     # parallel compression tools
-    pxz plzip pigz pbzip2 lrzip
+    pxz plzip pigz lbzip2 lrzip
     caja arj lzip lzop ncompress rzip sharutils unace unalz zoo unar jq
 
     vlc libaacs0 libbluray* smplayer mplayer libqt5gui5 libqt5network5 libqt5xcbqpa5
@@ -196,7 +196,7 @@ packagelistsid=(
     # machine learning
     python3-keras keras-doc
 
-    progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
+    pv progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
     tidy calibre memtester memtest86 bless bash shellcheck oathtool
 )
 
