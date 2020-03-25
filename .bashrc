@@ -1334,6 +1334,40 @@ function dcat()
     done
 }
 
+
 function urldecode() {
     python3 -c "import sys; from urllib.parse import unquote; print( unquote( sys.stdin.read() ) );"
+}
+
+
+function rand()
+{
+    # rand [[<smallest>] <largest>]
+    # returns integer in [smallest,largest]
+    # The default corresponds to [0,2^30-1]
+
+    # RANDOM only returns a number in [0,2^15-1], therefore combine two for gerater accuracy for large subranges
+    local u30r=$(( RANDOM * 65536 + RANDOM ))
+    if [[ $# -eq 0 ]]; then
+        echo $u30r
+        return 0;
+    fi
+
+    local start=0
+    local end=$(( 2**32 - 1 ))
+    if [[ $# -eq 1 ]]; then
+        end=$1
+    elif [[ $# -eq 2 ]]; then
+        start=$1
+        end=$2
+    else
+        echo "Too many arguments given!" 1>&2
+        return 1
+    fi
+
+    if [[ ! ( ( $start =~ ^[0-9+-]+$ ) && ( $end =~ ^[0-9+-]+$ ) ) ]]; then
+        echo "Arguments must be integers!" 1>&2
+    fi
+
+    echo $(( u30r % ( end - start + 1 ) + start ))
 }
