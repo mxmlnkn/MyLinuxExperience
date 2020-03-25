@@ -46,7 +46,7 @@ in $1\e[0m"
 ############################ Main ################################
 
 function startap()
-{
+(
     sudo pkill hostapd
     sudo pkill wpa_supplicant
     if sudo service network-manager status | 'grep' -q 'active (running)'; then
@@ -74,12 +74,23 @@ function startap()
         echo "No wlan interface using the new systemd scheme found"
         # Todo: do some other checks, e.g. in ifconfig, iw list, ip link show or old scheme in dmesg, and give hints as to what drivers to install, ...
         exit 1
-    elif [ "${#interfaces[@]}" -gt 1 ]; then
-        echo -e "Found more than one interface, please choose which to use as an access point: ${interface[@]}"
-        # Todo: exclude interfaces already in use as a recevier or those which do not support AP with iw list, note that we would need to find a mapping of phy0,1, .. to interface name
+    elif [ "${#interfaces[@]}" -eq 1 ]; then
+        interface=$interfaces
+    fi
+
+    # Check if the user chose one of the collected interfaces:
+    for interf in ${interfaces[@]}; do
+        if [[ $interf == $1 ]]; then
+            interface=$interf
+        fi
+    done
+
+    if [[ "${#interfaces[@]}" -gt 1 && -z $interface ]]; then
+        echo -e "Found more than one interface, please choose which to use as an access point: ${interfaces[@]}"
+        # ToDo: exclude interfaces already in use as a receiver or those which do not support AP with iw list, note that we would need to find a mapping of phy0,1, .. to interface name
+        # ToDo: How is the user supposed to choose ...
         exit 1
     fi
-    interface=$interfaces
 
     if ! isUp "$interface"; then
         if sudo ip link set dev "$interface" up 2>&1 | 'grep' -q -i 'due to RF-kill'; then
@@ -161,7 +172,10 @@ function startap()
     #      => in the end it was because sudo sysctl net.ipv4.conf.wlxec12345abcdef.forwarding = 0 instead of 1!
     #  - is a domain name server (DNS) configured? Symptom: ping 8.8.8.8 works, but not ping google.de Solution: Check DHCP configuration for 'option domain-name-servers 8.8.8.8;' or set it manually by editing /etc/resolv.conf
     #  - is a WPA connection established? Todo: how to test, except checking wpa-supplicant output for errrors?
-}
+    #  - Is DHCP server working? systemctl status isc-dhcp-server
+    #      -> Since at least dhcpd 4.4, the DHCPDv4_CONF=/home/user/etc/dhcp/dhcpd.conf in /etc/default/isc-dhcp-server does not work anymore.
+    #      -> sudo cp {/home/user,}/etc/dhcp/dhcpd.conf
+)
 
 # note: shell function lookup has higher priority than executing binaries with the same name
 startap "$@"
