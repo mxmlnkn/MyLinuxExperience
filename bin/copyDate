@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-# synchronize with FreeFileSync first, for performance reasons files are not compared
-
 src=''
 dst=''
 dryrun=0
-while [ -z "$1" ]; do
+while [ -n "$1" ]; do
+case "$1" in
     '-r'|'--dry-run')
         dryrun=1
         ;;
@@ -14,42 +13,48 @@ while [ -z "$1" ]; do
         elif [ -z "$dst" ]; then dst="$1"
         else echo -e "\e[34mIgnoring unknown argument '$1'\e[0m"; fi
         ;;
+esac
+shift
 done
-if [ ! -d "$src/" ]; then
+if [[ ! -d "$src" ]]; then
     echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
     exit 1
 fi
-if [ ! -d "$dst/" ]; then
+if [[ ! -d "$dst" ]]; then
     echo -e "\e[31mFolder '$src' does not exist"'!'"\e[0m"
     exit 1
 fi
 
 # Confirmation
-echo -n "Do you really want to apply all the dates of files in
+if [[ $dryrun -eq 0 ]]; then
+    echo -n "Do you really want to apply all the dates of files in
     $src
 to their respective files in
     $dst
 ? [y/N] "
-read answer
-if [ ! "$answer" == 'y' ]; then
-    exit 1
+    read answer
+    if [ ! "$answer" == 'y' ]; then
+        exit 1
+    fi
 fi
 
 # Actual exec
-find "$src" -print0 | pv -0lps $(find "$src" | wc -l) | xargs -0 -I {} -P 4 bash -c '
-    fsrc=$(cat <<"EOF"
-{}
-EOF
-    )
-    if [[ "$(pwd)/$fsrc" == *"|"* ]]; then
-        echo -e "\e[31mFile name \"$(realpath "$fsrc")\" contains |, which is not allowed because sed rule uses it.\e[0m"
-    else
-        fdst="$( echo "$(realpath "$fsrc")" | sed '"'s|$src|$dst|;'"')"
-        if [ "$fsrc" -ot "$fdst" ] || [ "$fsrc" -nt "$fdst" ]; then
-            if [ '$dryrun' -eq 1 ]; then
-                echo touch -r "$fsrc" "$fdst"
-            else
-                touch -r "$fsrc" "$fdst"
-            fi
+# for testing: | head -z -n 10
+find "$src" -type f -print0 | xargs -0 -I {} -P $( nproc ) bash -c '
+    src=$1
+    dst=$2
+    fsrc=$3
+
+    relsrc=$( realpath --relative-to="$src" "$fsrc" )
+    fdst=$dst/$relsrc
+
+    if [[ -f $fsrc && -f $fdst && ( ( $fsrc -nt $fdst ) || ( $fsrc -ot $fdst ) ) ]] &&
+       diff -q -- "$fsrc" "$fdst"
+    then
+        if [[ '$dryrun' -eq 1 ]]; then
+            printf "touch --reference=\"%s\" -- \"%s\"\n" "$fsrc" "$fdst"
+        else
+            touch --reference="$fsrc" -- "$fdst"
+        fi
     fi
-' \; && echo ''
+' bash "$src" "$dst" {} && echo ''
