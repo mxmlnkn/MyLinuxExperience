@@ -198,8 +198,6 @@ alias mv='mv -i'
 alias cp='cp -i --preserve=timestamps'
 alias la='ls -lah --group-directories-first'
 alias l='la'
-# make nvcc workw ith g++ 4.9 instead of default g+ 5.2, which it can't work with
-alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
 
 if commandExists 'git'; then
     alias gcl='git clone --recursive'
