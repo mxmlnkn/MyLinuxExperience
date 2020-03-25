@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 
-echoerr() { echo "$@" 1>&2; }
-commandExists() { command -v "$1" > /dev/null 2>&1; }
-checkCommand()
+function echoerr() { echo "$@" 1>&2; }
+
+function commandExists() { command -v "$1" > /dev/null 2>&1; }
+
+function checkCommand()
 {
+    local package
+    if [[ $# -lt 2 ]]; then package=$1; else package=$2; fi
     if ! commandExists "$1"; then
-        echoerr "$1 command not found, please install the '$2' package"
+        echoerr "$1 command not found, please install the '$package' package"
         exit 1
     fi
 }

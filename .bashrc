@@ -162,6 +162,16 @@ function commandExists() {
     command -v "$1" > /dev/null 2>&1;
 }
 
+function checkCommand()
+{
+    local package
+    if [[ $# -lt 2 ]]; then package=$1; else package=$2; fi
+    if ! commandExists "$1"; then
+        echoerr "$1 command not found, please install the '$package' package"
+        exit 1
+    fi
+}
+
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
@@ -419,6 +429,58 @@ cd()
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
 alias ..='cd ..'
+
+
+function addToPath()
+{
+    local target=$1
+    local toPrepend=$2
+
+    if [[ ! -d $toPrepend ]]; then
+        return 1;
+    fi
+
+    if [[ $target == PATH ]]; then
+        if [[ ":$PATH:" != *":$toPrepend:"* ]]; then
+            export PATH="$toPrepend:${PATH}"
+        fi
+    elif [[ $target == LIBRARY_PATH ]]; then
+        if [[ ":$LIBRARY_PATH:" != *":$toPrepend:"* ]]; then
+            export LIBRARY_PATH="$toPrepend:${LIBRARY_PATH}"
+        fi
+    elif [[ $target == LD_LIBRARY_PATH ]]; then
+        if [[ ":$LD_LIBRARY_PATH:" != *":$toPrepend:"* ]]; then
+            export LD_LIBRARY_PATH="$toPrepend:${LD_LIBRARY_PATH}"
+        fi
+    fi
+}
+
+function installFolder()
+{
+    local folder="$1"
+    if [[ ! -d "$folder" ]]; then
+        echo -e "\e[31mCould not find folder '$folder' to export.\e[0m" 1>&2
+        return 1
+    fi
+
+    if [[ -d "$folder/bin" ]]; then
+        addToPath 'PATH' "$folder/bin"
+    fi
+    if [[ -d "$folder/lib" ]]; then
+        addToPath 'LIBRARY_PATH' "$folder/lib"
+        addToPath 'LD_LIBRARY_PATH' "$folder/lib"
+    fi
+    if [[ -d "$folder/lib64" ]]; then
+        addToPath 'LIBRARY_PATH' "$folder/lib64"
+        addToPath 'LD_LIBRARY_PATH' "$folder/lib64"
+    fi
+
+    # There is no global variable for include folders.
+    # You have to use CMake or add it manually to compilations.
+
+    return 0;
+}
+
 
 # function keyword necessary if function name already is defined as an alias!
 
