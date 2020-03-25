@@ -195,7 +195,7 @@ function mv2dir()
     if test "$targetDidNotExist" -eq 1; then rmdir -- "${@: -1}"; fi
 }
 alias mv='mv -i'
-alias cp='cp -i'
+alias cp='cp -i --preserve=timestamps'
 alias la='ls -lah --group-directories-first'
 alias l='la'
 # make nvcc workw ith g++ 4.9 instead of default g+ 5.2, which it can't work with
