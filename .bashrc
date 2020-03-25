@@ -93,10 +93,12 @@ if ! type GitPS1 &>/dev/null | 'grep' -q 'function'; then
         fi
     }
 fi
-getMountPoints() {
+
+function getMountPoints() {
     mount | sed -nE 's/.* on (.*) type .* \(.*\)/\1/p' | tac
 }
-pswd() {
+
+function pswd() {
     # like pwd, bugt limits length to 40 characters
     local dir=$(pwd)
     if [ ${#dir} -gt 40 ]; then
@@ -155,7 +157,7 @@ esac
 
 ################### aliases and custom environment variables ###################
 
-commandExists() {
+function commandExists() {
     # http://stackoverflow.com/questions/592620/check-if-a-program-exists-from-a-bash-script
     command -v "$1" > /dev/null 2>&1;
 }
@@ -170,7 +172,7 @@ if [ -x /usr/bin/dircolors ]; then
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
 if commandExists 'trash'; then alias rm='trash'; fi
-mv2dir()
+function mv2dir()
 {
     # if multiple files are moved, then create directory?
     # Or can I catch this warning somehow? mv: target 'foo' is not a directory
@@ -493,6 +495,7 @@ function up() {
 }
 
 function echoerr() { echo "$@" 1>&2; }
+
 function stringContains() {
     #echo "    String to test: $1"
     #echo "    Substring to test for: $2"
