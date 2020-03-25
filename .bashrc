@@ -80,7 +80,7 @@ else
 fi
 
 isGitRepo() { git rev-parse --git-dir &>/dev/null; }
-if ! type GitPS1 &>/dev/null | grep -q 'function'; then
+if ! type GitPS1 &>/dev/null | 'grep' -q 'function'; then
     GitPS1() {
         if isGitRepo; then
             # not using --short, because it's not available in Git 1.7.1
@@ -165,7 +165,7 @@ if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
     alias ls='ls --color'
     # the always option is important to color it also when piping to head, tail, ...
-    alias grep='grep --color=always' # --line-number'
+    alias grep='grep --color=always' # --recursive is not a good idea because it is problematic when piping to grep --line-number can also be obnoxious, especially when piping
     alias dmesg='dmesg --color=always'
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
@@ -192,6 +192,7 @@ alias nvcc='nvcc -ccbin=/usr/bin/g++-4.9 --compiler-options -Wall,-Wextra'
 if commandExists 'git'; then
     alias gcl='git clone --recursive'
     alias gb='git branch --color=always'
+    alias gba='git branch --color=always --all'
     alias gs='git status'
     alias gm='git commit'
     alias gpf='git push -f'
@@ -200,12 +201,17 @@ if commandExists 'git'; then
     alias gls='git log --stat'
     alias glp='git log --pretty --update --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
+    alias glo='git log --oneline'
+    alias gcp='git cherry-pick'
+    alias gcpa='git cherry-pick --continue'
+    alias gcpc='git cherry-pick --abort'
+    alias gpoc='git push --set-upstream own "$( git symbolic-ref HEAD -q 2>/dev/null | sed "s|.*/||" )"'
 
     function grbc()
     {
         # automatically stage all unstaged changes and merge conflicts if merge-conflict markers are removed
         if ! git diff --quiet && git diff --check; then
-            git add --all
+            git add --update
         fi
         git rebase --continue
     }
@@ -220,6 +226,7 @@ if commandExists 'git'; then
 
         local range=
         local options=()
+
         while test $# -gt 0; do
             if [[ "$1" =~ --.* ]]; then
                 options+=( "$1" )
@@ -233,6 +240,11 @@ if commandExists 'git'; then
             fi
             shift
         done
+
+        if [[ -f $range ]]; then
+            git log --follow "${options[@]}" "$@" "$range"
+            return
+        fi
 
         if test $# -eq 0; then
             local endPoint="$( git rev-parse HEAD )"
@@ -1161,7 +1173,7 @@ function resolveAptHosts()
 function refreshPanels()
 {
     # fixes: https://bugzilla.xfce.org/show_bug.cgi?id=10725
-    for plugin in $( xfconf-query -c xfce4-panel -lv | grep tasklist | cut -f1 -d' ' ); do
+    for plugin in $( xfconf-query -c xfce4-panel -lv | 'grep' tasklist | cut -f1 -d' ' ); do
         xfconf-query -c xfce4-panel -p $plugin/include-all-monitors -s true
         xfconf-query -c xfce4-panel -p $plugin/include-all-monitors -s false
     done
@@ -1221,11 +1233,23 @@ if commandExists scite; then
 function scite()
 {
     # goto command documented here: https://www.scintilla.org/SciTEDoc.html
-    if [[ ( $# -eq 1 ) && ( ${1##*:} =~ ^[0-9]+$ ) && -f "${1%:*}" ]]; then
-        command scite "${1%:*}" -goto:"${1##*:}"
-    else
-        command scite "$@"
+    if test $# -eq 1; then
+        if [[ $1 =~ :[0-9]*$ ]]; then
+            local line="${1##*:}" file="${1%:*}"
+            if test -f "$file"; then
+                command scite "$file" -goto:"$line"
+                return
+            fi
+
+            local line="${file##*:}" file="${file%:*}"
+            if test -f "$file"; then
+                command scite "$file" -goto:"$line"
+                return
+            fi
+        fi
     fi
+
+    command scite "$@"
 }
 fi
 
