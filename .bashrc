@@ -198,6 +198,7 @@ alias mv='mv -i'
 alias cp='cp -i --preserve=timestamps'
 alias la='ls -lah --group-directories-first'
 alias l='la'
+alias tbz2='tar --use-compress-program=lbzip2'
 
 if commandExists 'git'; then
     alias gcl='git clone --recursive'
