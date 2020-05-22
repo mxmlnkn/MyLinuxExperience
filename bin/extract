@@ -18,82 +18,83 @@ exec 2> >( tee -ia ~/logs/extract.log >&2 )
 function echoerr() { echo "$@" 1>&2; }
 
 function getArchiveCommand() {
-    if [ ! -f "$1" ] ; then return 1; fi
+    if [[ ! -f "$1" ]] ; then return 1; fi
+
     # How to find out the mime-types file reports:
-        #  echo "hello" > test
-        #    tar  -cf world.tar world
-        #    bzip2 -k world.tar
-        #    gzip  -k world.tar
-        #    xz    -k world.tar
-        #    lzma  -k world
-        #    bzip2 -k world
-        #    gzip  -k world
-        #    7z   a world.7z  world
-        #    rar  a world.rar world
-        #    zip -u world.zip world
-        #    ar x world.deb
-        #  for file in *.*; do file --mime-type "$file"; done
-        #    world.7z     : application/x-7z-compressed
-        #    world.lzma   : application/octet-stream
-        #    world.rar    : application/x-rar
-        #    world.tar    : application/x-tar
-        #    world.bz2    : application/x-bzip2
-        #    world.tar.bz2: application/x-bzip2
-        #    world.gz     : application/gzip
-        #    world.tar.gz : application/gzip
-        #    world.tar.xz : application/x-xz
-        #    world.zip    : application/zip
-        #    world.deb    : application/vnd.debian.binary-package
-        # Note that the .gz files are not differing from the .tar.gz or
-        # .tgz files obviously. We need to look into them and see
-        # if they only contain a single .tar archive
-        local mime=$( file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||' )
-        if [ "$verbose" -eq 1 ] 2>/dev/null; then
-            echoerr "raw type: $mime"
-        fi
-        case "$mime" in
-            x-7z-compressed)            echo '7z'           ;;
-            octet-stream)               echo 'lzma'         ;;
-            x-rar)                      echo 'rar'          ;;
-            x-tar)                      echo 'tar'          ;;
-            x-bzip2)                    echo 'bzip2'        ;;
-            gzip)                       echo 'gzip'         ;;
-            x-xz)                       echo 'xz'           ;;
-            zip)                        echo 'zip'          ;;
-            pdf)                        echo 'pdfimages'    ;;
-            x-sqlite3)                  echo 'sqlite3'      ;;
-            vnd.debian.binary-package)  echo 'ar'           ;;
-            *)
-                case "$1" in
-                    *.7z)      echo '7z'            ;;
-                    *.exe)     echo 'cabextract'    ;;
-                    *.lzma)    echo 'lzma'          ;;
-                    *.tar.lrz) echo 'lrztar'        ;;
-                    *.tar.bz2) echo 'tar'           ;;
-                    *.tar.gz)  echo 'tar'           ;;
-                    *.tar.xz)  echo 'tar'           ;;
-                    *.tar)     echo 'tar'           ;;
-                    *.tbz2)    echo 'tar'           ;;
-                    *.tgz)     echo 'tar'           ;;
-                    *.bz2)     echo 'bzip2'         ;;
-                    *.gz)      echo 'gzip'          ;;
-                    *.rar)     echo 'rar'           ;;
-                    *.zip)     echo 'zip'           ;;
-                    *.xz)      echo 'xz'            ;;
-                    *.deb)     echo 'ar'            ;;
-                    *.pdf)     echo 'pdfimages'     ;;
-                    *)
-                        echoerr -e "\e[31m[getArchiveCommand] Unknown archive type for file '$1' with mime type '$mime'"'!'"\e[0m"
-                        return 1
-                        ;;
-                esac
-                ;;
-        esac
-        return 0
+    #  echo "hello" > test
+    #    tar  -cf world.tar world
+    #    bzip2 -k world.tar
+    #    gzip  -k world.tar
+    #    xz    -k world.tar
+    #    lzma  -k world
+    #    bzip2 -k world
+    #    gzip  -k world
+    #    7z   a world.7z  world
+    #    rar  a world.rar world
+    #    zip -u world.zip world
+    #    ar x world.deb
+    #  for file in *.*; do file --mime-type "$file"; done
+    #    world.7z     : application/x-7z-compressed
+    #    world.lzma   : application/octet-stream
+    #    world.rar    : application/x-rar
+    #    world.tar    : application/x-tar
+    #    world.bz2    : application/x-bzip2
+    #    world.tar.bz2: application/x-bzip2
+    #    world.gz     : application/gzip
+    #    world.tar.gz : application/gzip
+    #    world.tar.xz : application/x-xz
+    #    world.zip    : application/zip
+    #    world.deb    : application/vnd.debian.binary-package
+    # Note that the .gz files are not differing from the .tar.gz or
+    # .tgz files obviously. We need to look into them and see
+    # if they only contain a single .tar archive
+    local mime=$( file --dereference --mime-type -- "$1" | 'sed' 's|^.*: application/||' )
+    if [[ $verbose -eq 1 ]] 2>/dev/null; then
+        echoerr "raw type: $mime"
+    fi
+    case "$mime" in
+        x-7z-compressed)            echo '7z'           ;;
+        octet-stream)               echo 'lzma'         ;;
+        x-rar)                      echo 'rar'          ;;
+        x-tar)                      echo 'tar'          ;;
+        x-bzip2)                    echo 'lbzip2'       ;;
+        gzip)                       echo 'gzip'         ;;
+        x-xz)                       echo 'xz'           ;;
+        zip)                        echo 'zip'          ;;
+        pdf)                        echo 'pdfimages'    ;;
+        x-sqlite3)                  echo 'sqlite3'      ;;
+        vnd.debian.binary-package)  echo 'ar'           ;;
+        *)
+            case "$1" in
+                *.7z)      echo '7z'            ;;
+                *.exe)     echo 'cabextract'    ;;
+                *.lzma)    echo 'lzma'          ;;
+                *.tar.lrz) echo 'lrztar'        ;;
+                *.tar.bz2) echo 'tar'           ;;
+                *.tar.gz)  echo 'tar'           ;;
+                *.tar.xz)  echo 'tar'           ;;
+                *.tar)     echo 'tar'           ;;
+                *.tbz2)    echo 'tar'           ;;
+                *.tgz)     echo 'tar'           ;;
+                *.bz2)     echo 'lbzip2'        ;;
+                *.gz)      echo 'gzip'          ;;
+                *.rar)     echo 'rar'           ;;
+                *.zip)     echo 'zip'           ;;
+                *.xz)      echo 'xz'            ;;
+                *.deb)     echo 'ar'            ;;
+                *.pdf)     echo 'pdfimages'     ;;
+                *)
+                    return 1
+                    ;;
+            esac
+            ;;
+    esac
+    return 0
 }
 
 
-function singleFileInArchive() {
+function singleFileInArchive()
+{
     local archive file files nFiles firstFile folderRegex cmd
     archive=$( realpath -- "$1" )
     # test if archive contains single file or single folder so we can
@@ -140,7 +141,7 @@ function singleFileInArchive() {
             #    Method =
             #    Block =
             if isEncrypted "$archive"; then
-                if [ -z "$password" ]; then
+                if [[ -z $password ]]; then
                     echoerr -e "File is encrypted, but no password set!"
                     return 1
                 fi
@@ -219,7 +220,7 @@ function singleFileInArchive() {
             #    Compression: RAR 3.0(v29) -m3 -md=128K
             cmd=( 'rar' 'lt' )
             if isEncrypted "$archive"; then
-                if [ -z "$password" ]; then
+                if [[ -z $password ]]; then
                     echoerr -e "File is encrypted, but no password set!"
                     return 1
                 fi
@@ -237,7 +238,7 @@ function singleFileInArchive() {
         {
             cmd=( 'zipinfo' '-1' )
             #if isEncrypted "$archive"; then
-            #    if [ -z "$password" ]; then
+            #    if [[ -z $password ]]; then
             #        echoerr -e "File is encrypted, but no password set!"
             #        return 1
             #    fi
@@ -275,7 +276,7 @@ function singleFileInArchive() {
         }
         ;;
         # bzip2 and gz only work for single files
-        'gzip'|'bzip2'|'lzma'|'xz')
+        'lbzip2'|'lbzip2'|'gzip'|'pigz'|'lzma'|'xz'|'pixz'|'pxz'|'lzop'|'lz4'|'lzip'|'plzip')
             local name=$(basename "$archive")
             local suffix=${name##*.}
             if [ "$name" == "$suffix" ]; then
@@ -291,7 +292,7 @@ function singleFileInArchive() {
             ;;
     esac
 
-    if [ $verbose -eq 1 ]; then
+    if [[ $verbose -eq 1 ]]; then
         echoerr "File List of Archive (${#files[@]}):"
         for file in "${files[@]}"; do
             echoerr "  $file"
@@ -304,10 +305,12 @@ function singleFileInArchive() {
     else
     {
         # find out if all are in the same folder
-        if [ "${files[0]:0:1}" == '/' ]; then
+        if [[ "${files[0]:0:1}" == '/' ]]; then
             echoerr -e "\e[31archive seems to contain absolute paths ('${files[0}\'), which are not supported by this script. Maybe you can add it to this script?\e[0m"
             return 1
-        elif [ "$(dirname "${files[0]}")" == '.' ] && [ "${files[0]: -1}" != '/' ]; then
+        fi
+
+        if [[ ( $( dirname -- "${files[0]}" ) == '.' ) && ( "${files[0]: -1}" != '/' ) ]]; then
             # more than one file and first file is in no subdirectory,
             #  at least one other file will be in the top directory
             #
@@ -322,64 +325,52 @@ function singleFileInArchive() {
             # a/b
             # a
             return 1
-        else
-            # Check if maybe all files in the archive share the same
-            # directory they are in, i.e. the archives top level
-            # contains only one folder
-            if [ $verbose -eq 1 ]; then
-                echoerr "Folder Prefix: ${files[0]%%/*}"
-            fi
-            for file in "${files[@]}"; do
-                # it is not necessary to check if it is actually a file:
-                #    [ "${file%%/*}" == "$file" ]
-                # because there can't be a folder and a file with the same name
-                if [ "${file%%/*}" != "${files[0]%%/*}" ]; then
-                    if [ $verbose -eq 1 ]; then
-                        echoerr "The file '$file' lies in a different top-folder than '${files[0]%%/*}'"
-                    fi
-                    return 1
-                fi
-            done
-            return 0
         fi
+
+        # Check if maybe all files in the archive share the same
+        # directory they are in, i.e. the archives top level
+        # contains only one folder
+        local singleFolder="${files[0]%%/*}"
+        if [[ $verbose -eq 1 ]]; then
+            echoerr "Folder Prefix: $singleFolder"
+        fi
+        for file in "${files[@]}"; do
+            # it is not necessary to check if it is actually a file:
+            #    [ "${file%%/*}" == "$file" ]
+            # because there can't be a folder and a file with the same name
+            if [[ "${file%%/*}" != "$singleFolder" ]]; then
+                if [[ $verbose -eq 1 ]]; then
+                    echoerr "The file '$file' lies in a different top-folder than '$singleFolder'"
+                fi
+                return 1
+            fi
+        done
+        echo "$singleFolder"
+        return 0
     }
     fi
-
 }
 
-function isEncrypted() {
+function isEncrypted()
+{
     local archive=$1
     # tests $archive if encrypted. If $2 is given, then try if that is the correct
     # password
     local pw=
-    if [ ! -z "$2" ]; then pw="$2"; fi
-    if [ $verbose -eq 1 ]; then
+    if [[ -n $2 ]]; then pw="$2"; fi
+    if [[ $verbose -eq 1 ]]; then
         echoerr -e "\e[37mTest archive '$archive' using password: $pw\e[0m"
     fi
     case $( getArchiveCommand "$archive" ) in
-        7z)
-            if [ -z "$pw" ]; then pw='-'; fi
-            '7z' t "-p$pw" -- "$archive" 2>&1 | 'grep' -q 'Wrong password?'
+        7z|zip)
+            if [[ -z $pw ]]; then pw='-'; fi
+            '7z' t "-p$pw" -- "$archive" 2>&1 | 'grep' -q 'Wrong password'
             return $?
             ;;
         rar)
-            if [ -z "$pw" ]; then pw='-'; fi
+            if [[ -z $pw ]]; then pw='-'; fi
             'unrar' t "-p$pw" -- "$archive" 2>&1 | 'grep' -q 'Corrupt file or wrong password'
             return $?
-            ;;
-        zip)
-            if [ -z "$pw" ]; then pw=' '; fi
-            # Can't use -T option in zip for this -.-!!!!! see this bug report
-            # http://www.info-zip.org/phpBB3/viewtopic.php?f=3&t=147&hilit=password
-            # last version of zip is from 2009 -> Linux is dead
-            # Note that space after -P is possible, but leads to problems, if the password starts with a hyphen -
-            if [ -n "$pw" ]; then
-                # This tests the whole archive and therefore will in total need twice the time -.-
-                'unzip' -t "-P$pw" "$archive" 2>&1 | 'grep' -q 'because of incorrect password'
-            else
-                # http://www.info-zip.org/mans/zipinfo.html
-                'zipinfo' -1 -s "$archive" | 'sed' '1d;2d;$d' | 'awk' '{ print $5; }' | 'grep' '[BT]' -q
-            fi
             ;;
         *)
             return 1;
@@ -404,25 +395,27 @@ function askPassword() {
     # sets global variable password, if necessary
     password='-'
 
-    if [ $verbose -eq 1 ]; then
+    if [[ $verbose -eq 1 ]]; then
         echoerr -e "\e[37mTry to find password in cache ...\e[0m"
     fi
     # first test if a valid password can be found in the database
     while read -u 3 line; do
         if ! isEncrypted "$1" "$line"; then
             password="$line"
-            if [ $verbose -eq 1 ]; then
+            if [[ $verbose -eq 1 ]]; then
                 echoerr -e "\e[37mFound password: $password\e[0m"
             fi
             break
         fi
     done 3< "$pwfile"
 
+    return 1 # Prompting for password does not work with multi-threading. Just add the password to ~/etc/extractpws
+
     # if not in database ask user
     while isEncrypted "$1" "$password"; do
         read -p "Password [Enter s to skip this archive]: " -s password
         echo ''
-        if [ "$password" == 's' ] || [ -z "$password" ]; then
+        if [[ ( "$password" == 's' ) || -z $password ]]; then
             return 1
         fi
     done
@@ -432,9 +425,13 @@ function askPassword() {
 }
 
 
-function extractHere() {
+function extractHere()
+{
     # $1 path to file to extract
     # $2 enforce certain program usage / extension e.g. 7z on files where unzip or unrar fails because of bad encoding errors
+
+    # Overview of compression utilities: https://wiki.archlinux.org/index.php/Archiving_and_compression
+
     if [ ! -f "$1" ]; then
         echoerr -e "\e[31mCouldn't find file '$1'\e[0m"
         return 1
@@ -460,50 +457,33 @@ function extractHere() {
             # the user would miss a command prompt if the file to extract
             # already exists and we would wait forever!
             if isEncrypted "$1"; then
-                7z x -p"$password" -- "$1"
+                7z x -aoa -p"$password" -- "$1"
             else
-                7z x -- "$1"
+                7z x -aoa -- "$1"
             fi
             return $?
             ;;
-        'bzip2')
-            local name=$(basename "$1")
-            local suffix=${name##*.}
-            if [ "$name" == "$suffix" ]; then
-                pv -- "$1" | bzip2 $quiet -d -k > "$1.unbz2"
-            else
-                pv -- "$1" | bzip2 $quiet -d -k > "${name%.*}"
-            fi
-            return $?
-            ;;
-        'exe')   cabextract   "$1"; return $? ;;
-        'lzma')
-            local name=$(basename "$1")
-            local suffix=${name##*.}
-            if [ "$name" == "$suffix" ]; then
-                pv -- "$1" | lzma $quiet -d -k > "$1.unlzma"
-            else
-                pv -- "$1" | lzma $quiet -d -k > "${name%.*}"
-            fi
-            return $?
-            ;;
-        'tar')   tar -C . -xf "$1"; return $? ;;
-        'gzip')
+        'lbzip2'|'lbzip2'|'gzip'|'pigz'|'lzma'|'xz'|'pixz'|'pxz'|'lzop'|'lz4'|'lzip'|'plzip')
             # use -S to suppress
             #    gzip: 'file' unknown suffix -- ignored
             # warning. Won't work if file name does not contain any .
-            local name=$(basename "$1")
+            local name=$( basename -- "$1" )
             local suffix=${name##*.}
-            if [ "$verbose" -eq 1 ]; then
+
+            if [[ $verbose -eq 1 ]]; then
                 echoerr -e "\e[37mSuffix = $suffix\e[0m"
             fi
-            if [ "$name" == "$suffix" ]; then
-                pv -- "$1" | gzip -d -k > "$1.ungz"
+
+            if [[ "$name" == "$suffix" ]]; then
+                pv -- "$1" | $ext $quiet -d -k > "$1.un$ext"
             else
-                pv -- "$1" | gzip -d -k > "${name%.*}"
+                pv -- "$1" | $ext $quiet -d -k > "${name%.*}"
             fi
+
             return $?
             ;;
+        'exe')   cabextract   "$1"; return $? ;;
+        'tar')   tar -C . -xf "$1"; return $? ;;
         'rar')
             # https://superuser.com/questions/708877/how-to-unrar-the-stdin
             # https://stackoverflow.com/questions/32341691/unrar-and-progress-bar-bash
@@ -515,37 +495,6 @@ function extractHere() {
                 unrar x -- "$1" 1>$redirect
             fi
             return $?
-            ;;
-        'xz')
-            local name=$(basename "$1")
-            local suffix=${name##*.}
-            if [ "$name" == "$suffix" ]; then
-                pv -- "$1" | xz $quiet -d -k > "$1.unxz"
-            else
-                pv -- "$1" | xz $quiet -d -k > "${name%.*}"
-            fi
-            return $?
-            ;;
-        'zip')
-            # https://unix.stackexchange.com/questions/2690/how-to-redirect-output-of-wget-as-input-to-unzip
-            if isEncrypted "$1"; then
-                'unzip' -P "$password" "$1" 2>&1 >"$ " | tee "$errorlog"
-            else
-                'unzip' "$1" 2>&1 >"$redirect" | tee "$errorlog"
-            fi
-            local errorCode=${PIPESTATUS[0]}
-
-            if grep -q 'error:  cannot create ' "$errorlog" ||
-               grep -q 'Invalid or incomplete multibyte or wide character' "$errorlog"
-            then
-                if test "$verbose" -eq 1; then
-                    echoerr -e "\e[37mTrying to extract '$1' with 7z, because unzip has problems with some file name encodings\e[0m"
-                fi
-                extractHere "$1" '7z'
-                errorCode=$?
-            fi
-
-            return $errorCode
             ;;
         'pdfimages')
             pdfimages -all -p -- "$1" 'page'
@@ -614,7 +563,8 @@ function trashArchive() {
 
 
 
-function packTestArchives() {
+function packTestArchives()
+{
     # $1 : password to use. If it is a path to a valid file,
     #      then no password will be used
     # $@ : list of files/folders to pack up
@@ -656,7 +606,7 @@ function packTestArchives() {
         ln -s -T "$file" "$(dirname "$file")/${fname/./}"   # just remove .'s
     done
 
-    if [ -z "$password" ]; then
+    if [[ -z $password ]]; then
         return
     fi
 
@@ -738,7 +688,7 @@ function testArchive() {
             exitCode=$?
         fi
 
-        if [ $exitCode -eq 0 ]; then
+        if [[ $exitCode -eq 0 ]]; then
             #unlink "$fname"
             rm -- "$fname"
         fi
@@ -802,7 +752,7 @@ function testArchive() {
             exitCode=$?
         fi
 
-        if [ $exitCode -eq 0 ]; then
+        if [[ $exitCode -eq 0 ]]; then
             #unlink "$extract/$fname"
             rm -- "$extract/$fname"
         fi
@@ -861,16 +811,73 @@ function runtests() {
 }
 
 
+
+function extract()
+{
+    local archive=$( basename -- "$1" )
+    cd -- "$( dirname -- "$1" )"
+
+    if ! getArchiveCommand "$archive" &>/dev/null; then
+        if [[ $verbose -eq 1 ]]; then
+            echoerr -e "\e[31mFile '$1' with mime type '$mime'"'!'" is not an archive\e[0m"
+        fi
+        return 1
+    fi
+
+    echo -e "\e[37mExtracting '$archive' ($( getArchiveCommand "$archive" ))\e[0m"
+
+    askPassword "$archive"
+    local file=$( singleFileInArchive "$archive" )
+    local success
+    if [[ -z $file ]]; then
+        # assuming file does not contain any /!
+        local folder=${archive%.*}
+        echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
+        if [[ $dryrun -eq 0 ]]; then
+            mkdir -p -- "$folder"
+            if [[ ! -d $folder || $( 'ls' -1 --almost-all "$folder" | 'wc' -l ) -ne 0 ]]; then
+                echoerr -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
+                return 1
+            fi
+            cd -- "$folder"
+            extractHere "../$archive"
+            success=$?
+            cd ..
+        fi
+    else
+        if [[ $verbose -eq 1 ]]; then
+            echoerr -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
+        fi
+        extractHere "$archive"
+        success=$?
+    fi
+
+    if [[ $success -ne 0 ]]; then
+        echoerr -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
+        return 1
+    fi
+
+    trashArchive "$archive"
+    # this is necessary to allow recursive extractions of tar.bz2, ... archives
+    if getArchiveCommand "$file" &>/dev/null; then
+        #echoerr "Recursively extracting '$file'"
+        main -d "$file"
+    fi
+
+    return 0
+}
+
+
 ##################################### main #####################################
 
 function main() {
-    local args=("$@")
     verbose=0
     dryrun=0
     keep=0
     skip=0
     delete=0
-    while [ ! -z "$1" ]; do
+
+    while [[ $# -gt 0 ]]; do
         case "$1" in
             '-h' | '--help')
                 echo '
@@ -919,82 +926,9 @@ Usage: extract <file> [<file> [...]]
         esac
     done
 
-    local problemOccured=0
-    # Commented out, beginning of: 'Extract at folder where archive resides in'
-    local oldPath=$(pwd)
-    while [ ! -z "$1" ]; do
-    {
-        local archive=$(basename -- "$1")
-        cd -- "$oldPath"
-        cd -- "$(dirname -- "$1")"
-        # just skip folders, makes calls like 'extract *' easier
-        if [ -d "$archive" ]; then
-            if [ "$verbose" -eq 1 ]; then
-                echoerr "'$archive' is a folder, skipping"'!'
-            fi
-            shift
-            continue
-        fi
-        if [ -f "$archive" ]; then
-        {
-            echo -e "\e[37mExtracting '$archive'\e[0m"
-            if [ $verbose -eq 1 ]; then
-                echo "file type: $(getArchiveCommand "$archive")"
-            fi
-            askPassword "$archive"
-            local file
-            if file=$(singleFileInArchive "$archive"); then
-                if [ $verbose -eq 1 ]; then
-                    echoerr -e "\e[37m  Archive contains only one top-level file/folder '$file', not creating folder\e[0m"
-                fi
-                if extractHere "$archive"; then
-                    trashArchive "$archive"
-                    # this is necessary to allow recursive extractions of tar.bz2, ... archives
-                    if getArchiveCommand "$file" &>/dev/null; then
-                        #echoerr "Recursively extracting '$file'"
-                        main -d "$file"
-                    fi
-                else
-                    echoerr -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
-                    problemOccured=1
-                fi
-            else
-            {
-                # assuming file does not contain any /!
-                local folder=${archive%.*}
-                echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
-                if [ "$dryrun" -eq 1 ]; then
-                    couldCreateFolder=0
-                else
-                    mkdir -- "$folder" 2>/dev/null
-                    couldCreateFolder=$?
-                fi
-                if [ "$couldCreateFolder" -eq 0 ] || [ "$('ls' --almost-all "$folder" | 'wc' -l)" -eq 0 ]; then
-                    cd -- "$folder"
-                    extractHere "../$archive"
-                    local success=$?
-                    cd ..
-                    if [ $success -eq 0 ]; then
-                        trashArchive "$archive"
-                    else
-                        echoerr -e "\e[31mIt seems were there problems when extracting"'!'"\e[0m"
-                        problemOccured=1
-                    fi
-                else
-                    echoerr -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
-                    shift
-                fi
-            }
-            fi
-        }
-        else
-            echo -e "\e[31mFile '$archive' does not exist, skipping"'!'"\e[0m"
-        fi
-        shift
-    }
-    done
-
-    return $problemOccured
+    export -f echoerr getArchiveCommand singleFileInArchive isEncrypted askPassword extractHere trashArchive extract main
+    export pwfile verbose dryrun keep skip delete
+    printf '%s\0' "$@" | sed -r -z '/\.part([2-9]|[1-9][0-9]+)\.rar/d' | xargs -0 -P 4 -n 1 bash -c 'extract "$0"'
 }
 
 main "$@"
