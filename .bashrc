@@ -291,10 +291,14 @@ if commandExists 'git'; then
     alias gss='git show --stat'
     alias gco='git checkout'
     alias gdc='git diff --cached'
+    alias gcf='git commit --fixup'
+    alias gap='git add -p'
 
     alias gp='git pull'
     # delete merged branches (except specially named like master, dev, develop
-    alias gbdm='git branch --no-color --merged | command grep -vE "^(\*|\s*(master|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
+    # Not that this gives different results depending on which checked out branch you currently are!
+    # But you can call gdbm master
+    alias gbdm='git branch --no-color --merged "$@" | command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
 
     # @todo open changed files (). either currently in staging and modified or in last commit (git show)
     # goc()
@@ -407,7 +411,6 @@ fi
 
 alias lc='locate -i'
 alias sup='sudo apt-get update'
-#alias si='sudo apt-get install -t sid'
 alias si='sudo apt-get install'
 # go into old upper diretory on cd .., even if the current folder was moved e.g. to trash
 # use command cd for original behavior. Unfortunately 'cd' does not work, because
