@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # https://stackoverflow.com/questions/3043978/how-to-check-if-a-process-id-pid-exists
-if [ "$1" -eq "$1" ] && kill -0 "$1"; then
+if [ "$1" -eq "$1" ] 2>/dev/null && kill -0 "$1"; then
     pid=$1
 else
     # Get current active window

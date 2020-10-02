@@ -168,8 +168,9 @@ function checkCommand()
     if [[ $# -lt 2 ]]; then package=$1; else package=$2; fi
     if ! commandExists "$1"; then
         echoerr "$1 command not found, please install the '$package' package"
-        exit 1
+        return 1
     fi
+    return 0
 }
 
 # enable color support of ls and also add handy aliases
@@ -428,7 +429,7 @@ cd()
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
 alias ..='cd ..'
-
+alias fu='fusermount -u'
 
 function addToPath()
 {
@@ -569,7 +570,7 @@ function stringContains() {
 # This function is independent of the site to crawl! The returned links need
 # to be filtered differently depending on what to crawl. See filterUrls()
 function getUrls() {
-    sed 's|<a href="|\nKEEP!!|g' "$1" | sed '/^KEEP!!/!d; s/KEEP!!//; s/".*$//g; s/ /%20/g'
+    cat -- "$@" | sed -r 's|(<a href=")|\n\1|g' | sed -nr 's|^<a href="([^"]+)".*|\1|p; s| |%20|g;'
 }
 
 function getmac() {
@@ -651,7 +652,7 @@ EOF
         echo 'There are overlapping target names, which leads to data loss!' 1>&2
         echo '' 1>&2
         echo 'Overlaps | Target Name' 1>&2
-        sort -z "$tmpFile" | uniq -cz | sort -nz | sed -zE '/^1[ \t]+/d' | tr '\0' '\n'
+        sort -z "$tmpFile" | uniq -cz | sort -nz | sed -zE '/^ *1[ \t]+/d' | tr '\0' '\n'
         echo 'Will quit now. Please use "rm" to delete your files instead.' 1>&2
         return
     fi
@@ -666,7 +667,7 @@ EOF
                 '"printf \"mv '%s'\n-> '%s'\n\" "'"$fname" "$newname"
             else
                 mkdir -p -- "$( dirname -- "./$newname" )"
-                if test -f "./$newname"; then
+                if test -e "./$newname"; then
                     echo "Will not move \"$fname\" -> \"$newname\" because the target already exists and data loss would ensue. Please delete the file manually as this script is just a renamer." 1>&2
                 else
                     mv "./$fname" "./$newname"
@@ -1313,7 +1314,7 @@ function scite()
         fi
     fi
 
-    command scite "$@"
+    dbus-launch scite "$@"
 }
 fi
 
@@ -1370,4 +1371,15 @@ function rand()
     fi
 
     echo $(( u30r % ( end - start + 1 ) + start ))
+}
+
+
+function startBackground()
+{
+    if [[ -z "$1" ]]; then echoerr "First argument must be program to start"; fi
+    if ! checkCommand "$1"; then return 1; fi
+    if pgrep --full "$1" 1>/dev/null; then return 0; fi
+    name=$( basename -- "$1" )
+    # use dbus-launch because of the obnoxious bug where programs hang when trying to display the file open dialog REEEEEE!
+    nohup dbus-launch "$@" 1>"$HOME/logs/$name.out" 2>"$HOME/logs/$name.err" &
 }

@@ -17,4 +17,6 @@ for eq in sys.argv[3:]:
     y = eval( eq )
     ax.plot( x, y, label = eq )
 ax.legend( loc = 'best' )
+fig.tight_layout()
+
 plt.show()

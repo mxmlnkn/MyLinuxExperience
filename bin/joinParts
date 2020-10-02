@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+if 'find' -maxdepth 1 -iname '*.0000.zip.part' | grep -q '.'; then
+    for file in *.00000.zip.part; do
+        echo "extract $file.zip"
+        file=${file%.00000.zip.part}
+        'cat' "$file.00000.zip.part" "$file.00001.zip.part" > "$file.zip"
+        extract "$file.zip"
+    done
+elif 'find' -maxdepth 1 -iname '*.001' | grep -q '.'; then
+    for file in *.001; do
+        file=${file%.001}
+        fileFnMatchEscaped=$( printf %s "$file" | sed -r 's|([][*.\])|\\\1|g;' )
+
+        if [[ -n "$( find . -maxdepth 1 -name "$fileFnMatchEscaped.[0-9][0-9][0-9].part" )" ]]; then
+            echo -e "\e[31mFound a .part file for '$file' indicating an incomplete download. Will not join files.\e[0m"
+            continue
+        fi
+
+        # Check that we have all parts
+        partNumbers=( $( find . -maxdepth 1 -name "$fileFnMatchEscaped.[0-9][0-9][0-9]" | sort -n | sed 's|.*\.0*||' ) )
+        partCount=${#partNumbers[@]}
+        if [[ "$partCount" -eq 0 ]]; then
+            echo -e "\e[31mSomething went wrong with the find command. Could not even find the .001 file.\e[0m"
+            continue
+        fi
+        if [[ "$partCount" -ne "${partNumbers[partCount-1]}" ]]; then
+            echo -e "\e[31mFound $partCount parts but the highest part number is ${partNumbers[partCount-1]}, " \
+                    'so some parts seem to be missing! Will not join files.'"\e[0m"
+            continue
+        fi
+
+        echo -e "\e[37mJoin found parts:"
+        printf "    %s\n" "$file".[0-9][0-9][0-9]
+        printf " -> $file"
+        echo -e "\e[0m\n"
+
+        # ToDo: Detect if file contains CRC32 in name an check
+        'cat' -- "$file".[0-9][0-9][0-9] > "$file" &&
+        crc32 -- "$file" &&
+        trash "$file".[0-9][0-9][0-9]
+    done
+fi

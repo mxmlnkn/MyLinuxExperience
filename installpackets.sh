@@ -119,8 +119,11 @@ packagelistsid=(
     # Some things needed for LeMonADE(-Viwer)
     libfltk1.3-dev povray povray-includes povray-doc povray-examples
 
+    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-plugin-pack pidgin-audacious pidgin-extprefs purple-discord telegram-purple
+    # Caution: pidgin-openpgp segfaults pidgin in Ubuntu 20.04!!!
+    # Outdated and only produces warnings I don't need: pidgin-skype
+
     # Tools
-    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-skype pidgin-plugin-pack pidgin-audacious pidgin-dev pidgin-extprefs purple-discord pidgin-openpgp telegram-purple
     # https://launchpad.net/pidgin-character-counting
     # http://3d.benjamin-thaut.de/?p=12
     powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils

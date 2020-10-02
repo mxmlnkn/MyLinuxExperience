@@ -1,5 +1,139 @@
 #!/usr/bin/env bash
 
+# For /etc/fail2ban/ip.blacklist to take effect you need these files.
+# In order to get range banning to work, the idea is to have separate filters and actions for all mask lengths.
+# As for the action, you can use the default /etc/fail2ban/action.d/iptables-allports.conf as a base and then add
+# a mask argument, which can be set statically for each separate filter and then is added to the iptables call as:
+#   iptables -I fail2ban-<name> 1 -s <ip>/<mask> -j DROP
+
+# cat /etc/fail2ban/jail.d/blacklist.conf
+#    [ip-blacklist]
+#    enabled   = true
+#    banaction = iptables-allports-mask
+#    port      = anyport
+#    filter    = ip-blacklist
+#    logpath   = /etc/fail2ban/ip.blacklist
+#    maxretry  = 0
+#    findtime  = -1
+#    bantime   = -1
+#
+#    [ip-blacklist-24]
+#    enabled   = true
+#    banaction = iptables-allports-mask[mask=24]
+#    port      = anyport
+#    filter    = ip-blacklist-24
+#    logpath   = /etc/fail2ban/ip.blacklist
+#    maxretry  = 0
+#    findtime  = -1
+#    bantime   = -1
+#
+#    [ip-blacklist-16]
+#    enabled   = true
+#    banaction = iptables-allports-mask[mask=16]
+#    port      = anyport
+#    filter    = ip-blacklist-16
+#    logpath   = /etc/fail2ban/ip.blacklist
+#    maxretry  = 0
+#    findtime  = -1
+#    bantime   = -1
+#
+#    [ip-blacklist-8]
+#    enabled   = true
+#    banaction = iptables-allports-mask[mask=8]
+#    port      = anyport
+#    filter    = ip-blacklist-8
+#    logpath   = /etc/fail2ban/ip.blacklist
+#    maxretry  = 0
+#    findtime  = -1
+#    bantime   = -1
+
+# sudo cp /etc/fail2ban/action.d/iptables-allports{,-mask}.conf
+# cat /etc/fail2ban/action.d/iptables-allports-mask.conf
+#    # Fail2Ban configuration file
+#    #
+#    # Author: Cyril Jaquier
+#    # Modified: Yaroslav O. Halchenko <debian@onerussian.com>
+#    # 			made active on all ports from original iptables.conf
+#    #
+#    #
+#
+#    [INCLUDES]
+#
+#    before = iptables-common.conf
+#
+#
+#    [Definition]
+#
+#    # Option:  actionstart
+#    # Notes.:  command executed on demand at the first ban (or at the start of Fail2Ban if actionstart_on_demand is set to false).
+#    # Values:  CMD
+#    #
+#    actionstart = <iptables> -N f2b-<name>
+#                  <iptables> -A f2b-<name> -j <returntype>
+#                  <iptables> -I <chain> -p <protocol> -j f2b-<name>
+#
+#    # Option:  actionstop
+#    # Notes.:  command executed at the stop of jail (or at the end of Fail2Ban)
+#    # Values:  CMD
+#    #
+#    actionstop = <iptables> -D <chain> -p <protocol> -j f2b-<name>
+#                 <actionflush>
+#                 <iptables> -X f2b-<name>
+#
+#    # Option:  actioncheck
+#    # Notes.:  command executed once before each actionban command
+#    # Values:  CMD
+#    #
+#    actioncheck = <iptables> -n -L <chain> | grep -q 'f2b-<name>[ \t]'
+#
+#    # Option:  actionban
+#    # Notes.:  command executed when banning an IP. Take care that the
+#    #          command is executed with Fail2Ban user rights.
+#    # Tags:    See jail.conf(5) man page
+#    # Values:  CMD
+#    #
+#    actionban = <iptables> -I f2b-<name> 1 -s <ip>/<mask> -j <blocktype>
+#
+#    # Option:  actionunban
+#    # Notes.:  command executed when unbanning an IP. Take care that the
+#    #          command is executed with Fail2Ban user rights.
+#    # Tags:    See jail.conf(5) man page
+#    # Values:  CMD
+#    #
+#    actionunban = <iptables> -D f2b-<name> -s <ip>/<mask> -j <blocktype>
+#
+#    [Init]
+#
+#    # Option:  mask
+#    # Notes.:  used to ban an address-range by netmask(s) in CIDR notation.
+#    # Values:  [ 32 | 24 | 16 | 8 ] Default: 32
+#    #
+#    mask = 32
+
+# cat /etc/fail2ban/filter.d/ip-blacklist.conf
+#   [Definition]
+#   failregex = ^<HOST> .*$
+#   ignoreregex =
+# cat /etc/fail2ban/filter.d/ip-blacklist-24.conf
+#   [Definition]
+#   failregex = ^<HOST>/24 .*$
+#   ignoreregex =
+# cat /etc/fail2ban/filter.d/ip-blacklist-16.conf
+#   [Definition]
+#   failregex = ^<HOST>/16 .*$
+#   ignoreregex =
+# cat /etc/fail2ban/filter.d/ip-blacklist-8.conf
+#   [Definition]
+#   failregex = ^<HOST>/8 .*$
+#   ignoreregex =
+#
+# Then check with:
+#   sudo fail2ban-client reload ip-blacklist
+#   sudo service fail2ban restart
+#   sudo fail2ban-client status ip-blacklist
+# Test regex:
+#   fail2ban-regex /etc/fail2ban/ip.blacklist '^<HOST>[ ]+.*$'
+
 function echoerr() { echo "$@" 1>&2; }
 
 function commandExists() { command -v "$1" > /dev/null 2>&1; }
@@ -38,14 +172,19 @@ echoerr -e "\e[37mCollected $( cat auth.log.all | wc -l ) lines from /var/log/au
 cat auth.log.all | sed -nE '
     s|.*sshd.*User .* from ([^ ]*) not allowed.*|\1|p;
     s|.*sshd.*Invalid user .* from ([^ ]*).*|\1|p;
-    s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p;
+    #s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p; # can also be valid disconnect!
+    s|.*sshd.*Failed password for .* from ([0-9.]+).*|\1|p;
+    s|.*sshd.* Unable to negotiate with ([0-9.]+).*|\1|p;
 ' | sed -r '
     s|(10\.0\.0\..*)|#\1|; # Reserved IP range used for my WLAN hotspot
     s|(127\.0\.0\.1)|#\1|; # Reserved Address for loopback addresses
     s|(::1)|#\1|; # IPv6 loopback address
     s|(141\.30\..*)|#\1|; # TUD
     s|(141\.75\..*)|#\1|; # TUD
+    s|(141\.76\..*)|#\1|; # TUD
     # s|(87\.157\..*)|#\1|; # 1&1
+    # s|(92\.116\..*)|#\1|; # 1&1
+    # s|(92\.117\..*)|#\1|; # 1&1
 ' > found.lst
 
 echoerr -e "\e[37mExtracted $( cat found.lst | wc -l ) possible intruder IPs into $( pwd )/found.lst\e[0m"
@@ -118,8 +257,8 @@ while read -u 5 ip; do
         #      possibly yielding a date in the future
         timestamp="$timestamp last year"
     fi
-    #echoerr "Reformat timestamp: '$timestamp' to [$( date --date="$timestamp" '+%y-%m-%d %H:%M:%S' )]"
-    echo "${ip}+[$( date --date="$timestamp" '+%y-%m-%d %H:%M:%S' )]" >> found.lst.unpretty
+    #echoerr "Reformat timestamp: '$timestamp' to [$( date --date="$timestamp" '+%Y-%m-%d %H:%M:%S' )]"
+    echo "${ip}+[$( date --date="$timestamp" '+%Y-%m-%d %H:%M:%S' )]" >> found.lst.unpretty
     echoerr -n -e "\e[37mAdding timestamp to IPs [$iIp/$nIps]\e[0m\r"
     (( iIp += 1 ))
 done 5< found.lst
@@ -128,7 +267,7 @@ echo -e "\e[37mAdded timestamp information as contents to the blacklist file\e[0
 
 echoerr
 # align timestamps to be on the same character column
-#sed -i 's;[ \t]+$;|+['"$(date '+%d/%m/%y %H:%M:%S')"'];' found.lst
+#sed -i 's;[ \t]+$;|+['"$(date '+%d/%m/%Y %H:%M:%S')"'];' found.lst
 #cp found.lst found.lst.unpretty
 column -s '+' -t -e found.lst.unpretty > found.lst
 
