@@ -213,10 +213,10 @@ if commandExists 'git'; then
     alias gls='git log --stat'
     alias glp='git log --pretty --update --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
-    alias glo='git log --oneline'
     alias gcp='git cherry-pick'
-    alias gcpa='git cherry-pick --continue'
-    alias gcpc='git cherry-pick --abort'
+    alias gch='git checkout HEAD'
+    alias gcpa='git cherry-pick --abort'
+    alias gcpc='git cherry-pick --continue'
     alias gpoc='git push --set-upstream own "$( git symbolic-ref HEAD -q 2>/dev/null | sed "s|.*/||" )"'
 
     function grbc()
