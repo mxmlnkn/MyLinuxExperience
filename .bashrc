@@ -1386,3 +1386,8 @@ function startBackground()
     # use dbus-launch because of the obnoxious bug where programs hang when trying to display the file open dialog REEEEEE!
     nohup dbus-launch "$@" 1>"$HOME/logs/$name.out" 2>"$HOME/logs/$name.err" &
 }
+
+
+if [ -f complete-alias/complete_alias ]; then
+    . complete-alias/complete_alias
+fi

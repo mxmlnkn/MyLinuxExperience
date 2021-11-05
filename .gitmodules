@@ -10,3 +10,6 @@
 [submodule "bin/firefox_decrypt"]
 	path = bin/firefox_decrypt
 	url = https://github.com/unode/firefox_decrypt.git
+[submodule "complete-alias"]
+	path = complete-alias
+	url = https://github.com/cykerway/complete-alias.git
