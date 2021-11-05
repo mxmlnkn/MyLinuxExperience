@@ -693,7 +693,7 @@ EOF
 
     find . -mindepth 1 -maxdepth 1 -execdir bash -c '
         fname=$1
-        fname=$( basename "$fname" ) # this strips the leading ./ and trailing / for directories, find doesnt give trailing /
+        fname=$( basename "$fname" ) # this strips the leading ./ and adds trailing / for directories, find doesnt give trailing /
         if [ -d "./$fname" ]; then fname=$fname/; fi
         newname=$( printf "%s" "$fname" | sed -r '"'$sedCommand'"' )
         if [ "$fname" != "$newname" ]; then
@@ -728,7 +728,7 @@ function lac() {
         if echo "$line" | grep -q '^d'; then
             # this doesn't work if the username has spaces in it ...
             local style='\x1B\[[0-9]+(;[0-9]+)*m'
-            local name=$(echo "$line" |
+            local name=$( echo "$line" |
                 'sed' -nr 's|^([^ ]+ +){8}('"$style"')*(.*)'"$style"'$|\4|p' )
                 #             \1     \1   \2   \3   \2 \4\4
                 # E.g.          19:34      \e[01;34m     .
@@ -744,7 +744,7 @@ function lac() {
             local nFiles=1
         fi
         echo "$line" | 'sed' -r 's|^([^ ]+ )[ ]*[0-9]+|\1'"$('printf' '% 4i' $nFiles)|"
-    done < <('ls' --color -lah --group-directories-first $@)
+    done < <( 'ls' --color -lah --group-directories-first "$@" )
 }
 
 function equalize-volumes() {
@@ -1348,7 +1348,14 @@ function scite()
         fi
     fi
 
-    dbus-launch scite "$@"
+    # See man dbus-launch
+    # If you run dbus-launch myapp (with any other options), dbus-daemon will not exit when myapp terminates:
+    # this is because myapp is assumed to be part of a larger session, rather than a session in its own right.
+    # https://access.redhat.com/solutions/3257651
+    # TODO Correctly close down dbus-launch started session!
+    # dbus-launch not necessary anymore after this fix: https://askubuntu.com/a/1350804/437748
+    #dbus-launch scite "$@"
+    command scite "$@"
 }
 fi
 
@@ -1410,12 +1417,67 @@ function rand()
 
 function startBackground()
 {
-    if [[ -z "$1" ]]; then echoerr "First argument must be program to start"; fi
-    if ! checkCommand "$1"; then return 1; fi
-    if pgrep --full "$1" 1>/dev/null; then return 0; fi
+    local launcher
+    case "$1" in
+        dbus-launch)
+            launcher=$1
+            shift
+            ;;
+    esac
+
+    if [[ -z "$1" ]]; then echoerr "First argument must be program to start"; return 1; fi
+    if ! checkCommand "$1"; then echoerr "First argument must be an existing binary or command"; return 1; fi
+    if pgrep --full "$1" 1>/dev/null; then echoerr "$1 already running"; return 0; fi
     name=$( basename -- "$1" )
     # use dbus-launch because of the obnoxious bug where programs hang when trying to display the file open dialog REEEEEE!
-    nohup dbus-launch "$@" 1>"$HOME/logs/$name.out" 2>"$HOME/logs/$name.err" &
+    nohup $launcher "$@" 1>"$HOME/logs/$name.out" 2>"$HOME/logs/$name.err" &
+}
+
+
+function createMultiFrameZstd()
+{
+    local file frameSize fileSize offset frameFile
+    # Detect being piped into
+    if [ -t 0 ]; then
+        file=$1
+        frameSize=$2
+        if [[ ! -f "$file" ]]; then echo "Could not find file '$file'." 1>&2; return 1; fi
+        fileSize=$( stat -c %s -- "$file" )
+    else
+        if [ -t 1 ]; then echo 'You should pipe the output to somewhere!' 1>&2; return 1; fi
+        echo 'Will compress from stdin...' 1>&2
+        frameSize=$1
+    fi
+    if [[ ! $frameSize =~ ^[0-9]+$ ]]; then
+        echo "Frame size '$frameSize' is not a valid number." 1>&2
+    fi
+
+    # Create a temporary file. I avoid simply piping to zstd
+    # because it wouldn't store the uncompressed size.
+    if [[ -d /dev/shm ]]; then frameFile=$( mktemp --tmpdir=/dev/shm ); fi
+    if [[ -z $frameFile ]]; then frameFile=$( mktemp ); fi
+    if [[ -z $frameFile ]]; then
+        echo "Could not create a temporary file for the frames." 1>2
+        return 1
+    fi
+    trap "'rm' -- '$frameFile'" EXIT
+
+    if [ -t 0 ]; then
+        > "$file.zst"
+        for (( offset = 0; offset < fileSize; offset += frameSize )); do
+            dd if="$file" of="$frameFile" bs=$(( 1024*1024 )) \
+               iflag=skip_bytes,count_bytes skip="$offset" count="$frameSize" 2>/dev/null
+            zstd -c -q -f --no-progress -- "$frameFile" >> "$file.zst"
+        done
+    else
+        while true; do
+            dd of="$frameFile" bs=$(( 1024*1024 )) \
+               iflag=count_bytes count="$frameSize" 2>/dev/null
+            # pipe is finished when reading it yields no further data
+            if [[ ! -s "$frameFile" ]]; then break; fi
+            zstd -c -q -f --no-progress -- "$frameFile"
+        done
+    fi
 }
 
 

@@ -60,7 +60,7 @@ function startap()
 
     sudo pkill hostapd
     sudo pkill wpa_supplicant
-    if sudo service network-manager status | 'grep' -q 'active (running)'; then
+    if sudo service isc-dhcp-server status 2>/dev/null  | 'grep' -q 'active (running)'; then
         sudo service isc-dhcp-server stop
     fi
     sudo nmcli radio wifi off # Don't let the network manager get in our way of configuring the WiFi
@@ -147,9 +147,15 @@ function startap()
     export RUN_DAEMON=yes
     sudo bash -c "nohup hostapd '$hostapdConf' >> '$logs/hostapd.log'" &>/dev/null &
 
-    replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "$home/etc/dhcp/dhcpd.conf"
+    replaceOption '/etc/default/isc-dhcp-server' 'DHCPDv4_CONF' "/etc/dhcp/dhcpd.conf"
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv4' "\"$interface\""
     replaceOption '/etc/default/isc-dhcp-server' 'INTERFACESv6' '""'
+
+    sed -i -r 's|^([ \t]*interface )[a-z0-9]+;|\1'"${interface};|" "$home/etc/dhcp/dhcpd.conf"
+    if ! diff -q "$home/etc/dhcp/dhcpd.conf" /etc/dhcp/dhcpd.conf; then
+        sudo mv /etc/dhcp/dhcpd.conf{,.$( date +%s )}
+        sudo cp "$home/etc/dhcp/dhcpd.conf" /etc/dhcp/
+    fi
 
     # ToDo: Find other interface using the same IP and and warn about it and/or remove the IP!
     if ! ip address show dev "$interface" | 'grep' -q "$ipAddress"; then
@@ -195,6 +201,8 @@ function startap()
     #       - check dmesg for things like iwlwifi. For example, I found multiple "Microcode SW error detected" errors and it seems to hang in a loop trying to restart again and again
     #       - run hostapd in debug mode with -d
     #  - does the interface used here has an IP address, if not, do: ip address add 10.0.0.1/24 dev $interface
+    #  - [ ] are there multiple devices with the same ip address configured!? (E.g., the old wlan device and the new one)
+    #    Use sudo ip address delete 10.0.0.1/24 dev wlxec086b13468f
     #  - has the client the correct gateway configured? -> if not, then ping gateway works, but any other IP e.g. ping 8.8.8.8 won't work. Solution: set one manually with ip route or check the DHCP server configuration, whether it has a 'option router 10.0.0.1' at the correct place
     #  - is forwarding working correctly on the gateway? If not, then ping 10.0.0.1 will work but not ping 8.8.8.8
     #    debug iptables configuration: https://serverfault.com/questions/78240/debugging-rules-in-iptables
@@ -210,6 +218,8 @@ function startap()
     #  - Is DHCP server working? systemctl status isc-dhcp-server
     #      -> Since at least dhcpd 4.4, the DHCPDv4_CONF=/home/user/etc/dhcp/dhcpd.conf in /etc/default/isc-dhcp-server does not work anymore.
     #      -> sudo cp {/home/user,}/etc/dhcp/dhcpd.conf
+    #  - [ ] Check that hostapd is running or has quit with an error
+    #  -
 )
 
 # note: shell function lookup has higher priority than executing binaries with the same name

@@ -306,7 +306,7 @@ function singleFileInArchive()
     {
         # find out if all are in the same folder
         if [[ "${files[0]:0:1}" == '/' ]]; then
-            echoerr -e "\e[31archive seems to contain absolute paths ('${files[0}\'), which are not supported by this script. Maybe you can add it to this script?\e[0m"
+            echoerr -e "\e[31archive seems to contain absolute paths ('${files[0]}\'), which are not supported by this script. Maybe you can add it to this script?\e[0m"
             return 1
         fi
 

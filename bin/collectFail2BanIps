@@ -14,7 +14,7 @@
 #    filter    = ip-blacklist
 #    logpath   = /etc/fail2ban/ip.blacklist
 #    maxretry  = 0
-#    findtime  = -1
+#    findtime  = 3153600000
 #    bantime   = -1
 #
 #    [ip-blacklist-24]
@@ -24,7 +24,7 @@
 #    filter    = ip-blacklist-24
 #    logpath   = /etc/fail2ban/ip.blacklist
 #    maxretry  = 0
-#    findtime  = -1
+#    findtime  = 3153600000
 #    bantime   = -1
 #
 #    [ip-blacklist-16]
@@ -34,7 +34,7 @@
 #    filter    = ip-blacklist-16
 #    logpath   = /etc/fail2ban/ip.blacklist
 #    maxretry  = 0
-#    findtime  = -1
+#    findtime  = 3153600000
 #    bantime   = -1
 #
 #    [ip-blacklist-8]
@@ -44,7 +44,7 @@
 #    filter    = ip-blacklist-8
 #    logpath   = /etc/fail2ban/ip.blacklist
 #    maxretry  = 0
-#    findtime  = -1
+#    findtime  = 3153600000
 #    bantime   = -1
 
 # sudo cp /etc/fail2ban/action.d/iptables-allports{,-mask}.conf
@@ -112,19 +112,19 @@
 
 # cat /etc/fail2ban/filter.d/ip-blacklist.conf
 #   [Definition]
-#   failregex = ^<HOST> .*$
+#   failregex = ^<HOST>[ ]+.*$
 #   ignoreregex =
 # cat /etc/fail2ban/filter.d/ip-blacklist-24.conf
 #   [Definition]
-#   failregex = ^<HOST>/24 .*$
+#   failregex = ^<HOST>/24[ ]+.*$
 #   ignoreregex =
 # cat /etc/fail2ban/filter.d/ip-blacklist-16.conf
 #   [Definition]
-#   failregex = ^<HOST>/16 .*$
+#   failregex = ^<HOST>/16[ ]+.*$
 #   ignoreregex =
 # cat /etc/fail2ban/filter.d/ip-blacklist-8.conf
 #   [Definition]
-#   failregex = ^<HOST>/8 .*$
+#   failregex = ^<HOST>/8[ ]+.*$
 #   ignoreregex =
 #
 # Then check with:
@@ -133,6 +133,20 @@
 #   sudo fail2ban-client status ip-blacklist
 # Test regex:
 #   fail2ban-regex /etc/fail2ban/ip.blacklist '^<HOST>[ ]+.*$'
+#   fail2ban-regex /etc/fail2ban/ip.blacklist /etc/fail2ban/filter.d/ip-blacklist.conf
+# Verify loaded blacklist:
+#   sudo iptables --list --numeric
+# Other helpful deubgging tools:
+#   fail2ban-client --dp  # --dump-pretty is not accepted even though it should be
+# sudo fail2ban-client get dbfile
+#    Current database file is:
+#    `- /var/lib/fail2ban/fail2ban.sqlite3
+# https://github.com/fail2ban/fail2ban/issues/2091#issuecomment-374759712
+# https://github.com/fail2ban/fail2ban/issues/1682
+# I finally got it to work. First, it seems findtime=-1 is not accepted!
+# So, use an ultra large value!
+# Second! it remembers the location it has read the file and no restarting, reloading, removing and readding the
+# log file works!!! You need to stop it, delete the database, and then restart it
 
 function echoerr() { echo "$@" 1>&2; }
 
@@ -275,6 +289,7 @@ column -s '+' -t -e found.lst.unpretty > found.lst
 colordiff ip.blacklist found.lst
 echo sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
 sudo 'cp' found.lst /etc/fail2ban/ip.blacklist
+sudo service fail2ban restart
 #rm -r "$(pwd)"
 
 exit 0
@@ -286,3 +301,8 @@ while read -u 5 ip; do
     #printf '% -16s ' "$ip"; lynx -dump "$url$ip" | sed -nr 's|.*Country Code:[ \t]*(.*)[ \t]*|\1|p' | head -1
     geoiplookup "$ip" | sed 's|.*: ||'
 done 5< <( sed 's|[ \t]*$||' found.lst )
+
+echo 'Remember to force a new parsing of the blacklist by deleting the fail2ban database:'
+echo '  sudo fail2ban stop'
+echo "  sudo rm $( sudo fail2ban-client get dbfile | sed -nr 's|`- ||p' )"
+echo '  sudo fail2ban start'

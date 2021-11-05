@@ -37,7 +37,7 @@ elif 'find' -maxdepth 1 -iname '*.001' | grep -q '.'; then
 
         # ToDo: Detect if file contains CRC32 in name an check
         'cat' -- "$file".[0-9][0-9][0-9] > "$file" &&
-        crc32 -- "$file" &&
+        crc32 "$file" &&
         trash "$file".[0-9][0-9][0-9]
     done
 fi

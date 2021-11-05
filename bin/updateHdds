@@ -1,7 +1,68 @@
 #!/usr/bin/env bash
 
-function updateHdds()
+
+function backupFile()
+{
+    local file folder name
+    file=$1
+    folder=$2
+    name=$( basename -- "$file" )
+
+    mkdir -p -- "$folder"
+    if [[ ! -d "$folder" ]]; then
+        echo "$folder is not a folder like it should be." 1>&2
+        return 1
+    fi
+
+    if [[ ! -f "$file" ]]; then
+        echo "$file does not exist, so nothing to back up" 1>&2
+        return 0
+    fi
+
+    if [[ -e "$folder/$name" || -e "$folder/$name.xz" || -e "$folder/$name.bz2" ]]; then
+        echo "$name or $name.xz or $name.bz2 already exists in backup folder $folder. Can not back it up." 1>&2
+        return 1
+    fi
+
+    if ! mv --no-clobber -- "$file" "$folder/"; then
+        echo "Could not backup '$file' into '$folder'." 1>&2
+        return 1
+    fi
+
+    if command -v lbzip2 >/dev/null 2>&1; then
+        lbzip2 "$folder/$name"
+    elif command -v xz >/dev/null 2>&1; then
+        xz "$folder/$name"
+    fi
+}
+
+
+function updateHddMetadata()
 (
+    folder=metadata-$( date +%Y-%m-%d )
+    mkdir -p "$folder"
+    cd "$folder"
+
+    sudo lshw -class disk > lshw.log
+    sudo lshw -class disk -json > lshw.json
+
+    smartctl --scan > smartctl-scan.log
+
+    for device in $( smartctl --scan | sed -nE 's:^/dev/((sd|nvme)[a-z0-9]+) .*:\1:p' ); do
+        sudo smartctl --xall "/dev/$device" > "smartctl-xall-$device.log"
+        sudo smartctl --xall --json "/dev/$device" > "smartctl-xall-$device.json"
+    done
+
+    lsblk --output-all --list | jq '.' > lsblk.log
+    lsblk --json --output-all --list | jq '.' > lsblk.json
+
+    sudo fdisk -l > fdisk.log
+    veracrypt --text --volume-properties > veracrypt.log
+)
+
+
+function updateHdds()
+{
     if [ "$1" == '--help' ] || [ "$1" == '-h' ]; then
         echo "$0 [--help|-h] <path-to-index-folder>"
         return 0
@@ -15,20 +76,21 @@ function updateHdds()
         echo "Could not create index folder '$indexFolder'. Please specify a different one."
         return 1
     fi
-    cd -- "$indexFolder"
+    cd -- "$indexFolder" || return 1
 
     # gather mounted block devices and paths to logs
     mountPoints=()
     targetIndexFiles=()
     targetDirIndexFiles=()
-    while read mountPoint; do
+    while read -r mountPoint; do
         if ! test -d "$mountPoint"; then continue; fi
-
-        mountPoints+=( "$mountPoint" )
 
         # get a nice log file name by removing /media/ or / prefixes, replacing sole '/' with 'root'
         targetIndexFile="${mountPoint#/media/}"
         targetIndexFile="${targetIndexFile#/}"
+        if test "${targetIndexFile#boot}" != "$targetIndexFile"; then
+            continue
+        fi
         if test -z "$targetIndexFile"; then
             if test "$mountPoint" == '/'; then
                 targetIndexFile='root'
@@ -37,6 +99,18 @@ function updateHdds()
             fi
         fi
         targetIndexFile="${targetIndexFile//\//-}"
+
+        # check if such a log already exists and is recent enough in order to allow continuing an aborted indexing
+        if [[ ( -e "${targetIndexFile}.log" &&
+                "$( date --date="@$( stat -c %Y "${targetIndexFile}.log" )" +%Y-%m-%d )" == "$( date +%Y-%m-%d )" ) ||
+              ( -e "${targetIndexFile}-dirs.log" &&
+                "$( date --date="@$( stat -c %Y "${targetIndexFile}-dirs.log" )" +%Y-%m-%d )" == "$( date +%Y-%m-%d )" ) ]]
+        then
+            echo "Skipping already recent enough '${targetIndexFile}'" 1>&2
+            continue
+        fi
+
+        mountPoints+=( "$mountPoint" )
         targetIndexFiles+=( "${targetIndexFile}.log" )
         targetDirIndexFiles+=( "${targetIndexFile}-dirs.log" )
     done < <( lsblk -o MOUNTPOINT | sort -u | sed '/^$/d; /^\/snap\//d; /^MOUNTPOINT$/d;' )
@@ -84,22 +158,30 @@ function updateHdds()
     fi
 
     for (( i = 0; i < ${#mountPoints[@]}; ++i )); do
-        'mv' -- "${targetIndexFiles[i]}" "$backupFolder/" 2>/dev/null
-        'mv' -- "${targetDirIndexFiles[i]}" "$backupFolder/" 2>/dev/null
-
-        # compress backupped files (inside loop to get rid of used space before filling it again)
-        find "$backupFolder" -type f -name '*.log' -execdir xz {} \;
+        backupFile "${targetIndexFiles[i]}" "$backupFolder/" || continue
+        backupFile "${targetDirIndexFiles[i]}" "$backupFolder/" || continue
 
         echo "Indexing ${mountPoints[i]} to ${targetIndexFiles[i]}" 1>&2
-        "${timeCommand[@]}" find "${mountPoints[i]}" -mount -type d > "${targetDirIndexFiles[i]}"
-        "${timeCommand[@]}" find "${mountPoints[i]}" -mount         > "${targetIndexFiles[i]}"
+        tmpFile=$( mktemp )
+        "${timeCommand[@]}" find "${mountPoints[i]}" -mount -type d > "$tmpFile" || continue
+        tmpDirFile=$( mktemp )
+        "${timeCommand[@]}" find "${mountPoints[i]}" -mount > "$tmpDirFile" || continue
+
+        # Only after everything is finished, copy to index folder in order to avoid half-finished states when canceling
+        mv -- "$tmpFile" "${targetDirIndexFiles[i]}"
+        mv -- "$tmpDirFile" "${targetIndexFiles[i]}"
+
+        echo
     done
+
+    # compress backupped files (inside loop to get rid of used space before filling it again)
+    #find "$backupFolder" -type f -name '*.log' -execdir xz {} \;
 
     'mv' -- df.log "$backupFolder" 2>/dev/null
     df -h | 'grep' -v tmpfs > df.log
 
     # Remove the backup folder if for some reason it is empty
     rmdir -- "$backupFolder" 2>/dev/null
-)
+}
 
 updateHdds "$@"
