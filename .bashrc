@@ -458,6 +458,28 @@ function addToPath()
     fi
 }
 
+
+function removeFromPath()
+{
+    local target=$1
+    local toRemove=$2
+    local ToRemoveEscaped regex
+
+    toRemoveEscaped=$( printf %s "$toRemove" | sed -r 's|([][])|[\1]|g; s|([^][/])|[\1]|g; s|/|/+|g; s|/*(/[+])?$|/*|;' )
+    regex='s#(^|:+)'"${toRemoveEscaped}"'(:+|$)#:#'
+
+    if [[ $target == PATH ]]; then
+        export OLD_PATH=$PATH
+        export PATH=$( printf %s "$PATH" | sed -r "$regex" )
+    elif [[ $target == LIBRARY_PATH ]]; then
+        export OLD_LIBRARY_PATH=$LIBRARY_PATH
+        export LIBRARY_PATH=$( printf %s "$LIBRARY_PATH" | sed -r "$regex" )
+    elif [[ $target == LD_LIBRARY_PATH ]]; then
+        export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH=$( printf %s "$LD_LIBRARY_PATH" | sed -r "$regex" )
+    fi
+}
+
 function installFolder()
 {
     local folder="$1"
@@ -482,6 +504,15 @@ function installFolder()
     # You have to use CMake or add it manually to compilations.
 
     return 0;
+}
+
+function uninstallFolder()
+{
+    removeFromPath 'PATH' "$1/bin"
+    removeFromPath 'LIBRARY_PATH' "$1/lib"
+    removeFromPath 'LIBRARY_PATH' "$1/lib64"
+    removeFromPath 'LD_LIBRARY_PATH' "$1/lib"
+    removeFromPath 'LD_LIBRARY_PATH' "$1/lib64"
 }
 
 
