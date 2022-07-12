@@ -1359,6 +1359,8 @@ function scite()
 }
 fi
 
+alias s=scite
+
 
 function dcat()
 {
@@ -1480,7 +1482,148 @@ function createMultiFrameZstd()
     fi
 }
 
+alias make='make -j $( nproc )'
 
-if [ -f complete-alias/complete_alias ]; then
-    . complete-alias/complete_alias
+function build()
+{
+    local prefix
+    # Triggers https://bugreports.qt.io/browse/QTBUG-61710
+    #if commandExists mold; then
+    #    prefix='mold --run'
+    #fi
+
+    if [ -f CMakeCache.txt ]; then
+        $prefix cmake --build . -- "$@"
+    elif [ -f Makefile ]; then
+        $prefix make "$@"
+    elif [ -f build.ninja ]; then
+        $prefix ninja "$@"
+    else
+        echo 'Could not determine a suitable build command!' 1>&2
+    fi
+}
+
+
+alias n=ninja
+alias m=build
+alias nb='build beautify'
+
+alias c='CXX=clang++-14 CC=clang-14 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ..'
+#function c()
+#{
+#    local gitRoot
+#    gitRoot=$( git rev-parse --show-toplevel )
+#    CXX=clang++-14 CC=clang-14 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -DLICENSE=None -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$gitRoot=$( realpath --relative-to="$PWD" "$gitRoot" )" "$@"
+#}
+
+
+function ma()
+{
+    local mountDir='/media/phone'
+    if [ "$1" == '-x' ]; then
+        fusermount -u "$mountDir"
+        return 0
+    fi
+    mkdir -p "$mountDir"
+    if mount | 'grep' -q "$mountDir"; then
+        # this also generally exits old go-mtpfs processes
+        fusermount -u "$mountDir"
+        sleep 2s
+    fi
+    go-mtpfs "$mountDir" &
+}
+
+function killpc()
+{
+    sudo bash -c "echo 1 > /proc/sys/kernel/sysrq; echo b > /proc/sysrq-trigger"
+}
+alias hardshutdown='killpc'
+
+function setLanguage() {
+    local LC
+    for LC in LC_{CTYPE,NUMERIC,TIME,COLLATE,MONETARY,MESSAGES,PAPER,NAME,ADDRESS,TELEPHONE,MEASUREMENT,IDENTIFICATION}; do
+        export ${LC}="en_US.UTF-8"
+    done
+}
+
+function lgb()
+(
+    if [ -d "$1" ]; then cd -- "$1"; fi
+    # character lengths for the columns to be shown
+    local nFolder=30
+    local nBranch=20
+    local nMessage=$(( $( tput cols ) - 2 - nFolder - nBranch ))
+
+    for folder in */; do
+        if [ -e "$folder/.git" ]; then
+        (
+            cd "$folder"
+            if [ "$nMessage" -ge 10 ]; then
+                printf "%-${nFolder}s %-${nBranch}s %-$nMessage.${nMessage}s\n" "$folder" "$( git rev-parse --abbrev-ref HEAD )" "$( git log -1 --pretty=%B | head -1 )"
+            else
+                printf "%-${nFolder}s %-${nBranch}s\n" "$folder" "$( git rev-parse --abbrev-ref HEAD )"
+            fi
+        )
+        fi
+    done
+)
+
+function sgrep()
+{
+    # open all matching files in scite @todo or another arbitrary program
+    local fileNames=()
+    readarray -t -d $'\n' fileNames < <( command grep --files-with-matches "$@" )
+    if test "${#fileNames[@]}" -gt 0; then
+        nohup scite "${fileNames[@]}" -find:"${@: -2:1}" &> "$( mktemp --suffix=.scite.log )" &
+    else
+        echo "No matching files found." 1>&2
+    fi
+}
+
+function omc()
+{
+    local fileName fileNames absoluteNames=()
+    readarray -t -d $'\n' fileNames < <( git diff --name-only --diff-filter=U )
+    local topLevel="$( git rev-parse --show-toplevel )"
+    for fileName in "${fileNames[@]}"; do
+        absoluteNames+=( "$topLevel/$fileName" )
+    done
+    nohup scite "${absoluteNames[@]}" -find:'<<<<' &>/dev/null &
+}
+
+
+# Completion for aliases
+
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
 fi
+
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+completeAliasScript="$( dirname -- "$BASH_SOURCE" )/complete-alias/complete_alias"
+if [[ -f $completeAliasScript ]]; then
+    . "$completeAliasScript"
+fi
+
+for aliasToComplete in $( alias -p | sed -n -E "s;^alias ([A-Za-z0-9]+)='(git|ls|cp|mv|make|ninja|tar) .*;\1;p" ); do
+    echo complete -F _complete_alias "$aliasToComplete"
+    complete -F _complete_alias "$aliasToComplete"
+done
+
+for aliasToComplete in si make; do
+    complete -F _complete_alias "$aliasToComplete"
+done
