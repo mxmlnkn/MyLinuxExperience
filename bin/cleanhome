@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# deletes some unneeded cashes in home folder
+# deletes some unneeded caches in home folder
 
 rm -rf $HOME/.cache/thumbnails
 rm -rf $HOME/.thumbnails
