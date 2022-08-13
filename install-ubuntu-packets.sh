@@ -23,7 +23,7 @@ sudo apt-get update
 #   sudo ln -s $( which gcc-8 ) "$( dirname -- $( which nvcc ) )"/gcc
 
 pip3 install --user --upgrade pip
-python3 -m pip install --user --upgrade matplotlib numpy seaborn virtualenv ratarmount scipy pylint setuptools tensorflow requests lxml weasyprint beautifulsoup4 jupyter jupyter_contrib_nbextensions pillow grip
+python3 -m pip install --user --upgrade matplotlib numpy virtualenv ratarmount scipy pylint setuptools requests lxml weasyprint beautifulsoup4 jupyter jupyter_contrib_nbextensions pillow grip
 jupyter contrib nbextension install --user
 
 packagelistsid=(
@@ -45,7 +45,7 @@ packagelistsid=(
     gcc gfortran g++ g++-8 g++-9 gdb clang clang-tidy libopenmpi-dev openmpi-bin openmpi-common openmpi-doc gnuplot perl uncrustify heaptrack # heaptrack-gui libboost-all-dev
     python3 ipython3 python3-pip cython3
 
-    steam gimp audacity xdotool lynx telegram-desktop ristretto pngtools scite meld pdftk vim kazam scrot caja sharutils jq vlc libaacs0 libbluray* smplayer mplayer thunderbird xul-ext-lightning galculator gdmap sqlite3 fancontrol wipe exiftool jpeginfo
+    steam gimp audacity xdotool lynx telegram-desktop ristretto webp-pixbuf-loader pngtools scite meld pdftk vim kazam scrot caja sharutils jq vlc libaacs0 libbluray* smplayer mplayer thunderbird xul-ext-lightning galculator gdmap sqlite3 fancontrol wipe exiftool jpeginfo
     #filezilla optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm
     fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
     # times new roman and so in in libreoffice
@@ -70,14 +70,14 @@ packagelistsid=(
     compton
 
     # cmake newest + dependendencies
-    cmake cmake-doc cmake-qt-gui cmake-curses-gui hexchat qbittorrent
+    cmake cmake-doc cmake-qt-gui cmake-curses-gui hexchat qbittorrent ninja-build
 
     # networking
     hostname openssh-client openssh-server fail2ban sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap telnet
     # needed for extract macro function
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge tnef unace unalz unar arj lzop ncompress rzip
     # parallel compression tools
-    pixz plzip pigz pbzip2 lbzip2 lrzip lzip
+    pixz plzip pigz pbzip2 lbzip2 lrzip lzip bsdtar libarchive-tools
 
     # Programming toolchain
     lsof colordiff wdiff valgrind cppcheck doxygen doxygen-doc graphviz mercurial git git-doc gitk subversion subversion-tools
@@ -117,10 +117,7 @@ packagelistsid=(
     # seems to be in repo now (nonfree repo?)
     ffmpeg audacious
 
-    # Programming with SDL (udev and co are necessary prerequesits, does not work with jessie-versions)
-    udev systemd-ui bootlogd libsdl2-dev libsdl2-* libsdl-dev # savh ???
-
-    git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
+    git-hg ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
     time
 
     ###### documentation (partially this means manuals) ######
@@ -147,8 +144,6 @@ packagelistsid=(
     # nice GUI editor
     texmaker hunspell-en-gb myspell-de-de hunspell-de-de-frami
 
-    #octave-*
-
     # LibreOffice
     libreoffice-common libreoffice-core libreoffice-pdfimport libreoffice-l10n-de libreoffice-help-de hyphen-de myspell-de-de mythes-de libreoffice-help-en-us libreoffice-writer libreoffice-impress
 
@@ -161,6 +156,12 @@ packagelistsid=(
 
     pv progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
     tidy calibre memtester bless bash shellcheck oathtool
+
+    # Because Ubuntu didn't ship an OOM-killer in the past and the default one in 22.04 is shit and kills my whole X session
+    earlyoom
+
+    # For setfattr used in my setIcons script
+    attr
 )
 
 for package in "${packagelistsid[@]}"; do
@@ -170,16 +171,37 @@ for package in "${packagelistsid[@]}"; do
 done
 sudo apt-get autoremove
 
-if [ ! -f XnViewMP-linux-x64.deb ]; then
-    wget 'http://download.xnview.com/XnViewMP-linux-x64.deb'
-    sudo dpkg -i 'XnViewMP-linux-x64.deb'
-fi
+gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+
+# https://askubuntu.com/questions/1341909/file-browser-and-file-dialogs-take-a-long-time-to-open-or-fail-to-open-in-all-ap/1350804#1350804
+sudo mv /usr/libexec/gvfsd-trash{,.bak}
+
+trashPackages=(
+    # snap pollutes mountpoints, memory, and everything and is slow, who would want that. flatpak is not much better
+    flatpak snapd
+    # Kills X session when out of memory. At that point I can also fully restart. Absolutely useless!
+    systemd-oomd
+    # Currently, I only have ubuntu-desktop installed but maybe next time do a clean install with xubuntu-desktop instead!
+    # tracker
+)
+
+for package in "${trashPackages[@]}"; do
+    sudo apt purge --yes "$package"
+done
+
+
+# Memory leak problems. They take up >2 GB after a month or so and are only needed for flatpak, which I don't use
+sudo mv /usr/libexec/xdg-desktop-portal{,.bak}
+sudo mv /usr/libexec/xdg-desktop-portal-gtk{,.bak}
+
+# Fucking tracker using up resource unnecessarily
+systemctl --user mask tracker-extract-3.service tracker-miner-fs-3.service tracker-miner-rss-3.service tracker-writeback-3.service tracker-xdg-portal-3.service tracker-miner-fs-control-3.service
+tracker3 reset -s -r
 
 exit
 
 # hold some largish rarely used packages for traffic reason
-# hold openjdk-7, because a program didn't compile with jdk-8
-#sudo apt-mark hold libreoffice* octave* openjdk-7* texlive*
+#sudo apt-mark hold libreoffice* texlive*
 
 exit
 

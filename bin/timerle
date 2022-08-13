@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
+if ! command -v xview &>/dev/null; then echo 'This script requires xview (xloadimage) to be installed!'; exit 1; fi
+if ! command -v ffplay &>/dev/null; then echo 'This script requires ffplay (ffmpeg) to be installed!'; exit 1; fi
+
 quiet=0
 message=""
-waitTime='0'
+waitTime=()
 args=()
 while [ -n "$1" ]; do
     case "$1" in
@@ -32,19 +35,19 @@ This script plays an alarm sound after the given duration or at the given time a
                     dm=$((dm + 60))
                     dh=$((dh - 1 ))
                 fi
-                waitTime=( "$(( dh * 60 + dm ))m" )
+                waitTime+=( "$(( dh * 60 + dm ))m" )
             elif [[ "$1" =~ ^[0-9]*[hms]*$ ]]; then
-                waitTime="$1"
+                waitTime+=( "$1" )
             fi
             ;;
     esac
     shift
 done
 
-echo "Timerle startet on $(date '+%Y-%m-%d %H-%M-%S') will finish in ${waitTime}" # at $(date --date=@$(( $( date +%s ) + ${waitTime%m} * 60 )) '+%Y-%m-%d %H-%M-%S')"
-sleep "$waitTime"
+echo "Timerle started on $( date '+%Y-%m-%d %H-%M-%S' ) will finish in ${waitTime[*]}" # at $(date --date=@$(( $( date +%s ) + ${waitTime%m} * 60 )) '+%Y-%m-%d %H-%M-%S')"
+sleep "${waitTime[@]}"
 if [ "$quiet" -eq 0 ]; then
-    ffplay -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
+    ffplay -volume 30 -loop 0 -nodisp "$HOME/.config/alarm.wav" &> /dev/null &
     pid=$!
     #echo "PID (ffplay) = $pid"
 fi

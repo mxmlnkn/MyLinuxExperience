@@ -152,9 +152,6 @@ packagelistsid=(
     # seems to be in repo now (nonfree repo?)
     ffmpeg audacious
 
-    # Programming with SDL (udev and co are necessary prerequesits, does not work with jessie-versions)
-    udev systemd-ui bootlogd libsdl2-dev libsdl2-* libsdl-dev # savh ???
-
     git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
     time
 
@@ -201,6 +198,9 @@ packagelistsid=(
 
     pv progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
     tidy calibre memtester memtest86 bless bash shellcheck oathtool
+
+    # https://askubuntu.com/questions/1185277/screen-tearing-in-linux-with-nvidia-graphics/1185328?noredirect=1#comment2061233_1185328
+    nvidia-settings
 )
 
 for package in "${packagelistsid[@]}"; do
@@ -209,11 +209,6 @@ for package in "${packagelistsid[@]}"; do
     sudo apt-get -f install
 done
 sudo apt-get autoremove
-
-if [ ! -f XnViewMP-linux-x64.deb ]; then
-    wget 'http://download.xnview.com/XnViewMP-linux-x64.deb'
-    sudo dpkg -i 'XnViewMP-linux-x64.deb'
-fi
 
 exit
 

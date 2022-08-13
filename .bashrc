@@ -149,6 +149,8 @@ xterm*|rxvt*)
         PS1_REMOTE_HOSTNAME=
     fi
     PS1='\[\e]0;$PS1_REMOTE_HOSTNAME$(pswd)\a\]'"$PS1"
+    # Show currently running command as window title
+    trap 'echo -ne "\e]0;$BASH_COMMAND\007"' DEBUG
     ;;
 *)
     ;;
@@ -202,14 +204,18 @@ alias l='la'
 alias tbz2='tar --use-compress-program=lbzip2'
 
 if commandExists 'git'; then
-    alias gcl='git clone --recursive'
+    function gcl()
+    {
+        # https://github.com/git-lfs/git-lfs/issues/3559#issuecomment-472873934
+        GIT_LFS_SKIP_SMUDGE=1 git clone --recursive "$@" && ( folder="${_##*/}"; cd -- "${folder%.git}" && git lfs fetch; )
+    }
     alias gb='git branch --color=always'
     alias gba='git branch --color=always --all'
     alias gs='git status'
     alias gm='git commit'
     alias gpf='git push -f'
     alias grba='git rebase --abort'
-    alias glo='git log --oneline'
+    alias glo='git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short'
     alias gls='git log --stat'
     alias glp='git log --pretty --update --graph --decorate --oneline'
     alias grhh='git reset --hard HEAD'
@@ -605,6 +611,10 @@ function stringContains() {
 # to be filtered differently depending on what to crawl. See filterUrls()
 function getUrls() {
     cat -- "$@" | sed -r 's|(<a href=")|\n\1|g' | sed -nr 's|^<a href="([^"]+)".*|\1|p; s| |%20|g;'
+}
+
+function getImageUrls() {
+    cat -- "$@" | sed -r 's|(src=")|\n\1|g' | sed -nr 's|^src="([^"]+)".*|\1|p; s| |%20|g;'
 }
 
 function getmac() {
@@ -1246,7 +1256,7 @@ function getffpasswords()
     local profile=$( sed -n -r -z 's|.*Path=([^\n]*)\nDefault=1.*|\1|p' "$HOME/.mozilla/firefox/profiles.ini" )
     # si pass && pass init defaultGpgID
     local iProfile=$( ~/bin/firefox_decrypt/firefox_decrypt.py --list | 'grep' -F "$profile" | sed -n -r 's|^([0-9]+) -> .*|\1|p;' | head -1 )
-    ( read -sp "Master Password: " PASSWORD && printf '%s' "$PASSWORD" | python ~/bin/firefox_decrypt/firefox_decrypt.py --export --no-interactive --choice "$iProfile" )
+    ( read -sp "Master Password: " PASSWORD && printf '%s' "$PASSWORD" | python3 ~/bin/firefox_decrypt/firefox_decrypt.py --export --no-interactive --choice "$iProfile" )
 }
 
 # https://unix.stackexchange.com/a/4529/111050
@@ -1487,13 +1497,12 @@ alias make='make -j $( nproc )'
 function build()
 {
     local prefix
-    # Triggers https://bugreports.qt.io/browse/QTBUG-61710
-    #if commandExists mold; then
-    #    prefix='mold --run'
-    #fi
+    if commandExists mold; then
+        prefix='mold --run'
+    fi
 
     if [ -f CMakeCache.txt ]; then
-        $prefix cmake --build . -- "$@"
+        $prefix cmake --build . --parallel $( nproc ) -- "$@"
     elif [ -f Makefile ]; then
         $prefix make "$@"
     elif [ -f build.ninja ]; then
@@ -1504,11 +1513,34 @@ function build()
 }
 
 
+function buildRepository()
+(
+    if [[ -f CMakeLists.txt ]]; then
+        mkdir -p build
+        cd build
+        if commandExists ninja; then
+            cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
+        else
+            cmake ..
+        fi
+    elif [[ -x configure ]]; then
+        ./configure
+    elif [[ -x autogen.sh ]]; then
+        ./autogen.sh
+        ./configure
+    elif [[ -x configure.py ]]; then
+        python3 configure.py
+    fi
+
+    build
+)
+
+
 alias n=ninja
 alias m=build
 alias nb='build beautify'
 
-alias c='CXX=clang++-14 CC=clang-14 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ..'
+alias c='CXX=clang++-15 CC=clang-15 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ..'
 #function c()
 #{
 #    local gitRoot
@@ -1519,6 +1551,12 @@ alias c='CXX=clang++-14 CC=clang-14 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G 
 
 function ma()
 {
+    # The gvfs mtp service interferes when trying to use go-mtpfs
+    # Also don't use caja for file transfers. Connection aborts seem to be very frequent when using it.
+    # However a simple 'cp' works just fine ... Shite MTP support
+    # pkill gvfsd-mtp
+    # pkill gvfs-mtp-volume-monitor
+
     local mountDir='/media/phone'
     if [ "$1" == '-x' ]; then
         fusermount -u "$mountDir"
@@ -1591,6 +1629,8 @@ function omc()
     nohup scite "${absoluteNames[@]}" -find:'<<<<' &>/dev/null &
 }
 
+alias x='extract'
+
 
 # Completion for aliases
 
@@ -1620,10 +1660,38 @@ if [[ -f $completeAliasScript ]]; then
 fi
 
 for aliasToComplete in $( alias -p | sed -n -E "s;^alias ([A-Za-z0-9]+)='(git|ls|cp|mv|make|ninja|tar) .*;\1;p" ); do
-    echo complete -F _complete_alias "$aliasToComplete"
     complete -F _complete_alias "$aliasToComplete"
 done
 
 for aliasToComplete in si make; do
     complete -F _complete_alias "$aliasToComplete"
 done
+
+
+function confirm()
+{
+    # This is a general-purpose function to ask Yes/No questions in Bash, either
+    # with or without a default answer. It keeps repeating the question until it
+    # gets a valid answer. @see https://djm.me/ask
+    # Usage: echo -n "Do you want to..?"; confirm -[yn]
+    local prompt default reply
+    while true; do
+        if   [ "$1" = "-y" ]; then prompt="Y/n"; default=Y
+        elif [ "$1" = "-n" ]; then prompt="y/N"; default=N
+        else                       prompt="y/n"; default=
+        fi
+
+        # Ask the question (not using "read -p" as it uses stderr not stdout)
+        echo -n " [$prompt] "
+        # Read the answer (use /dev/tty in case stdin is redirected from somewhere else)
+        read reply </dev/tty
+        # Default?
+        if [ -z "$reply" ]; then reply=$default; fi
+
+        # Check if the reply is valid
+        case "$reply" in
+            Y*|y*) return 0 ;;
+            N*|n*) return 1 ;;
+        esac
+    done
+}

@@ -189,6 +189,7 @@ cat auth.log.all | sed -nE '
     #s|.*sshd.*Received disconnect from ([^ ]*).*|\1|p; # can also be valid disconnect!
     s|.*sshd.*Failed password for .* from ([0-9.]+).*|\1|p;
     s|.*sshd.* Unable to negotiate with ([0-9.]+).*|\1|p;
+    s|.*sshd.* banner exchange: Connection from ([0-9.]+) .* invalid format.*|\1|p;
 ' | sed -r '
     s|(10\.0\.0\..*)|#\1|; # Reserved IP range used for my WLAN hotspot
     s|(127\.0\.0\.1)|#\1|; # Reserved Address for loopback addresses
@@ -303,6 +304,7 @@ while read -u 5 ip; do
 done 5< <( sed 's|[ \t]*$||' found.lst )
 
 echo 'Remember to force a new parsing of the blacklist by deleting the fail2ban database:'
-echo '  sudo fail2ban stop'
-echo "  sudo rm $( sudo fail2ban-client get dbfile | sed -nr 's|`- ||p' )"
-echo '  sudo fail2ban start'
+echo '  file=$( sudo fail2ban-client get dbfile | sed -nr "s|`- ||p" )'
+echo '  sudo service fail2ban stop'
+echo "  sudo rm \"$file\""
+echo '  sudo service fail2ban start'

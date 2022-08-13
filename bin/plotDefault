@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 
@@ -49,19 +49,19 @@ def readNamedColFile( fname, requiredSpecifier=[], allowedSpecifier=None, forbid
         reqfound[id] = False
     for id in format:
         if not allowedSpecifier==None and not id in allowedSpecifier:
-            print "unknown format specifier found (",id,") !"
+            print("unknown format specifier found (",id,") !")
             correct = False
         if id in forbiddenSpecifier:
-            print "specifier >",id,"< is reserved and may not be used!"
+            print("specifier >",id,"< is reserved and may not be used!")
             correct = False
         if np.sum( format == id ) > 1:
-            print "specifier >",id,"< was used multiple times, not allowed!"
+            print("specifier >",id,"< was used multiple times, not allowed!")
             correct = False
         if id in requiredSpecifier:
             reqfound[id] = True
     for id in requiredSpecifier:
         if reqfound[id] == False:
-            print "required specifier >",id,"< wasn't found in header!"
+            print("required specifier >",id,"< wasn't found in header!")
             correct = False
     if not correct:
         exit()
@@ -102,9 +102,9 @@ def finishPlot( fig, ax, fname, loc='best', left = None, bottom = None, right = 
     fig.subplots_adjust( left = left, bottom = bottom, right = right, top = top, wspace = wspace, hspace = hspace )
 
     fig.savefig( fname+".pdf" )
-    print "[Saved '"+fname+".pdf']"
+    print("[Saved '"+fname+".pdf']")
     fig.savefig( fname+".png" )
-    print "[Saved '"+fname+".png']"
+    print("[Saved '"+fname+".png']")
 
     fig.canvas.set_window_title( fname )
 
@@ -133,7 +133,7 @@ with sns.axes_style( "whitegrid", { 'axes.linewidth':0.85, 'xtick.major.size': 3
         if key == 'properties':
             continue
         y = data[key]
-        print key,y
+        print(key,y)
         if not isinstance( y, np.ndarray ):
             continue
         x = np.arange( len(y) )

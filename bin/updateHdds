@@ -19,8 +19,8 @@ function backupFile()
         return 0
     fi
 
-    if [[ -e "$folder/$name" || -e "$folder/$name.xz" || -e "$folder/$name.bz2" ]]; then
-        echo "$name or $name.xz or $name.bz2 already exists in backup folder $folder. Can not back it up." 1>&2
+    if [[ -e "$folder/$name" || -e "$folder/$name.xz" || -e "$folder/$name.bz2" || -e "$folder/$name.gz" ]]; then
+        echo "$name.{,bz2,gz,xz} already exists in backup folder $folder. Can not back it up." 1>&2
         return 1
     fi
 
@@ -29,7 +29,15 @@ function backupFile()
         return 1
     fi
 
-    if command -v lbzip2 >/dev/null 2>&1; then
+    if [[ "$name" =~ *.bz2 || "$name" =~ *.gz || "$name" =~ *.xz ]]; then
+        return 0;
+    fi
+
+    if command -v bgzip >/dev/null 2>&1; then
+        bgzip "$folder/$name"
+    elif command -v gzip >/dev/null 2>&1; then
+        gzip "$folder/$name"
+    elif command -v lbzip2 >/dev/null 2>&1; then
         lbzip2 "$folder/$name"
     elif command -v xz >/dev/null 2>&1; then
         xz "$folder/$name"
@@ -157,19 +165,26 @@ function updateHdds()
         timeCommand=( /usr/bin/time -f '%E needed for %C' )
     fi
 
+    compressor='gzip'
+    if command -v bgzip >/dev/null 2>&1; then
+        compressor='bgzip'
+    fi
+
     for (( i = 0; i < ${#mountPoints[@]}; ++i )); do
         backupFile "${targetIndexFiles[i]}" "$backupFolder/" || continue
+        backupFile "${targetIndexFiles[i]}.gz" "$backupFolder/" || continue
         backupFile "${targetDirIndexFiles[i]}" "$backupFolder/" || continue
+        backupFile "${targetDirIndexFiles[i]}.gz" "$backupFolder/" || continue
 
         echo "Indexing ${mountPoints[i]} to ${targetIndexFiles[i]}" 1>&2
         tmpFile=$( mktemp )
-        "${timeCommand[@]}" find "${mountPoints[i]}" -mount -type d > "$tmpFile" || continue
+        "${timeCommand[@]}" find "${mountPoints[i]}" -mount -type d | sort | "$compressor" > "$tmpFile" || continue
         tmpDirFile=$( mktemp )
-        "${timeCommand[@]}" find "${mountPoints[i]}" -mount > "$tmpDirFile" || continue
+        "${timeCommand[@]}" find "${mountPoints[i]}" -mount | sort | "$compressor" > "$tmpDirFile" || continue
 
         # Only after everything is finished, copy to index folder in order to avoid half-finished states when canceling
-        mv -- "$tmpFile" "${targetDirIndexFiles[i]}"
-        mv -- "$tmpDirFile" "${targetIndexFiles[i]}"
+        mv -- "$tmpFile" "${targetDirIndexFiles[i]}.gz"
+        mv -- "$tmpDirFile" "${targetIndexFiles[i]}.gz"
 
         echo
     done

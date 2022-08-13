@@ -489,10 +489,10 @@ function extractHere()
             # https://stackoverflow.com/questions/32341691/unrar-and-progress-bar-bash
             if isEncrypted "$1"; then
                 #echoerr "unrar x -p$password $1 1>$redirect"
-                unrar x -p"$password" -- "$1" 1>$redirect
+                unrar x -o+ -p"$password" -- "$1" 1>$redirect
             else
                 #echoerr "unrar x $1 1>$redirect"
-                unrar x -- "$1" 1>$redirect
+                unrar x -o+ -- "$1" 1>$redirect
             fi
             return $?
             ;;
@@ -832,10 +832,10 @@ function extract()
     if [[ -z $file ]]; then
         # assuming file does not contain any /!
         local folder=${archive%.*}
-        echo -e "\e[37m  Creating folder '$folder' to hold all 'dem files, bro"'!'"\e[0m"
+        echo -e "\e[37m  Creating folder '$folder' to hold the archive files"'!'"\e[0m"
         if [[ $dryrun -eq 0 ]]; then
             mkdir -p -- "$folder"
-            if [[ ! -d $folder || $( 'ls' -1 --almost-all "$folder" | 'wc' -l ) -ne 0 ]]; then
+            if [[ ! -d $folder ]]; then
                 echoerr -e "\e[31mCouldn't create folder: '$folder'. Skipping this archive"'!'"\e[0m"
                 return 1
             fi

@@ -63,13 +63,15 @@ for path in "${paths[@]}"; do if [ -d "$path" ]; then (
         #continue
     fi
     mkdir -p "$newFolder"
-    find "$folder" -type f -print0 | xargs -0 -I {} -P 3 bash -c '
+    find "$folder" -type f -print0 | xargs -0 -I {} -P $( nproc ) bash -c '
         newFile="$1/$( printf "%s" "$0" | sed "s|[^/]*/||" )"
         mkdir -p "${newFile%/*}"
         if isMusicFile "$0"; then
-            echo "Converting $0"
-            ffmpeg -i "$0" "${newFile%.*}.mp3"
-        else
+            if [[ ! -f "${newFile%.*}.mp3" ]]; then
+                echo "Converting $0"
+                ffmpeg -loglevel error -i "$0" "${newFile%.*}.mp3"
+            fi
+        elif [[ ! -f "$newFile" ]]; then
             echo "Just copy $0"
             "cp" -- "$0" "$newFile"
         fi
