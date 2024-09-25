@@ -1,82 +1,149 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys, numpy as np
+import sys
+import numpy as np
 
 
-def uncertainValueToStr( x, sx ):
-    import numpy as np
+def get_magnitude(x):
+    """
+    Returns:
+        x in [0.1, 1  ) -> -1
+        x in [1  , 10 ) ->  0
+        x in [10 , 100) -> +1
+    """
+    return int(np.floor(np.log10(np.abs(x))))
 
-    def getMagnitude( x ):
-        """
-        Returns:
-            x in [0.1, 1  ) -> -1
-            x in [1  , 10 ) ->  0
-            x in [10 , 100) -> +1
-        """
-        return int( np.floor( np.log10( np.abs( x ) ) ) )
 
-    def roundToSignificant( x, n ):
-        mag = getMagnitude( x )
-        # around can also round to 10 or 100, ... by specifying negative values for the second argument
-        return np.around( x, -mag + n-1 )
+def test_uncertain_value_to_str():
+    tests = {
+        -1: [0.1, 0.2, 0.9],
+        0: [1, 2, 9],
+        1: [10, 20, 99],
+    }
+    for magnitude, values in tests.items():
+        for value in values:
+            result = get_magnitude(value)
+            if result != magnitude:
+                print(f"Test failed for {value}! Magnitude is {result} but should be {magnitude}")
 
-    def getFirstDigit( x ):
-        mag = getMagnitude( x )
-        return int( x / 10**mag )
 
-    def existingDigits( s ):
-        """
-        Counts the number of significant digits. Examples:
-        Returns:
-            0.00013 -> 2
-            1.3013  -> 5
-            0.13    -> 2
-            1000.3  -> 5
-            1.20e-5 -> 3
-        """
-        s = str( s ).split( 'e' )[0].lstrip( '+-0.' )
+test_uncertain_value_to_str()
 
-        nDigits = 0
-        for i in range( len( s ) ):
-            if s[i] in '0123456789':
-                nDigits += 1
 
-        return nDigits
+def get_first_digit(x):
+    mag = get_magnitude(x)
+    return int(x / 10**mag)
 
+
+def existing_digits(s):
+    """
+    Counts the number of significant digits. Examples:
+    Returns:
+        0.00013 -> 2
+        1.3013  -> 5
+        0.13    -> 2
+        1000.3  -> 5
+        1.20e-5 -> 3
+    """
+    s = str(s).split('e')[0].lstrip('+-0.')
+
+    nDigits = 0
+    for i in range(len(s)):
+        if s[i] in '0123456789':
+            nDigits += 1
+
+    return nDigits
+
+
+def round_to_significant(x, n):
+    mag = get_magnitude(x)
+    # numpy.around can also round to 10 or 100, ... by specifying negative values for the second argument
+    return np.around(x, -mag + n - 1)
+
+
+def round_stddev(sx):
     # Format exponent and error https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4483789/
-    # Can't find that particular standard right now, but I thought some standard specified two significant digits for the first digit being < 3 and else one significant digits on the errors. And of course the mean should have as much precision as the error has
-    nDigitsErr = 2 if getFirstDigit( sx ) in [1,2] else 1
-    magSx   = getMagnitude( sx )
-    sxShort = str( roundToSignificant( sx, nDigitsErr ) )
-    sxShort += '0' * max( 0, nDigitsErr - existingDigits( sxShort ) )
+    # I can't find that particular standard right now, but I thought some standard specified
+    # two significant digits for the first digit being < 3 and else one significant digits on the errors.
+    # And of course the mean should have as much precision as the error has
+    n_digits_err = 2 if get_first_digit(sx) in [1, 2] else 1
+    mag_sx = get_magnitude(sx)
+    sx_rounded = round_to_significant(sx, n_digits_err)
+    if mag_sx + 1 >= n_digits_err:
+        sx_short = str(int(sx_rounded))
+    else:
+        sx_short = str(sx_rounded)
+        sx_short += '0' * max(0, n_digits_err - existing_digits(sx_short))
 
-    xShort = str( np.around( x, -magSx + nDigitsErr-1 ) )
+    return n_digits_err, mag_sx, sx_short
 
+
+def test_round_stddev():
+    tests = [
+        (3.111, "3"),
+        (31.11, "30"),
+        (0.1234, "0.12"),
+        (0.1434, "0.14"),
+        (0.19, "0.19"),
+        (0.3111, "0.3"),
+        (1.234, "1.2"),
+        (1.434, "1.4"),
+        (1.9, "1.9"),
+        (3.111, "3"),
+        (12.34, "12"),
+        (14.34, "14"),
+        (19.0, "19"),
+        (19, "19"),
+        (31.11, "30"),
+    ]
+    for value, expected in tests:
+        result = round_stddev(value)[2]
+        if result != expected:
+            print(f"Test failed for {value}! Got rounded to {result} but should be {expected}")
+
+
+test_round_stddev()
+
+
+def uncertain_value_to_str(x, sx):
+    n_digits_err, mag_sx, sx_short = round_stddev(sx)
     # pad with 0s if necessary, showing the rounding, i.e., change "2.093 +- 0.02" (s = 0.0203...) to "2.093 +- 0.020"
-    xShort += '0' * max( 0, nDigitsErr - existingDigits( xShort ) )
-    return xShort, sxShort
+    x_rounded = np.around(x, -mag_sx + n_digits_err - 1)
+    if mag_sx + 1 >= n_digits_err:
+        x_short = str(int(x_rounded))
+    else:
+        x_short = str(x_rounded)
+        x_short += '0' * max(0, n_digits_err - existing_digits(x_short))
+    return x_short, sx_short
 
-def testUncertainValueToStr():
-    tests = [ [ 0.9183782255, 0.00081245, "0.9184", "0.0008" ] ]
-    tests = [ [ 12.5435892, 1.0234, "12.5", "1.0" ] ]
-    tests = [ [ 12.0123, 1.0234, "12.0", "1.0" ] ]
-    tests = [ [ 1.25435892, 0.10234, "1.25", "0.10" ] ]
-    tests = [ [ 19235198, 310, "19235200", "300" ] ]
-    tests = [ [ 52349e-15, 4.25315e-12, "5.2e-11", "4e-12" ] ]
+
+def test_uncertain_value_to_str():
+    tests = [
+        [0.9183782255, 0.00081245, "0.9184", "0.0008"],
+        [12.5435892, 1.0234, "12.5", "1.0"],
+        [12.0123, 1.0234, "12.0", "1.0"],
+        [141, 15, "141", "15"],
+        [1.25435892, 0.10234, "1.25", "0.10"],
+        [19235198, 310, "19235200", "300"],
+        [52349e-15, 4.25315e-12, "5.2e-11", "4e-12"],
+        [138.1, 13, "138", "13"],
+    ]
     for test in tests:
-        sm, ss = uncertainValueToStr( test[0], test[1] )
+        sm, ss = uncertain_value_to_str(test[0], test[1])
         if sm != test[2] or ss != test[3]:
-            print( "Test failed! m={}, s={} => {} +- {} but should be {} +- {}".format(
-                test[0], test[1], sm, ss, test[2], test[3] ) )
+            print(f"Test failed! m={test[0]}, s={test[1]} => {sm} +- {ss} but should be {test[2]} +- {test[3]}")
+            assert False
 
-testUncertainValueToStr()
+
+test_uncertain_value_to_str()
+
 
 x = np.array( [ float(x) for x in sys.argv[1:] ] )
 sx = np.std(x) / len(x)
 
 #print( np.mean(x), " +- ", np.std(x) / len(x) )
-print(           uncertainValueToStr( np.min (x), sx )[0], '|',
-    " +- ".join( uncertainValueToStr( np.mean(x), sx ) ),
-    '|',         uncertainValueToStr( np.max (x), sx )[0]
+print(           uncertain_value_to_str( np.min (x), sx )[0], '|',
+    " +- ".join( uncertain_value_to_str( np.mean(x), sx ) ),
+    '|',         uncertain_value_to_str( np.max (x), sx )[0]
 )
