@@ -445,7 +445,6 @@ function extractHere()
         redirect='/dev/null'
         quiet='-q'
     fi
-    local errorlog=$(mktemp)
 
     if [ "$dryrun" -eq 1 ]; then
         return 0
@@ -607,6 +606,7 @@ function packTestArchives()
     done
 
     if [[ -z $password ]]; then
+        rm -r -- "$folder"
         return
     fi
 
@@ -623,6 +623,8 @@ function packTestArchives()
         ln -s -T "$file" "$(dirname "$file")/${fname/./ }"  # . -> spaces
         ln -s -T "$file" "$(dirname "$file")/${fname/./}"   # just remove .'s
     done
+
+    rm -r -- "$folder"
 }
 
 function testArchive() {

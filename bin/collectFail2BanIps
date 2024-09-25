@@ -148,6 +148,37 @@
 # Second! it remembers the location it has read the file and no restarting, reloading, removing and readding the
 # log file works!!! You need to stop it, delete the database, and then restart it
 
+
+# Block by country
+# https://www.axllent.org/docs/ssh-geoip/
+# sudo apt-get install geoip-bin geoip-database
+#
+# sudo vim /usr/local/bin/sshd-filter-by-country.sh
+#
+# #!/bin/bash
+# # UPPERCASE space-separated country codes to ACCEPT
+# ALLOW_COUNTRIES="DE"
+# if [ $# -ne 1 ]; then
+#     echo "Usage:  $( basename -- "$0" ) <ip>" 1>&2
+#     exit 0
+# fi
+# COUNTRY=$( geoiplookup "$1" | sed -nE 's|.*: (.*), .*|\1|p' | head -n 1 )
+# if [[ $COUNTRY = "IP Address not found" || $ALLOW_COUNTRIES =~ $COUNTRY ]]; then
+#     RESPONSE="ALLOW"
+# else
+#     RESPONSE="DENY"
+# fi
+# if [[ $RESPONSE = "ALLOW" ]]; then
+#     exit 0
+# fi
+# logger "$RESPONSE sshd connection from $1 ($COUNTRY)"
+# exit 1
+#
+# sudo chmod 775 /usr/local/bin/sshd-filter-by-country.sh
+# Add "sshd: ALL" to /etc/hosts.deny
+# Add "sshd: ALL: aclexec /usr/local/bin/sshd-filter-by-country.sh %a" to /etc/hosts.allow
+# sudo service sshd restart
+
 function echoerr() { echo "$@" 1>&2; }
 
 function commandExists() { command -v "$1" > /dev/null 2>&1; }
@@ -304,7 +335,7 @@ while read -u 5 ip; do
 done 5< <( sed 's|[ \t]*$||' found.lst )
 
 echo 'Remember to force a new parsing of the blacklist by deleting the fail2ban database:'
-echo '  file=$( sudo fail2ban-client get dbfile | sed -nr "s|`- ||p" )'
+echo '  file=$( sudo fail2ban-client get dbfile | sed -nr "s|\\`- ||p" )'
 echo '  sudo service fail2ban stop'
 echo "  sudo rm \"$file\""
 echo '  sudo service fail2ban start'

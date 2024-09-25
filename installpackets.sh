@@ -19,6 +19,11 @@ sudo apt-get install apt-transport-https # needed for apt-get update
 sudo apt-get update
 
 packagelistsid=(
+    # More beautiful login screen
+    lightdm
+
+    vim
+
     # linux headers for compiling new kernel e.g. for CUDA-installation
     linux-headers-$(uname -r)
 

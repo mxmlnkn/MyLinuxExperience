@@ -211,6 +211,7 @@ if commandExists 'git'; then
     }
     alias gb='git branch --color=always'
     alias gba='git branch --color=always --all'
+    alias gbl='git blame'
     alias gs='git status'
     alias gm='git commit'
     alias gpf='git push -f'
@@ -438,7 +439,13 @@ cd()
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
 alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
 alias ..='cd ..'
-alias fu='fusermount -u'
+
+function fu()
+{
+    for file in "$@"; do
+        fusermount -u -- "$file"
+    done
+}
 
 function addToPath()
 {
@@ -610,11 +617,11 @@ function stringContains() {
 # This function is independent of the site to crawl! The returned links need
 # to be filtered differently depending on what to crawl. See filterUrls()
 function getUrls() {
-    cat -- "$@" | sed -r 's|(<a href=")|\n\1|g' | sed -nr 's|^<a href="([^"]+)".*|\1|p; s| |%20|g;'
+    sed -r 's|(<a href=")|\n\1|g' -- "$@" | sed -nr 's|^<a href="([^"]+)".*|\1|p; s| |%20|g;'
 }
 
 function getImageUrls() {
-    cat -- "$@" | sed -r 's|(src=")|\n\1|g' | sed -nr 's|^src="([^"]+)".*|\1|p; s| |%20|g;'
+    sed -r 's|(src=")|\n\1|g' -- "$@" | sed -nr 's|^src="([^"]+)".*|\1|p; s| |%20|g;'
 }
 
 function getmac() {
@@ -861,8 +868,10 @@ int main( int argc, char ** argv )
 EOF
     g++ tmp.cpp -std=c++17 -Wall -o a.out
     ./a.out
+    local exitCode=$?
     rm -r "$folder"
     cd "$oldDir"
+    return $exitCode
 }
 
 function o() { xdg-open "$*"; }
@@ -1504,7 +1513,7 @@ function build()
     if [ -f CMakeCache.txt ]; then
         $prefix cmake --build . --parallel $( nproc ) -- "$@"
     elif [ -f Makefile ]; then
-        $prefix make "$@"
+        $prefix 'make' -j "$( nproc )" "$@"
     elif [ -f build.ninja ]; then
         $prefix ninja "$@"
     else
@@ -1694,4 +1703,9 @@ function confirm()
             N*|n*) return 1 ;;
         esac
     done
+}
+
+
+function watchSync() {
+  watch -n1 'grep -E "(Dirty|Write)" /proc/meminfo; echo; ls /sys/block/ | while read device; do awk "{ print \"$device: \"  \$9 }" "/sys/block/$device/stat"; done'
 }

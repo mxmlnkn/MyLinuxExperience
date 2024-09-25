@@ -2,6 +2,10 @@
 
 # deletes some unneeded caches in home folder
 
+rm -rf $HOME/.debug   # binaries from coredumps, I think
+rm -rf $HOME/.local/share/cargo/registry/
+
+# Folder thumbnails and such
 rm -rf $HOME/.cache/thumbnails
 rm -rf $HOME/.thumbnails
 rm -f $HOME/.xnviewmmp/Thumb.db
