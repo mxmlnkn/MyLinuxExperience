@@ -8,5 +8,7 @@ rm -rf $HOME/.local/share/cargo/registry/
 # Folder thumbnails and such
 rm -rf $HOME/.cache/thumbnails
 rm -rf $HOME/.thumbnails
+rm -rf $HOME/.debug
 rm -f $HOME/.xnviewmmp/Thumb.db
 rm -f $HOME/.xnviewmmp/XnView.db
+rm -f $HOME/.ccache/ccache.log

@@ -234,9 +234,11 @@ function mv2dir()
 }
 alias mv='mv -i'
 alias cp='cp -i --preserve=timestamps'
-alias la='ls -lah --group-directories-first'
+alias la='ls -lAh --group-directories-first'
 alias l='la'
 alias tbz2='tar --use-compress-program=lbzip2'
+alias tgz='tar --use-compress-program="bgzip --threads $( nproc )"'
+alias scp='scp -p'
 
 if commandExists 'git'; then
     function gcl()
@@ -337,10 +339,43 @@ if commandExists 'git'; then
     alias gap='git add -p'
 
     alias gp='git pull'
+
     # delete merged branches (except specially named like master, dev, develop
     # Not that this gives different results depending on which checked out branch you currently are!
     # But you can call gdbm master
-    alias gbdm='git branch --no-color --merged "$@" | command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
+    function gbdmToCurrent()
+    {
+        if [[ $# -ne 1 ]]; then
+            echo "Please specify the branch that all other branches should be merged into."
+            return 1
+        fi
+
+        local mainBranch="$1"
+        git branch --no-color --merged "$mainBranch" |
+            command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" |
+            command xargs -n 1 git branch -d
+
+        echo "Branches that seem to have been merged even though git does not think so:"
+
+        for branch in $( git branch --no-color | command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" ); do
+            if ! git show "own/$branch" &>/dev/null; then
+                readarray -t -d $'\n' commits < <( git log --pretty=format:%s "$( git merge-base "$mainBranch" "$branch" )..$branch" )
+
+                mismatches=0
+                for commit in "${commits[@]}"; do
+                    if ! git log --pretty=format:%s "$mainBranch" | 'grep' -q -Fx -- "$commit"; then
+                        mismatches=1
+                    fi
+                done
+
+                if [[ $mismatches -eq 0 && ${#commits[@]} -gt 0 ]]; then
+                    echo git branch -D "$branch"
+                fi
+            fi
+        done
+    }
+
+    alias gbdm='gbdmToCurrent master'
 
     # @todo open changed files (). either currently in staging and modified or in last commit (git show)
     # goc()
@@ -449,6 +484,18 @@ EOF
             git rebase -i "$@"
         fi
     }
+
+    function findInBranches()
+    {
+        local branch range
+        for branch in $( git rev-parse --symbolic --branches ); do
+            range=$( git merge-base upstream/master $branch 2>/dev/null )..$branch
+            if git log --oneline "$range" 2>/dev/null | 'grep' -q "$@"; then
+                echo "Found matches in branch $branch:"
+                git log --oneline "$range" | grep "$@"
+            fi
+        done
+    }
 fi
 
 alias lc='locate -i'
@@ -472,8 +519,10 @@ cd()
 }
 
 alias crawlSite='wget --limit-rate=200k --no-clobber --convert-links --random-wait --recursive --page-requisites --adjust-extension -e robots=off -U mozilla --no-remove-listing --timestamping'
-alias gc='git reflog expire --expire=now --all && git gc --prune=now && git gc --aggressive --prune=now'
+alias gc='git reflog expire --expire=30d --all && git gc && git gc --aggressive --prune=now'
 alias ..='cd ..'
+# https://github.com/nvbn/thefuck
+alias f=fuck
 
 function fu()
 {
@@ -1390,13 +1439,13 @@ function scite()
         if [[ $1 =~ :[0-9]*$ ]]; then
             local line="${1##*:}" file="${1%:*}"
             if test -f "$file"; then
-                command scite "$file" -goto:"$line"
+                command scite "$file" -goto:"$line" 2>/dev/null
                 return
             fi
 
             local line="${file##*:}" file="${file%:*}"
             if test -f "$file"; then
-                command scite "$file" -goto:"$line"
+                command scite "$file" -goto:"$line" 2>/dev/null
                 return
             fi
         fi
@@ -1409,7 +1458,7 @@ function scite()
     # TODO Correctly close down dbus-launch started session!
     # dbus-launch not necessary anymore after this fix: https://askubuntu.com/a/1350804/437748
     #dbus-launch scite "$@"
-    command scite "$@"
+    command scite "$@" 2>/dev/null
 }
 fi
 
@@ -1541,6 +1590,8 @@ alias make='make -j $( nproc )'
 function build()
 {
     local prefix
+    # Triggers https://bugreports.qt.io/browse/QTBUG-61710
+    # -> Seems to work now with Vampir 10.1, Qt 6.2.2, mold 1.1.1, and clang 14.0.0
     if commandExists mold; then
         prefix='mold --run'
     fi
@@ -1551,6 +1602,8 @@ function build()
         $prefix 'make' -j "$( nproc )" "$@"
     elif [ -f build.ninja ]; then
         $prefix ninja "$@"
+    elif [ -f Cargo.toml ]; then
+        cargo build "$@"
     else
         echo 'Could not determine a suitable build command!' 1>&2
     fi
@@ -1584,7 +1637,7 @@ alias n=ninja
 alias m=build
 alias nb='build beautify'
 
-alias c='CXX=clang++-15 CC=clang-15 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ..'
+alias c='CXX=clang++-19 CC=clang-19 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON ..'
 #function c()
 #{
 #    local gitRoot
@@ -1674,6 +1727,9 @@ function omc()
 }
 
 alias x='extract'
+
+function getPdfTitle() { pdfinfo "$@" | sed -nr 's|^Title:[ \t]*||p'; }
+# E.g., for file in *pdf; do mv "$file" "$( getPdfTitle "$file" | cleanFilenames )".pdf; done
 
 
 # Completion for aliases

@@ -44,7 +44,7 @@ E.g.
 
 Will give notifications if AMD rises by 6% on one day or if it goes down below 12.10 Euro (Euro is default currency on TRE),
 
-If no path is given or given path is non-existend, then by default ~/etc/stockalerts will be used.'
+If no path is given or given path is non-existent, then by default ~/etc/stockalerts will be used.'
 }
 
 configFile="$HOME/etc/stockalerts"
