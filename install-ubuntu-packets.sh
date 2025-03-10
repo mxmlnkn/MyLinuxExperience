@@ -22,45 +22,37 @@ sudo apt-get update
 #   sudo ln -s $( which g++-8 ) "$( dirname -- $( which nvcc ) )"/g++
 #   sudo ln -s $( which gcc-8 ) "$( dirname -- $( which nvcc ) )"/gcc
 
-pip3 install --user --upgrade pip
-python3 -m pip install --user --upgrade matplotlib numpy virtualenv ratarmount scipy pylint setuptools requests lxml weasyprint beautifulsoup4 jupyter jupyter_contrib_nbextensions pillow grip
-jupyter contrib nbextension install --user
-
 packagelistsid=(
-    # For Vampir
-    otf-trace libotf-trace-dev libssl-dev
-
-    wkhtmltopdf pandoc wmctrl
+    wmctrl
 
     # printer prerequesite
     xsltproc
 
     # hexdump, ... might be linux-tools-common on ubuntu?
-    coreutils bsdmainutils moreutils geoip-bin htop cpulimit cpuinfo read-edid
+    coreutils bsdmainutils moreutils geoip-bin htop cpulimit cpuinfo read-edid anacron rfkill trash-cli strace
 
     x11-apps screenruler # xclock for testing
     libcdio-utils
 
     # Programming toolchain
-    gcc gfortran g++ g++-8 g++-9 gdb clang clang-tidy libopenmpi-dev openmpi-bin openmpi-common openmpi-doc gnuplot perl uncrustify heaptrack # heaptrack-gui libboost-all-dev
+    gcc g++ gdb clang clang-tidy ccache ninja-build mold heaptrack
+    # heaptrack-gui  # Bit of dependency bloat because fall the KDE libkf5* dependencies
     python3 ipython3 python3-pip cython3
 
-    steam gimp audacity xdotool lynx telegram-desktop ristretto webp-pixbuf-loader pngtools scite meld pdftk vim kazam scrot caja sharutils jq vlc libaacs0 libbluray* smplayer mplayer thunderbird xul-ext-lightning galculator gdmap sqlite3 fancontrol wipe exiftool jpeginfo
-    #filezilla optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm
-    fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
-    # times new roman and so in in libreoffice
-    ttf-mscorefonts-installer
+    steam gimp audacity xdotool lynx ristretto webp-pixbuf-loader pngtools scite meld pdftk vim kazam scrot
+    caja sharutils jq vlc libaacs0 libbluray* smplayer mplayer thunderbird xul-ext-lightning galculator gdmap
+    sqlite3 fancontrol wipe exiftool jpeginfo remmina guvcview mupdf
 
-    #pavumeter pavucontrol
+    fonts-dejavu fonts-firacode ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
+
     # sable-theme builds upon this theme, this is why it's needed
     #gtk2-engines-murrine gtk2-engines-pixbuf gnome-themes-standard gtk-theme-switch lxappearance
+    adwaita-qt* gnome-themes-extra
 
     # WLAN
     wireless-tools
 
     doc-base elfutils
-
-    #xorg x11-xfs-utils xorg-docs xclip libhdf5-doc gnuplot-doc
 
     # networking: hostapd (Create WiFi Access Point)
     hostapd iw isc-dhcp-server haveged # firmware-atheros firmware-realtek firmware-iwlwifi
@@ -69,32 +61,30 @@ packagelistsid=(
     # install new window manager to prevent tearing
     compton
 
-    # cmake newest + dependendencies
+    # cmake newest + dependents
     cmake cmake-doc cmake-qt-gui cmake-curses-gui hexchat qbittorrent ninja-build
 
+    # SSH Server
+    #openssh-server fail2ban
     # networking
-    hostname openssh-client openssh-server fail2ban sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap telnet
+    hostname openssh-client sshfs ntp ntpdate dhcpdump tcpdump dnsutils ftp nmap
     # needed for extract macro function
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge tnef unace unalz unar arj lzop ncompress rzip
     # parallel compression tools
-    pixz plzip pigz pbzip2 lbzip2 lrzip lzip bsdtar libarchive-tools
+    pixz plzip pigz pbzip2 lbzip2 lrzip lzip bsdtar libarchive-tools tabix isal
 
     # Programming toolchain
-    lsof colordiff wdiff valgrind cppcheck doxygen doxygen-doc graphviz mercurial git git-doc gitk subversion subversion-tools
+    lsof colordiff wdiff valgrind cppcheck doxygen doxygen-doc graphviz mercurial git git-lfs git-doc gitk subversion subversion-tools
 
     # audio control (weird dependendencies would remove gparted and inkscape on upgrade ... -.- )
     pavucontrol gparted inkscape flashplugin-nonfree
     # Battery / power tools
-    tlp acpi-call-dkms dkms tp-smapi-dkms
+    tlp
 
     # Tools
-    pidgin pidgin-otr pidgin-latex pidgin-blinklight pidgin-themes pidgin-data pidgin-plugin-pack pidgin-extprefs purple-discord telegram-purple
     # https://launchpad.net/pidgin-character-counting
     # http://3d.benjamin-thaut.de/?p=12
-    powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils
-    #vitables
-    trans-de-en ding translate anacron rfkill trash-cli strace
-    # catfish
+    duf tree powertop iotop sysstat iptraf nethogs speedometer hwinfo lshw lsscsi procps bsdutils
 
     #wine64-preloader wine wine64 wine32 libwine:i386 pv
     # requirements for ZKanji
@@ -102,7 +92,7 @@ packagelistsid=(
 
     # XFCE
     xfce4 xfce4-terminal xfce4-timer-plugin thunar-archive-plugin xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-datetime-plugin xfce4-netload-plugin xfce4-wavelan-plugin xfce4-whiskermenu-plugin xfce4-xkb-plugin xfce4-goodies xfce4-mount-plugin xfce4-pulseaudio-plugin xfburn wodim
-    xfwm4-themes gtk3-engines-xfce
+    xfwm4-themes gtk3-engines-xfce slick-greeter xscreensaver
 
     # ntfs read write support, necessary for truecrypt volumes !!
     ntfs-3g
@@ -117,7 +107,7 @@ packagelistsid=(
     # seems to be in repo now (nonfree repo?)
     ffmpeg audacious
 
-    git-hg ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
+    ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
     time
 
     ###### documentation (partially this means manuals) ######
@@ -173,21 +163,34 @@ sudo apt-get autoremove
 
 gsettings set org.gnome.desktop.interface color-scheme prefer-dark
 
+# Install Python packages only after (possibly) upgrading Python
+pip3 install --user --upgrade pip
+python3 -m pip install --user --upgrade matplotlib numpy virtualenv ratarmount scipy pylint setuptools requests lxml weasyprint beautifulsoup4 jupyter jupyter_contrib_nbextensions pillow grip thefuck
+jupyter contrib nbextension install --user
+
+
 # https://askubuntu.com/questions/1341909/file-browser-and-file-dialogs-take-a-long-time-to-open-or-fail-to-open-in-all-ap/1350804#1350804
-sudo mv /usr/libexec/gvfsd-trash{,.bak}
+#sudo mv /usr/libexec/gvfsd-trash{,.bak}
+# Hopefully fixed by 2025
 
 trashPackages=(
     # snap pollutes mountpoints, memory, and everything and is slow, who would want that. flatpak is not much better
     flatpak snapd
     # Kills X session when out of memory. At that point I can also fully restart. Absolutely useless!
     systemd-oomd
+    gnome-online-accounts
     # Currently, I only have ubuntu-desktop installed but maybe next time do a clean install with xubuntu-desktop instead!
-    # tracker
+    tracker ubuntu-pro* accountsservice-ubuntu-schemas gnome-*
+    postfix
 )
 
 for package in "${trashPackages[@]}"; do
     sudo apt purge --yes "$package"
 done
+
+# Reinstall some tools that depended on lightweight gnome stuff.
+# Evince wants gnome-desktop3-data libgnome-desktop-3-20t64
+sudo apt install evince
 
 
 # Memory leak problems. They take up >2 GB after a month or so and are only needed for flatpak, which I don't use
@@ -197,8 +200,11 @@ sudo mv /usr/libexec/xdg-desktop-portal-gtk{,.bak}
 # Fucking tracker using up resource unnecessarily
 systemctl --user mask tracker-extract-3.service tracker-miner-fs-3.service tracker-miner-rss-3.service tracker-writeback-3.service tracker-xdg-portal-3.service tracker-miner-fs-control-3.service
 tracker3 reset -s -r
+# Other fucking obnoxious Ubuntu bloat
+sudo systemctl disable --now update-notifier-download
+sudo systemctl disable --now update-notifier-download.timer
+sudo systemctl disable --now update-notifier-motd.timer
 
-exit
 
 # hold some largish rarely used packages for traffic reason
 #sudo apt-mark hold libreoffice* texlive*
@@ -217,35 +223,7 @@ More programs installed manually in /opt/
         sudo apt-get install -f
         or: sudo apt install steam_latest.deb
 
-    OpenFOAM:
-        apt-get install build-essential flex bison cmake zlib1g-dev libopenmpi-dev openmpi-bin gnuplot libreadline-dev libncurses-dev libxt-dev qt4-dev-tools libqt4-dev libqt4-opengl-dev freeglut3-dev libqtwebkit-dev libscotch-dev libcgal-dev
-        git clone git://github.com/OpenFOAM/OpenFOAM-2.4.x.git /opt/OpenFOAM-2.4.x
-        export FOAM_INST_DIR=/opt/
-        source /opt/OpenFOAM-2.4.x/etc/bashrc
-        /opt/OpenFOAM-2.4.x/foamSystemCheck
-        ./Allwmake
     FreeFileSync: http://www.fosshub.com/FreeFileSync.html -> extract to /opt/
-    ffmpeg (because debian maintainers hate ffmpeg programmer -.-):
-        sudo apt-get install autoconf automake build-essential libass-dev libfreetype6-dev libsdl1.2-dev libtheora-dev libtool libva-dev libvdpau-dev libvorbis-dev libxcb1-dev libxcb-shm0-dev  libxcb-xfixes0-dev pkg-config texi2html zlib1g-dev yasm libx264-dev cmake mercurial libfdk-aac-dev libfdk-aac0 libmp3lame-dev libopus-dev libvpx1 libvpx-dev
-        mkdir -p /opt/ffmpeg/src /opt/ffmpeg/build /opt/ffmpeg/bin
-        # libx265:
-            cd /opt/ffmpeg/src
-            hg clone https://bitbucket.org/multicoreware/x265
-            cd /opt/ffmpeg/src/x265/build/linux
-            cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="/opt/ffmpeg/build" -DENABLE_SHARED:bool=off ../../source
-            make && make install && make distclean
-        cd /opt/ffmpeg/src
-        wget http://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2; tar xjvf ffmpeg-snapshot.tar.bz2; cd ffmpeg
-        export PATH="/opt/ffmpeg/bin:$PATH"
-        PKG_CONFIG_PATH="/opt/ffmpeg/build/lib/pkgconfig" ./configure \
-          --prefix="/opt/ffmpeg/build" \
-          --pkg-config-flags="--static" \
-          --extra-cflags="-I/opt/ffmpeg/build/include" \
-          --extra-ldflags="-L/opt/ffmpeg/build/lib" \
-          --bindir="/opt/ffmpeg/bin" \
-          --enable-gpl --enable-libass --enable-libfdk-aac --enable-libfreetype --enable-libmp3lame --enable-libopus --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-nonfree
-        make && make install && make distclean && hash -r
-        echo "MANPATH_MAP /opt/ffmpeg/bin /opt/ffmpeg/build/share/man" >> ~/.manpath
     Thunderbird Notifications: https://addons.mozilla.org/en-US/thunderbird/addon/firetray/
     Latex Uniinput:
         wget http://www.eigenheimstrasse.de/neo/neo-bzr/latex/Neo.tex
@@ -261,12 +239,33 @@ More programs installed manually in /opt/
         mkdir -p $(kpsewhich -var-value=TEXMFHOME)/tex/latex/local
         cp uniinput.sty $(kpsewhich -var-value=TEXMFHOME)/tex/latex/local
         #texhash # or mktexlsr # not necessary on newer texlive versions
-    Firefox (Do not like iceweasel):
-        https://download.mozilla.org/?product=firefox-39.0-SSL&os=linux64&lang=de
-        from: https://www.mozilla.org/de/firefox/new/
+    Firefox (Do not like iceweasel or snap):
+        https://download.mozilla.org/?product=firefox-esr-latest-ssl&os=linux64&lang=en-US
+        from: https://www.mozilla.org/en-US/firefox/new/
     manually add manual programs to applications menu through entry in: /usr/share/applications
-    http://sourceforge.net/projects/defragfs/files/defragfs/defragfs-1.1/defragfs-1.1.1.gz/download
     JDownloader2
+
+    Docker:
+        https://docs.docker.com/engine/install/ubuntu/
+
+        # Add Docker's official GPG key:
+        sudo apt-get update
+        sudo apt-get install ca-certificates curl
+        sudo install -m 0755 -d /etc/apt/keyrings
+        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+        # Add the repository to Apt sources:
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+          $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    Chrome:
+        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo dpkg -i google-chrome-stable_current_amd64.deb
 
 sudo apt-get purge xterm
 
@@ -276,4 +275,5 @@ sudo apt-get purge xterm
 
 # Scite theme fallback ... use darktheme in xfce4-appearance-settings ... still doesn't work perfect...
 
-sudo easy_install seaborn mpltools
+git clone --depth 1 https://github.com/junegunn/fzf.git "$XDG_DATA_HOME/fzf"
+"$XDG_DATA_HOME/fzf/install" --xdg

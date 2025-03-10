@@ -47,21 +47,23 @@ packagelistsid=(
     libcdio-utils
 
     # Programming toolchain
-    linux-tools gcc g++ g++-5 g++-6 g++-7 gdb clang matplotlib libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libboost-all-dev gnuplot perl freeglut3 libthrust-dev uncrustify clang-tidy linux-perf heaptrack heaptrack-gui
-    python ipython python-pip python-numpy python-setuptools python-scipy python-matplotlib python-tk python-seaborn gfortran
-    python3 ipython3 jupyter python3-pip python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn python3-venv python3-virtualenv pylint
+    linux-tools gcc g++ gdb clang ccache ninja-build mold libopenmpi-dev openmpi-bin openmpi-common openmpi-doc
+    libboost-all-dev gnuplot perl freeglut3 libthrust-dev uncrustify clang-tidy linux-perf heaptrack heaptrack-gui
+    python3 ipython3 jupyter python3-pip python3-numpy python3-scipy python3-matplotlib python3-tk python3-seaborn
+    python3-venv python3-virtualenv pylint
 
     # steam things like glxinfo
     mesa-utils
 
     filezilla audacity gimp ristretto pngtools optipng libtiff-tools libtiff5 libtiff-doc libtiff5-dev libtiffxx5 secure-delete openjdk-7-jre openjdk-7-jdk icedtea-7-plugin evince qpdf xchm xdotool lynx telegram-desktop
     scite meld gnome-themes-standard gnome-themes-extras pdftk
-    fonts-dejavu ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
+    fonts-dejavu fonts-firacode ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
 
     pavumeter pavucontrol
     # audacious: use appearance->winamp-skin
     # sable-theme builds upon this theme, this is why it's needed
     gtk2-engines-murrine gtk2-engines-pixbuf gnome-themes-standard gtk-theme-switch lxappearance
+    adwaita-qt* gnome-themes-extra
 
     # XnView prerequisites
     libphonon4 reportbug
@@ -107,7 +109,7 @@ packagelistsid=(
     thunderbird lightning
 
     # Programming toolchain
-    colorgcc nasm selfhtml lsof colordiff wdiff valgrind cppcheck splint doxygen doxygen-doc graphviz debian-history mercurial git git-doc gitk subversion subversion-tools
+    colorgcc nasm selfhtml lsof colordiff wdiff valgrind cppcheck splint doxygen doxygen-doc graphviz debian-history mercurial git git-lfs git-doc gitk subversion subversion-tools
     # Java Toolchain
     maven ant ant-doc
 
@@ -140,7 +142,7 @@ packagelistsid=(
 
     # XFCE
     xfce4 xfce4-terminal xfce4-timer-plugin thunar-archive-plugin xfce4-screenshooter xfce4-screenshooter-plugin xfce4-taskmanager xfce4-clipman-plugin xfce4-datetime-plugin xfce4-netload-plugin xfce4-wavelan-plugin xfce4-whiskermenu-plugin xfce4-xkb-plugin xfce4-goodies xfce4-mount-plugin xfce4-pulseaudio-plugin xfce4-mixer xfburn wodim
-    xfwm4-themes gtk3-engines-xfce
+    xfwm4-themes gtk3-engines-xfce xscreensaver
 
     # ntfs read write support, necessary for truecrypt volumes !!
     ntfs-3g attr xbacklight hibernate mlocate duplicity go-mtpfs gvfs-backends gvfs-mtp exfat-fuse exfat-utils
@@ -157,7 +159,7 @@ packagelistsid=(
     # seems to be in repo now (nonfree repo?)
     ffmpeg audacious
 
-    git-hg fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
+    fonts-ipa* ibus ibus-anthy qrencode qtqr memtop xzoom vorbistools cuetools shntool gpick gcolor2 wireshark wireshark-qt
     time
 
     ###### documentation (partially this means manuals) ######
@@ -215,18 +217,15 @@ for package in "${packagelistsid[@]}"; do
 done
 sudo apt-get autoremove
 
-exit
 
 # hold some largish rarely used packages for traffic reason
-# hold openjdk-7, because a program didn't compile with jdk-8
-#sudo apt-mark hold libreoffice* octave* openjdk-7* texlive*
+#sudo apt-mark hold libreoffice* texlive*
 
 exit
 
 
 
 More programs installed manually in /opt/
-    FoxitReader
     sudo dpkg -i conky-manager-latest-amd64.deb
 
     Steam:
@@ -235,36 +234,7 @@ More programs installed manually in /opt/
         sudo apt-get install -f
         or: sudo apt install steam_latest.deb
 
-    OpenFOAM:
-        apt-get install build-essential flex bison cmake zlib1g-dev libopenmpi-dev openmpi-bin gnuplot libreadline-dev libncurses-dev libxt-dev qt4-dev-tools libqt4-dev libqt4-opengl-dev freeglut3-dev libqtwebkit-dev libscotch-dev libcgal-dev
-        git clone git://github.com/OpenFOAM/OpenFOAM-2.4.x.git /opt/OpenFOAM-2.4.x
-        export FOAM_INST_DIR=/opt/
-        source /opt/OpenFOAM-2.4.x/etc/bashrc
-        /opt/OpenFOAM-2.4.x/foamSystemCheck
-        ./Allwmake
     FreeFileSync: http://www.fosshub.com/FreeFileSync.html -> extract to /opt/
-    ffmpeg (because debian maintainers hate ffmpeg programmer -.-):
-        sudo apt-get install autoconf automake build-essential libass-dev libfreetype6-dev libsdl1.2-dev libtheora-dev libtool libva-dev libvdpau-dev libvorbis-dev libxcb1-dev libxcb-shm0-dev  libxcb-xfixes0-dev pkg-config texi2html zlib1g-dev yasm libx264-dev cmake mercurial libfdk-aac-dev libfdk-aac0 libmp3lame-dev libopus-dev libvpx1 libvpx-dev
-        mkdir -p /opt/ffmpeg/src /opt/ffmpeg/build /opt/ffmpeg/bin
-        # libx265:
-            cd /opt/ffmpeg/src
-            hg clone https://bitbucket.org/multicoreware/x265
-            cd /opt/ffmpeg/src/x265/build/linux
-            cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="/opt/ffmpeg/build" -DENABLE_SHARED:bool=off ../../source
-            make && make install && make distclean
-        cd /opt/ffmpeg/src
-        wget http://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2; tar xjvf ffmpeg-snapshot.tar.bz2; cd ffmpeg
-        export PATH="/opt/ffmpeg/bin:$PATH"
-        PKG_CONFIG_PATH="/opt/ffmpeg/build/lib/pkgconfig" ./configure \
-          --prefix="/opt/ffmpeg/build" \
-          --pkg-config-flags="--static" \
-          --extra-cflags="-I/opt/ffmpeg/build/include" \
-          --extra-ldflags="-L/opt/ffmpeg/build/lib" \
-          --bindir="/opt/ffmpeg/bin" \
-          --enable-gpl --enable-libass --enable-libfdk-aac --enable-libfreetype --enable-libmp3lame --enable-libopus --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-nonfree
-        make && make install && make distclean && hash -r
-        echo "MANPATH_MAP /opt/ffmpeg/bin /opt/ffmpeg/build/share/man" >> ~/.manpath
-    Thunderbird Notifications: https://addons.mozilla.org/en-US/thunderbird/addon/firetray/
     Latex Uniinput:
         wget http://www.eigenheimstrasse.de/neo/neo-bzr/latex/Neo.tex
         wget http://www.eigenheimstrasse.de/neo/neo-bzr/latex/README.rxr
@@ -279,11 +249,10 @@ More programs installed manually in /opt/
         mkdir -p $(kpsewhich -var-value=TEXMFHOME)/tex/latex/local
         cp uniinput.sty $(kpsewhich -var-value=TEXMFHOME)/tex/latex/local
         #texhash # or mktexlsr # not necessary on newer texlive versions
-    Firefox (Do not like iceweasel):
-        https://download.mozilla.org/?product=firefox-39.0-SSL&os=linux64&lang=de
-        from: https://www.mozilla.org/de/firefox/new/
+    Firefox (Do not like iceweasel or snap):
+        https://download.mozilla.org/?product=firefox-esr-latest-ssl&os=linux64&lang=en-US
+        from: https://www.mozilla.org/en-US/firefox/new/
     manually add manual programs to applications menu through entry in: /usr/share/applications
-    http://sourceforge.net/projects/defragfs/files/defragfs/defragfs-1.1/defragfs-1.1.1.gz/download
     JDownloader2
 
 sudo apt-get purge xterm
