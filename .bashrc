@@ -1,6 +1,41 @@
 #!/bin/bash
 
-xset -b
+export XDG_DATA_HOME=$HOME/.local/share
+export XDG_CONFIG_HOME=$HOME/.config
+export XDG_STATE_HOME=$HOME/.local/state
+export XDG_CACHE_HOME=$HOME/.cache
+
+mkdir -p -- "$XDG_DATA_HOME"
+mkdir -p -- "$XDG_CONFIG_HOME"
+mkdir -p -- "$XDG_STATE_HOME"
+mkdir -p -- "$XDG_CACHE_HOME"
+
+# GUI programs started via Desktop shortcuts should have these defined in .profile or /etc/X11/Xsession, I think.
+# export ANDROID_USER_HOME="$XDG_DATA_HOME"/android
+# export DOTNET_CLI_HOME="$XDG_DATA_HOME"/dotnet
+# export GNUPGHOME="$XDG_DATA_HOME"/gnupg
+# export MPLAYER_HOME="$XDG_CONFIG_HOME"/mplayer
+
+export IPFS_PATH="$XDG_DATA_HOME"/ipfs
+export RUSTUP_HOME="$XDG_DATA_HOME"/rustup
+export VAGRANT_HOME="$XDG_DATA_HOME"/vagrant
+
+export AWS_SHARED_CREDENTIALS_FILE="$XDG_CONFIG_HOME"/aws/credentials
+export AWS_CONFIG_FILE="$XDG_CONFIG_HOME"/aws/config
+export DOCKER_CONFIG="$XDG_CONFIG_HOME"/docker
+export PARALLEL_HOME="$XDG_CONFIG_HOME"/parallel
+export _JAVA_OPTIONS=-Djava.util.prefs.userRoot="$XDG_CONFIG_HOME"/java
+
+export ICEAUTHORITY="$XDG_CACHE_HOME"/ICEauthority
+
+export NPM_CONFIG_INIT_MODULE="$XDG_CONFIG_HOME"/npm/config/npm-init.js
+export NPM_CONFIG_CACHE="$XDG_CACHE_HOME"/npm
+export NPM_CONFIG_TMP="$XDG_RUNTIME_DIR"/npm
+
+export SQLITE_HISTORY="$XDG_CACHE_HOME"/sqlite_history
+
+
+xset -b &>/dev/null  # Turn bell off
 
 # https://unix.stackexchange.com/questions/332791/how-to-permanently-disable-ctrl-s-in-terminal
 stty -ixon
@@ -15,7 +50,7 @@ stty -ixon
 ############################ Bash History Settings #############################
 
 HISTCONTROL=''
-HISTFOLDER=$HOME/.bash_histories
+HISTFOLDER=$XDG_DATA_HOME/bash_histories
 HISTFILEEXT=history      # only files in $HISTFOLDER with this extension will be read
 shopt -s histappend   # append when closing session
 mkdir -p $HISTFOLDER
@@ -26,7 +61,7 @@ HISTFILE=$HISTFOLDER/$(date +%Y-%m-%d_%H-%M-%S_%N).$HISTFILEEXT  # create unique
 HISTSIZE=10000        # maximum number of commands to hold inside bash history buffer
 HISTFILESIZE=100000   # maximum number of lines in history file
 # history -a $HISTFILE # bash saves the total history commands entered since startup or since the last save and saves that amount of commands to the file. This means reading a history file after typing commands will trip up bash, but this won't be a problem if the history file is only loaded in the beginning. This means that only new commands are saved not all the old loaded commands, thereby we can load as many history files into the buffer as we want and still only save newly thereafter typed commands
-PROMPT_COMMAND="history -a $HISTFILE; $PROMPT_COMMAND"  # This command is executed after very typed command -> save history after each command instead after only closing the session
+PROMPT_COMMAND="history -a $HISTFILE; $PROMPT_COMMAND"  # This command is executed after every typed command -> save history after each command instead after only closing the session
 
 # Load old histories from last 5 files/sessions
 HISTLINESTOLOAD=2000
