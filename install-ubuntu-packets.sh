@@ -71,7 +71,7 @@ packagelistsid=(
     # needed for extract macro function
     zip unzip cabextract p7zip p7zip-full lzma rar unrar zipmerge tnef unace unalz unar arj lzop ncompress rzip
     # parallel compression tools
-    pixz plzip pigz pbzip2 lbzip2 lrzip lzip bsdtar libarchive-tools tabix isal
+    pixz plzip pigz pbzip2 lbzip2 lrzip lzip bsdtar libarchive-tools tabix isal lz4 zstd
 
     # Programming toolchain
     lsof colordiff wdiff valgrind cppcheck doxygen doxygen-doc graphviz mercurial git git-lfs git-doc gitk subversion subversion-tools
@@ -145,7 +145,7 @@ packagelistsid=(
     cups imagemagick imagemagick-common
 
     pv progress parallel aptitude net-tools zenity efibootmgr gfio fio conky libncurses5 gsmartcontrol
-    tidy calibre memtester bless bash shellcheck oathtool
+    tidy calibre memtester bless bash shellcheck oathtool blueman
 
     # Because Ubuntu didn't ship an OOM-killer in the past and the default one in 22.04 is shit and kills my whole X session
     earlyoom
@@ -190,7 +190,7 @@ done
 
 # Reinstall some tools that depended on lightweight gnome stuff.
 # Evince wants gnome-desktop3-data libgnome-desktop-3-20t64
-sudo apt install evince
+sudo apt install evince slick-greeter
 
 
 # Memory leak problems. They take up >2 GB after a month or so and are only needed for flatpak, which I don't use
