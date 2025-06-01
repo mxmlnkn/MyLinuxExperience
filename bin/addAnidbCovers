@@ -100,25 +100,26 @@ for folder in "$@"; do (
     if [ "$( find . -maxdepth 1 -regextype 'posix-extended' -regex '\./[0-9]+ - .*\.jpg' | wc -l )" -gt 0 ]; then
         echo -e "\e[35mAlready found files matching AniDB-Cover naming scheme. Skipping this folder. Files:\e[0m"
         find . -maxdepth 1 -regextype 'posix-extended' -regex '\./[0-9]+ - .*\.jpg'
+        exit 0
     fi
 
     name=$( basename -- "$folder" | sed -r 's|( ?\[[0-9p]*\])?( ?\([^)]*\))?/?||g;' )
     echo -e "\e[37mSearching for '$name'\e[0m"
     if [ -z "$name" ]; then
-        echo -e "\e31mSomething went wrong, name to serach for is empty"'!'"\e[0m"
-        continue
+        echo -e "\e31mSomething went wrong, name to search for is empty"'!'"\e[0m"
+        exit 1
     fi
 
     #wget -q -O result.html "${wgetOptions[@]}" "http://anidb.net/perl-bin/animedb.pl?adb.search=$name&show=animelist"
     wget -q -O result.html "${wgetOptions[@]}" "https://anidb.net/anime/?adb.search=$name&do.search=1"
     if [ ! -f result.html ]; then
         echo -e "\e[31mSomething went wrong, can't find 'result.html'"'!'"\e[0m"
-        continue
+        exit 1
     fi
     if 'grep' -q 'No results.' result.html; then
         echo -e "\e[31mNo results found"'!'" Please check manually whether there might be a typo in the Anime name.\e[0m"
         rm result.html
-        continue
+        exit 1
     fi
 
     title=$( sed -nr 's|.*<title>([^<]*)</title>.*|\1|p' result.html )
@@ -126,12 +127,12 @@ for folder in "$@"; do (
     if printf '%s' "$title" | 'grep' -i -q 'AntiLeech'; then
         echo -e "\e[31mAntiLeech triggered, please fill out online CAPTCHA.\e[0m"
         rm result.html
-        exit
+        exit 1
     fi
     if printf '%s' "$title" | 'grep' -i -q 'Adult Content'; then
         echo -e "\e[31mAdult content warning, please specify a cookie file for your account.\e[0m"
         rm result.html
-        continue
+        exit 1
     fi
 
     # Sometimes the result of the search is a list fo search results,
@@ -167,11 +168,13 @@ for folder in "$@"; do (
             wget -q -O "$fname" "$thumbUrl"
             if ! identify "$fname" &>/dev/null; then
                 rm "$fname"
+            else
+                sleep 1s
             fi
         ' bash
 
     rm result.html
     if [[ $# -gt 1 ]]; then
-        sleep 1s
+        sleep 5s
     fi
 ) done

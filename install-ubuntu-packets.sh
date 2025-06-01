@@ -31,7 +31,8 @@ packagelistsid=(
     # hexdump, ... might be linux-tools-common on ubuntu?
     coreutils bsdmainutils moreutils geoip-bin htop cpulimit cpuinfo read-edid anacron rfkill trash-cli strace
 
-    x11-apps screenruler # xclock for testing
+    #screenruler  # Do not install anymore because one some of my machines it does not work (shows up as black) and it is the only package depending on the ruby toolchain!
+    x11-apps # xclock for testing
     libcdio-utils
 
     # Programming toolchain
@@ -204,7 +205,7 @@ tracker3 reset -s -r
 sudo systemctl disable --now update-notifier-download
 sudo systemctl disable --now update-notifier-download.timer
 sudo systemctl disable --now update-notifier-motd.timer
-
+echo | sudo tee /etc/apt/apt.conf.d/20apt-esm-hook.conf
 
 # hold some largish rarely used packages for traffic reason
 #sudo apt-mark hold libreoffice* texlive*

@@ -239,6 +239,7 @@ alias l='la'
 alias tbz2='tar --use-compress-program=lbzip2'
 alias tgz='tar --use-compress-program="bgzip --threads $( nproc )"'
 alias scp='scp -p'
+alias rmdir='rmdir -p --ignore-fail-on-non-empty --'
 
 if commandExists 'git'; then
     function gcl()
@@ -665,10 +666,7 @@ function sp()
         # only necessary for NVIDIA driver bug ...
         #if lspci | 'grep' -i --color 'hdmi\|vga\|3d\|2d' | 'grep' -q -i nvidia; then
         if lshw -class display 2>/dev/null | 'grep' -q -i 'vendor: .*nvidia'; then
-            refreshWallpaper;
-            if command -v xfce4-panel &>/dev/null; then
-                xfce4-panel -r
-            fi
+            refreshWallpaper
         fi
         if [ -n "$( pgrep hostapd )" ]; then
             sleep 2s
@@ -1438,6 +1436,11 @@ function scite()
     if test $# -eq 1; then
         if [[ $1 =~ :[0-9]*$ ]]; then
             local line="${1##*:}" file="${1%:*}"
+            if [[ $file =~ :[0-9]*$ ]]; then
+                # In this case the extrat :12 was the column
+                line="${file##*:}"
+                file="${file%:*}"
+            fi
             if test -f "$file"; then
                 command scite "$file" -goto:"$line" 2>/dev/null
                 return
@@ -1708,8 +1711,13 @@ function sgrep()
     # open all matching files in scite @todo or another arbitrary program
     local fileNames=()
     readarray -t -d $'\n' fileNames < <( command grep --files-with-matches "$@" )
+    local arg pattern=''
+    for arg in "$@"; do
+        if [[ $arg == "--" || -e $arg ]]; then break; fi
+        pattern=$arg
+    done
     if test "${#fileNames[@]}" -gt 0; then
-        nohup scite "${fileNames[@]}" -find:"${@: -2:1}" &> "$( mktemp --suffix=.scite.log )" &
+        nohup scite "${fileNames[@]}" -find:"$pattern" &> "$( mktemp --suffix=.scite.log )" &
     else
         echo "No matching files found." 1>&2
     fi
