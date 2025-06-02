@@ -1429,39 +1429,73 @@ function demuxStreams()
     done
 }
 
-if commandExists scite; then
-function scite()
-{
-    # goto command documented here: https://www.scintilla.org/SciTEDoc.html
-    if test $# -eq 1; then
-        if [[ $1 =~ :[0-9]*$ ]]; then
-            local line="${1##*:}" file="${1%:*}"
-            if [[ $file =~ :[0-9]*$ ]]; then
-                # In this case the extrat :12 was the column
-                line="${file##*:}"
-                file="${file%:*}"
-            fi
-            if test -f "$file"; then
-                command scite "$file" -goto:"$line" 2>/dev/null
-                return
-            fi
 
-            local line="${file##*:}" file="${file%:*}"
-            if test -f "$file"; then
-                command scite "$file" -goto:"$line" 2>/dev/null
-                return
+function smartFindFile()
+{
+    local prefix
+    if [[ ! -e "$1" ]]; then
+        if [[ -e "../$1" ]]; then
+            echo "../$1"
+            return 0
+        fi
+
+        if commandExists git; then
+            prefix=$( git rev-parse --show-toplevel 2>/dev/null )
+            if [[ -n "$prefix" && -e "$prefix/$1" ]]; then
+                echo "$prefix/$1"
+                return 0
             fi
         fi
     fi
 
-    # See man dbus-launch
-    # If you run dbus-launch myapp (with any other options), dbus-daemon will not exit when myapp terminates:
-    # this is because myapp is assumed to be part of a larger session, rather than a session in its own right.
-    # https://access.redhat.com/solutions/3257651
-    # TODO Correctly close down dbus-launch started session!
+    echo "$1"
+}
+
+
+if commandExists scite; then
+function scite()
+{
+    # goto command documented here: https://www.scintilla.org/SciTEDoc.html under "Command line arguments"
+    # Scite interprets everything starting with - as an option. The -- has another meaning than "stop option parsing".
+    # Therefore it is safe to iterate over all arguments and assume that everything without leading - is a file.
+    # If you want to open a file with leading -, use `-open:<file>` or `./file`.
+    local arg args=()
+    for arg in "$@"; do
+        if [[ "$arg" =~ ^- || -e "$arg" ]]; then
+            args+=( "$arg" )
+        elif [[ "$arg" =~ :[0-9]*$ ]]; then
+            local line file realFile
+
+            line="${arg##*:}"
+            file="${arg%:*}"
+            if [[ $file =~ :[0-9]*$ ]]; then
+                # In this case the extracted :12 was the column
+                line="${file##*:}"
+                file="${file%:*}"
+            fi
+
+            realFile="$( smartFindFile "$file" )"
+            if [[ -f $realFile ]]; then
+                args+=( "$realFile" "-goto:$line" )
+                continue
+            fi
+
+            line="${file##*:}"
+            file="${file%:*}"
+            realFile="$( smartFindFile "$file" )"
+            if [[ -f $realFile ]]; then
+                args+=( "$realFile" "-goto:$line" )
+                continue
+            fi
+
+            args+=( "$arg" )
+        else
+            args+=( "$( smartFindFile "$arg" )" )
+        fi
+    done
+
     # dbus-launch not necessary anymore after this fix: https://askubuntu.com/a/1350804/437748
-    #dbus-launch scite "$@"
-    command scite "$@" 2>/dev/null
+    command scite "${args[@]}" 2>/dev/null
 }
 fi
 
