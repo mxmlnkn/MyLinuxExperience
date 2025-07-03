@@ -49,41 +49,63 @@ stty -ixon
 
 ############################ Bash History Settings #############################
 
-HISTCONTROL=''
-HISTFOLDER=$XDG_DATA_HOME/bash_histories
-HISTFILEEXT=history      # only files in $HISTFOLDER with this extension will be read
-shopt -s histappend   # append when closing session
+HISTCONTROL='ignoredups'
+if [[ -d $HOME/.bash_histories ]]; then
+    HISTFOLDER=$HOME/.bash_histories
+else
+    HISTFOLDER=$XDG_DATA_HOME/bash_histories
+fi
+HISTFILEEXT=history   # Only files in $HISTFOLDER with this extension will be read.
+shopt -s histappend   # Append when closing session.
 mkdir -p $HISTFOLDER
-HISTFILE=$HISTFOLDER/$(date +%Y-%m-%d_%H-%M-%S_%N).$HISTFILEEXT  # create unique file name for this session. Nanoseconds seems to be unique enough, try: for ((i=0; i<=10; i++)); do date +%Y-%m-%d_%H-%M-%S_%N; done
-# if HISTFILE unset, history is not saved on exit -> not really necessary if we save after each command, but its a double net safety
-# HIST[FILE]SIZE=-1 resulted in =0 on a certain server, i.e. no history. bash --version:
+# Create unique file name for this session. Nanoseconds seems to be unique enough, try:
+#   for ((i=0; i<=10; i++)); do date +%Y-%m-%d_%H-%M-%S_%N; done
+HISTFILE=$HISTFOLDER/$( date +%Y-%m-%d_%H-%M-%S_%N ).$HISTFILEEXT
+# if HISTFILE unset, history is not saved on exit
+#   -> not really necessary if we save after each command, but its a double net safety
+# HIST[FILE]SIZE=-1 resulted in =0 on a certain server, i.e., no history. bash --version:
 #   GNU bash, version 4.2.46(1)-release (x86_64-redhat-linux-gnu)
 HISTSIZE=10000        # maximum number of commands to hold inside bash history buffer
 HISTFILESIZE=100000   # maximum number of lines in history file
-# history -a $HISTFILE # bash saves the total history commands entered since startup or since the last save and saves that amount of commands to the file. This means reading a history file after typing commands will trip up bash, but this won't be a problem if the history file is only loaded in the beginning. This means that only new commands are saved not all the old loaded commands, thereby we can load as many history files into the buffer as we want and still only save newly thereafter typed commands
-PROMPT_COMMAND="history -a $HISTFILE; $PROMPT_COMMAND"  # This command is executed after every typed command -> save history after each command instead after only closing the session
 
-# Load old histories from last 5 files/sessions
-HISTLINESTOLOAD=2000
-# --reverse lists newest files at first
-names=($(ls --reverse $HISTFOLDER/*.$HISTFILEEXT 2>/dev/null))
-toload=()
-linecount=0
-# Check if is really file and count lines and only append to $toload if linecount under $HISTLINESTOLOAD
-for fname in ${names[*]}; do
-    if test -f $fname; then
-        linecount=$((linecount+$(wc -l < $fname) ))
-        if test $linecount -ge $HISTLINESTOLOAD; then
-            break
-        fi
-        toload+=($fname)
-    fi
+# bash saves the total history commands entered since startup or since the last
+# save and saves that amount of commands to the file. This means reading a history
+# file after typing commands will trip up bash, but this won't be a problem if the
+# history file is only loaded in the beginning. This means that only new commands
+# are saved not all the old loaded commands, thereby we can load as many history
+# files into the buffer as we want and still only save newly thereafter typed commands
+#history -a $HISTFILE
+# This command is executed after every typed command
+#  -> save history after each command instead after only closing the session
+PROMPT_COMMAND="history -a '$HISTFILE'; $PROMPT_COMMAND"
+
+# Load old histories from last n files/sessions
+HISTLINESTOLOAD=8000
+toLoad=()
+lineCount=0
+# Filter for sed applied to saved history. Filters very short commands that are not
+# worth filling precious history lines with, e.g., cd, gs, df, bg, and also filters
+# all variations of ls, la, ... because they are rarely worth to remember over sessions.
+# Also filter lines starting with # or space for the same reason.
+# Duplicate adjacent lines will be filtered with 'uniq'.
+historyFilter='/^.{,6}$/d; /^l[sal]? /d'
+# Check if it is really file, count lines, and only append to $toLoad if lineCount
+# under $HISTLINESTOLOAD.
+while read -r fname && [[ $lineCount -lt $HISTLINESTOLOAD ]]; do
+    if [[ ! -f $fname ]]; then continue; fi
+    lineCount=$(( lineCount + $( sed -E "$historyFilter" -- "$fname" | uniq | wc -l ) ))
+    toLoad+=( "$fname" )
+done < <( find "$HISTFOLDER" -name "*.$HISTFILEEXT" | sort -r )  # -r to lists newest files first
+# Beginning with the oldest load files in $toLoad into bash history buffer.
+# Unfortunately we seem to need a temporary file in order to load the filtered
+# histories beause 'history -r' does not accept pipes or <( command ).
+fname=$( mktemp )
+for (( i=${#toLoad[*]}-1; i>=0; i-- )); do
+    sed -E "$historyFilter" -- "${toLoad[$i]}" | uniq > "$fname"
+    history -r "$fname"
 done
-# Beginning with the oldest load files in $toload into bash history buffer
-for (( i=${#toload[*]}-1; i>=0; i-- )); do
-    history -r ${toload[$i]}
-done
-unset names toload linecount
+'rm' -- "$fname"
+unset toLoad lineCount fname historyFilter
 
 ############################# Other Bash Settings ##############################
 
@@ -215,7 +237,7 @@ if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
     alias ls='ls --color'
     # the always option is important to color it also when piping to head, tail, ...
-    alias grep='grep --color=always' # --recursive is not a good idea because it is problematic when piping to grep --line-number can also be obnoxious, especially when piping
+    alias grep='grep -I --color=always' # --recursive is not a good idea because it is problematic when piping to grep --line-number can also be obnoxious, especially when piping
     alias dmesg='dmesg --color=always'
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
@@ -240,6 +262,7 @@ alias tbz2='tar --use-compress-program=lbzip2'
 alias tgz='tar --use-compress-program="bgzip --threads $( nproc )"'
 alias scp='scp -p'
 alias rmdir='rmdir -p --ignore-fail-on-non-empty --'
+alias bat='batcat'
 
 if commandExists 'git'; then
     function gcl()
@@ -594,6 +617,10 @@ function installFolder()
         addToPath 'LD_LIBRARY_PATH' "$folder/lib"
     fi
     if [[ -d "$folder/lib64" ]]; then
+        addToPath 'LIBRARY_PATH' "$folder/lib64"
+        addToPath 'LD_LIBRARY_PATH' "$folder/lib64"
+    fi
+    if [[ -d "$folder/lib/python3" ]]; then
         addToPath 'LIBRARY_PATH' "$folder/lib64"
         addToPath 'LD_LIBRARY_PATH' "$folder/lib64"
     fi
@@ -1463,11 +1490,17 @@ function scite()
     for arg in "$@"; do
         if [[ "$arg" =~ ^- || -e "$arg" ]]; then
             args+=( "$arg" )
-        elif [[ "$arg" =~ :[0-9]*$ ]]; then
+        elif [[ "$arg" =~ :[0-9]*:?$ ]]; then
             local line file realFile
 
             line="${arg##*:}"
             file="${arg%:*}"
+            # arg ends with : as e.g. pylint or ruff prints out <file>:<line>:<col>: <msg>
+            if [[ -z "$line" ]]; then
+                line="${file##*:}"
+                file="${file%:*}"
+            fi
+
             if [[ $file =~ :[0-9]*$ ]]; then
                 # In this case the extracted :12 was the column
                 line="${file##*:}"
@@ -1744,14 +1777,14 @@ function sgrep()
 {
     # open all matching files in scite @todo or another arbitrary program
     local fileNames=()
-    readarray -t -d $'\n' fileNames < <( command grep --files-with-matches "$@" )
+    readarray -t -d $'\n' fileNames < <( command grep -I --files-with-matches "$@" )
     local arg pattern=''
     for arg in "$@"; do
         if [[ $arg == "--" || -e $arg ]]; then break; fi
         pattern=$arg
     done
     if test "${#fileNames[@]}" -gt 0; then
-        nohup scite "${fileNames[@]}" -find:"$pattern" &> "$( mktemp --suffix=.scite.log )" &
+        nohup scite "${fileNames[@]}" -find:"$pattern" &> /dev/null &
     else
         echo "No matching files found." 1>&2
     fi
@@ -1841,4 +1874,21 @@ function confirm()
 
 function watchSync() {
   watch -n1 'grep -E "(Dirty|Write)" /proc/meminfo; echo; ls /sys/block/ | while read device; do awk "{ print \"$device: \"  \$9 }" "/sys/block/$device/stat"; done'
+}
+
+
+function prec() {
+    local pid
+    pid=$( pgrep "$1" | tail -1 )
+    if [[ $pid -ne $pid ]]; then
+        echoerr 'Please specify a process to search for with pgrep!'
+        return 1
+    fi
+
+    timeout 5s perf record --call-graph dwarf -p "$pid"
+    local fname
+    fname="perf-$1-$( date +%Y-%m-%d_%H-%M-%S ).log"
+    perf report --no-inline --no-children -T -i perf.data > "$fname"
+    echo "== $fname =="
+    'grep' -A 20 -F '...........' "$fname" | tail -19
 }

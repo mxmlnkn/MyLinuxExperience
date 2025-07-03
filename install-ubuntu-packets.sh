@@ -42,7 +42,7 @@ packagelistsid=(
 
     steam gimp audacity xdotool lynx ristretto webp-pixbuf-loader pngtools scite meld pdftk vim kazam scrot
     caja sharutils jq vlc libaacs0 libbluray* smplayer mplayer thunderbird xul-ext-lightning galculator gdmap
-    sqlite3 fancontrol wipe exiftool jpeginfo remmina guvcview mupdf
+    sqlite3 fancontrol wipe exiftool jpeginfo remmina guvcview mupdf bat
 
     fonts-dejavu fonts-firacode ttf-bitstream-vera ttf-unifont unifont-bin fonts-symbola
 

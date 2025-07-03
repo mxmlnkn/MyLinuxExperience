@@ -38,7 +38,8 @@ findThumbnailImage() {
             continue
         fi
         extension=$(getExtension "$file")
-        if [ ! "$extension" == "jpg" ] && [ ! "$extension" == "png" ] && [ ! "$extension" == "gif" ]; then
+        if [ ! "$extension" == "jpg" ] && [ ! "$extension" == "png" ] && [ ! "$extension" == "gif" ] &&
+           [ ! "$extension" == "webp" ]; then
             if [ $verbose -eq 1 ]; then
                 echoerr -e "\e[93m'$1': First found file '$file' is not a valid image"'!'"\e[0m"
             fi
