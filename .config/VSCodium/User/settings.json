@@ -1,0 +1,218 @@
+{
+    "gitlens.telemetry.enabled": false,
+    "telemetry.enableTelemetry": false,
+    "python.jediEnabled": false,
+    "extensions": {
+        "autoCheckUpdates": false,
+        "autoUpdate": false,
+        "ignoreRecommendations": true,
+        "showWorkspaceRecommendations": false
+    },
+    "dotnetAcquisitionExtension.enableTelemetry": false,
+    "crashReporting.enabled": "off",
+    "editor.wordWrap": "on",
+    "editor.wordWrapColumn": 120,
+    "editor.fontSize": 12,
+    "editor.rulers": [
+        120
+    ],
+    "editor.quickSuggestions": {
+        "comments": true,
+        "strings": true,
+        "other": true
+    },
+    "update.mode": "none",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+    "editor.hover.enabled": false,
+    "workbench.colorCustomizations": {
+        "workspace.background": "#000000",
+        "activityBackground.background": "#000000",
+        "editor.background": "#000000",
+        "foreground": "#ffffff",
+        "editor.foreground": "#ffffff",
+        "editorGutter.background": "#202020",
+        "editor.selectionHighlightBackground": "#c300ff8e",
+        "statusBar.background": "#202020",
+        "editorOverviewRuler.border": "#0000",
+        "editorOverviewRuler.addedForeground": "#0000",
+        "editorOverviewRuler.modifiedForeground": "#0000",
+        "editorOverviewRuler.deletedForeground": "#0000",
+        "editorOverviewRuler.infoForeground": "#0000",
+        "editorOverviewRuler.warningForeground": "#0000",
+        "editorOverviewRuler.errorForeground": "#0000",
+        "editorOverviewRuler.bracketMatchForeground": "#0000",
+        "editorOverviewRuler.commentForeground": "#0000",
+        "editorOverviewRuler.commentUnresolvedForeground": "#0000",
+        "editorOverviewRuler.currentContentForeground": "#0000",
+        "editorOverviewRuler.commonContentForeground": "#0000",
+        "editorOverviewRuler.incomingContentForeground": "#0000",
+        "editorOverviewRuler.findMatchForeground": "#0000",
+        "editorOverviewRuler.rangeHighlightForeground": "#0000",
+        "editorOverviewRuler.selectionHighlightForeground": "#0000",
+        "editorOverviewRuler.wordHighlightForeground": "#0000",
+        "editorOverviewRuler.wordHighlightStrongForeground": "#0000",
+        "editorOverviewRuler.wordHighlightTextForeground": "#0000",
+        "editorBracketHighlight.foreground1": "#777",
+        "editorBracketHighlight.foreground2": "#999",
+        "editorBracketHighlight.foreground3": "#BBB",
+        "editorBracketHighlight.foreground4": "#DDD",
+        "terminal.foreground": "#FFFFFF"
+    },
+    "editor.hideCursorInOverviewRuler": true,
+    "editor.overviewRulerBorder": false,
+    "editor.lightbulb.enabled": "off",
+    "editor.tokenColorCustomizations": {
+        "functions": "#FFF",
+        "variables": "#FFF",
+        "numbers": "#a75e07",
+        "types": "#FFF",
+        "comments": "#080",
+        "strings": "#c76eeb",
+        "keywords": "#777777",
+        "textMateRules": [
+            {
+                "scope": [
+                    "entity.name.tag.toml",
+                    "meta.function-call.generic.python",
+                    "support.type.property-name",
+                    "support.type.property-name.json",
+                    "entity.other.inherited-class.python",
+                    "support.type.python",
+                    "variable.parameter.function.language.python",
+                    "variable.parameter.function-call.python",
+                    "variable.parameter",
+                    "variable.other.constant",
+                ],
+                "settings": {
+                    "foreground": "#FFF",
+                    "fontStyle": ""
+                }
+            },
+            {
+                "scope": [
+                    "comment.line",
+                ],
+                "settings": {
+                    "foreground": "#080",
+                    "fontStyle": ""
+                }
+            },
+            {
+                "scope": [
+                    "punctuation.definition.string",
+                    "punctuation.definition.string.begin.python",
+                    "punctuation.definition.string.end.python",
+                    "string.regexp.quoted.single.python",
+                ],
+                "settings": {
+                    "foreground": "#c76eeb",
+                    "fontStyle": ""
+                }
+            },
+            {
+                "scope": [
+                    "constant.character.escape.python",
+                ],
+                "settings": {
+                    "foreground": "#c76eeb",
+                    "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": [
+                    "storage",
+                    "storage.type",
+                    "storage.modifier",
+                    "keyword",
+                    "variable.language",
+                    "keyword.operator.expression",
+                    "keyword.operator.new",
+                    "keyword.control",
+                    "keyword.control.import.python",
+                    "keyword.control.flow.python",
+                    "constant.language",
+                    "keyword.operator",
+                    "keyword.operator.logical.python",
+                    "keyword.operator.arithmetic.python",
+                    "punctuation.separator.period.python",
+                    "keyword.operator.quantifier.regexp"
+                ],
+                "settings": {
+                    "foreground": "#777777",
+                    "fontStyle": "bold"
+                }
+            },
+            {
+                "scope": [
+                    "constant.numeric",
+                ],
+                "settings": {
+                    "foreground": "#A75E07"
+                }
+            },
+            {
+                "scope": [
+                    "entity.name.namespace",
+                    "entity.other.attribute-name",
+                ],
+                "settings": {
+                    "foreground": "#DD9900"
+                }
+            },
+            {
+                "scope": [
+                    "punctuation"
+                ],
+                "settings": {
+                    "foreground": "#777777",
+                    "fontStyle": "bold"
+                }
+            }
+        ]
+    },
+    "editor.autoClosingQuotes": "never",
+    "editor.autoSurround": "never",
+    "editor.formatOnSave": true,
+    "editor.autoIndent": "keep",
+    "editor.autoClosingBrackets": "never",
+    "editor.fontFamily": "'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.minimap.enabled": false,
+    "editor.renderWhitespace": "none",
+    "editor.stickyScroll.enabled": false,
+    "editor.useTabStops": false,
+    "files.autoSave": "onWindowChange",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.watcherExclude": {
+        "**/*build*/**": true
+    },
+    "python.createEnvironment.trigger": "off",
+    "python.languageServer": "None",
+    "git.openRepositoryInParentFolders": "always",
+    "gitlens.defaultDateFormat": null,
+    "gitlens.currentLine.enabled": false,
+    "gitlens.hovers.currentLine.over": "line",
+    "gitlens.codeLens.enabled": false,
+    "gitlens.hovers.avatars": false,
+    "cmake.configureOnOpen": true,
+    "notebook.cellToolbarLocation": {
+        "default": "right",
+        "jupyter-notebook": "left"
+    },
+    "security.workspace.trust.untrustedFiles": "open",
+    "cSpell.enabled": false,
+    "dictCompletion.collectWordsFromCurrentFile": true,
+    "window.commandCenter": true,
+    "terminal.integrated.allowChords": false,
+    "terminal.integrated.shellIntegration.decorationsEnabled": "never",
+    "terminal.integrated.shellIntegration.enabled": false,
+    "workbench.colorTheme": "Default Dark+",
+    "workbench.editorAssociations": {
+        "*.ipynb": "jupyter-notebook"
+    },
+    "workbench.editor.focusRecentEditorAfterClose": false,
+    "workbench.startupEditor": "none",
+    "workbench.sideBar.location": "right",
+    "cursor.chat.terminalShowHoverHint": false,
+}

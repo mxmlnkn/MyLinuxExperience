@@ -1,0 +1,23 @@
+{
+  "policies": {
+    "AutofillCreditCardEnabled": false,
+    "DisableBuiltinPDFViewer": true,
+    "DisableAppUpdate": true,
+    "DisableFeedbackCommands": true,
+    "DisableFirefoxAccounts": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableSetDesktopBackground": true,
+    "DisableTelemetry": true,
+    "NoDefaultBookmarks": true
+  },
+  "FirefoxSuggest": {
+    "WebSuggestions": false,
+    "SponsoredSuggestions": false,
+    "ImproveSuggest": false
+  },
+  "PDFjs": {
+    "Enabled": false,
+    "EnablePermissions": false
+  }
+}
