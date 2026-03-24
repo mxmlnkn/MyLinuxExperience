@@ -34,6 +34,9 @@ export NPM_CONFIG_TMP="$XDG_RUNTIME_DIR"/npm
 
 export SQLITE_HISTORY="$XDG_CACHE_HOME"/sqlite_history
 
+# https://github.com/Textualize/textual/issues/5385
+#export TEXTUAL_ALLOW_SIGNALS=1
+
 
 xset -b &>/dev/null  # Turn bell off
 
@@ -242,6 +245,7 @@ if [ -x /usr/bin/dircolors ]; then
 fi
 # if you want to use the original mv,cp,rm then use either /bin/mv,... or command mv or "mv" or 'mv' or \mv
 if commandExists 'trash'; then alias rm='trash'; fi
+
 function mv2dir()
 {
     # if multiple files are moved, then create directory?
@@ -254,6 +258,20 @@ function mv2dir()
     ( mv --no-clobber "$@" && rm -r "${@:1:$#-1}" ) ||
     if test "$targetDidNotExist" -eq 1; then rmdir -- "${@: -1}"; fi
 }
+
+function mvd()
+{
+    # if multiple files are moved, then create directory?
+    # Or can I catch this warning somehow? mv: target 'foo' is not a directory
+    local targetDidNotExist=0
+    if ! test -d "${@: -1}"; then
+        mkdir -p -- "${@: -1}"
+        targetDidNotExist=1
+    fi
+    mv --no-clobber "$@" ||
+    if test "$targetDidNotExist" -eq 1; then 'rmdir' --ignore-fail-on-non-empty -- "${@: -1}"; fi
+}
+
 alias mv='mv -i'
 alias cp='cp -i --preserve=timestamps'
 alias la='ls -lAh --group-directories-first'
@@ -270,12 +288,12 @@ if commandExists 'git'; then
         # https://github.com/git-lfs/git-lfs/issues/3559#issuecomment-472873934
         GIT_LFS_SKIP_SMUDGE=1 git clone --recursive "$@" && ( folder="${_##*/}"; cd -- "${folder%.git}" && git lfs fetch; )
     }
-    alias gb='git branch --color=always'
+    alias gb='git branch --color=always --sort=-committerdate'
     alias gba='git branch --color=always --all'
     alias gbl='git blame'
     alias gs='git status'
     alias gm='git commit'
-    alias gpf='git push -f'
+    alias gpf='git push --force-with-lease'
     alias grba='git rebase --abort'
     alias glo='git log --pretty=format:"%C(yellow)%h %C(red)%ad %C(cyan)%an%C(green)%d %Creset%s" --date=short'
     alias gls='git log --stat'
@@ -364,7 +382,7 @@ if commandExists 'git'; then
 
     alias gp='git pull'
 
-    # delete merged branches (except specially named like master, dev, develop
+    # delete merged branches (except specially named like main, master, dev, develop
     # Not that this gives different results depending on which checked out branch you currently are!
     # But you can call gdbm master
     function gbdmToCurrent()
@@ -376,12 +394,12 @@ if commandExists 'git'; then
 
         local mainBranch="$1"
         git branch --no-color --merged "$mainBranch" |
-            command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" |
+            command grep -vE "^([*+]|\s*(main|master|develop|dev)\s*$)" |
             command xargs -n 1 git branch -d
 
         echo "Branches that seem to have been merged even though git does not think so:"
 
-        for branch in $( git branch --no-color | command grep -vE "^([*+]|\s*(master|develop|dev)\s*$)" ); do
+        for branch in $( git branch --no-color | command grep -vE "^([*+]|\s*(main|master|develop|dev)\s*$)" ); do
             if ! git show "own/$branch" &>/dev/null; then
                 readarray -t -d $'\n' commits < <( git log --pretty=format:%s "$( git merge-base "$mainBranch" "$branch" )..$branch" )
 

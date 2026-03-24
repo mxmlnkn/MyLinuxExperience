@@ -44,3 +44,4 @@ ln -s -- "$APPDIR/AppRun-Sandboxed" ~/bin/vscodium
 # Extensions to install:
 #  - https://github.com/RooCodeInc/Roo-Code/
 #  - ms-python
+#  - Bookmarks: https://github.com/alefragnani/vscode-bookmarks.git

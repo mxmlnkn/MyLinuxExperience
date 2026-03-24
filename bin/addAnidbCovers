@@ -103,7 +103,7 @@ for folder in "$@"; do (
         exit 0
     fi
 
-    name=$( basename -- "$folder" | sed -r 's|( ?\[[0-9p]*\])?( ?\([^)]*\))?/?||g;' )
+    name=$( basename -- "$folder" | sed -r 's|( ?\[[0-9p]*\])?( ?\([^)]*\))?/?||g; s| - | |g;' )
     echo -e "\e[37mSearching for '$name'\e[0m"
     if [ -z "$name" ]; then
         echo -e "\e31mSomething went wrong, name to search for is empty"'!'"\e[0m"
