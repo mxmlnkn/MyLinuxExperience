@@ -1847,7 +1847,7 @@ if ! shopt -oq posix; then
   fi
 fi
 
-completeAliasScript="$( dirname -- "$BASH_SOURCE" )/complete-alias/complete_alias"
+completeAliasScript="$( dirname -- "$( readlink -f -- "$BASH_SOURCE" )" )/complete-alias/complete_alias"
 if [[ -f $completeAliasScript ]]; then
     . "$completeAliasScript"
 fi
@@ -1910,3 +1910,5 @@ function prec() {
     echo "== $fname =="
     'grep' -A 20 -F '...........' "$fname" | tail -19
 }
+
+export PATH=$HOME/.local/bin:$PATH
