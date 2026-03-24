@@ -57,7 +57,24 @@
         "editorBracketHighlight.foreground2": "#999",
         "editorBracketHighlight.foreground3": "#BBB",
         "editorBracketHighlight.foreground4": "#DDD",
-        "terminal.foreground": "#FFFFFF"
+        "terminal.ansiBlack": "#000000",
+        "terminal.ansiRed": "#dd0000",
+        "terminal.ansiGreen": "#00aa00",
+        "terminal.ansiYellow": "#aa5500",
+        "terminal.ansiBlue": "#0000aa",
+        "terminal.ansiMagenta": "#aa00aa",
+        "terminal.ansiCyan": "#00aaaa",
+        "terminal.ansiWhite": "#aaaaaa",
+        "terminal.ansiBrightBlack": "#555555",
+        "terminal.ansiBrightRed": "#ff5555",
+        "terminal.ansiBrightGreen": "#55ff55",
+        "terminal.ansiBrightYellow": "#ffff55",
+        "terminal.ansiBrightBlue": "#5555ff",
+        "terminal.ansiBrightMagenta": "#ff55ff",
+        "terminal.ansiBrightCyan": "#55ffff",
+        "terminal.ansiBrightWhite": "#ffffff",
+        "terminal.foreground": "#ffffff",
+        "terminal.selectionBackground": "#c1deff",
     },
     "editor.hideCursorInOverviewRuler": true,
     "editor.overviewRulerBorder": false,
@@ -83,6 +100,9 @@
                     "variable.parameter.function-call.python",
                     "variable.parameter",
                     "variable.other.constant",
+                    "entity.other.attribute",
+                    "entity.name.namespace",
+                    "entity.name.scope-resolution"
                 ],
                 "settings": {
                     "foreground": "#FFF",
@@ -113,6 +133,7 @@
             {
                 "scope": [
                     "constant.character.escape.python",
+                    "constant.character.escape",
                 ],
                 "settings": {
                     "foreground": "#c76eeb",
@@ -135,8 +156,11 @@
                     "keyword.operator",
                     "keyword.operator.logical.python",
                     "keyword.operator.arithmetic.python",
+                    "punctuation",
                     "punctuation.separator.period.python",
-                    "keyword.operator.quantifier.regexp"
+                    "keyword.operator.quantifier.regexp",
+                    "keyword.other.using",
+                    "keyword.operator.cast"
                 ],
                 "settings": {
                     "foreground": "#777777",
@@ -153,7 +177,6 @@
             },
             {
                 "scope": [
-                    "entity.name.namespace",
                     "entity.other.attribute-name",
                 ],
                 "settings": {
@@ -162,10 +185,10 @@
             },
             {
                 "scope": [
-                    "punctuation"
+                    "keyword.other.unit",
                 ],
                 "settings": {
-                    "foreground": "#777777",
+                    "foreground": "#A75E07",
                     "fontStyle": "bold"
                 }
             }
@@ -181,7 +204,7 @@
     "editor.renderWhitespace": "none",
     "editor.stickyScroll.enabled": false,
     "editor.useTabStops": false,
-    "files.autoSave": "onWindowChange",
+    "files.autoSave": "onFocusChange",
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
     "files.watcherExclude": {
@@ -215,4 +238,27 @@
     "workbench.startupEditor": "none",
     "workbench.sideBar.location": "right",
     "cursor.chat.terminalShowHoverHint": false,
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "continue.enableTabAutocomplete": false,
+    "roo-cline.allowedCommands": [
+        "cd",
+        "echo",
+        "git log",
+        "git diff",
+        "git show",
+        "git status",
+        "git add",
+        "git commit",
+        "mkdir",
+        "ln",
+        "ls",
+        "find",
+        "grep",
+        "cat",
+        "head",
+        "tail",
+        "jq",
+        "cmake",
+        "ctest",
+    ],
 }
