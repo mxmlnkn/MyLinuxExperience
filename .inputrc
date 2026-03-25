@@ -1,10 +1,10 @@
-# bind -f ~/.inputrc to reload this file
 # See https://www.gnu.org/software/bash/manual/html_node/Readline-Init-File-Syntax.html#Readline-Init-File-Syntax
 # See man readline
 
 set colored-stats On
 set expand-tilde Off
 set horizontal-scroll-mode Off
+set bell-style none
 
 "\e[5D": backward-word
 "\e[5C": forward-word
@@ -62,3 +62,51 @@ set expand-tilde Off
 #"\e[3~": kill-word
 "\x8": backward-kill-word
 "\e[[E": re-read-init-file
+
+#"\C-w": kill-word
+# Things which for some reason work by default (so, just a cheat sheet):
+# http://readline.kablamo.org/emacs.html or "man readline"
+# https://wiki.archlinux.org/index.php/readline
+
+# Commands for Moving
+# "\C-a": beginning-of-line
+# "\C-e": end-of-line
+# "\C-f": forward-char
+# Ctrl+Alt+f because Alt+f opens menu in xfce4-terminal
+"\e\C-f": forward-char
+# "\C-b": backward-char
+# "\ef": forward-word
+# "\eb": backward-word
+# "\C-l": clear-screen
+
+# ...
+
+# Commands for Changing Text
+# "\C-d": delete-char
+# "\C-t": transpose-chars
+# "\et": transpose-words
+# "\eu": upcase-word
+# "\el": downcase-word
+# "\ec": capitalize-word
+
+# Killing and Yanking
+# "\C-k": kill-line
+# "\C-u": unix-line-discardh
+# "\ed": kill-word
+# "\erubout": backward-kill-word
+# "\C-w": unix-word-rubout
+# "\C-y": yank
+# "\e-popy": yank-pop
+
+# I don't want unix-word-rubout which ignores special characters and deletes up until next space.
+# I got used to backward-kill-word for Ctrl+Backspace :(
+# Beware that it is hard to undo if the terminal sends ^W (visual studio code):
+# https://stackoverflow.com/questions/10980575/how-can-i-unbind-and-remap-c-w-in-bash
+"\C-W": backward-kill-word
+
+# Get triggered key commands with showkey -a.
+# Show current bindings with bind -P
+# Load bindings with bind -f ~/.inputrc
+# https://linuxcommand.org/lc3_man_pages/bindh.html
+# Remove key binding with bind -r "\C-w"
+# bind -v  List variable names and values in a form that can be reused as input.

@@ -19,7 +19,7 @@ tar --use-compress-program=lbzip2 -cf "firefox-profiles-$( date +%Y-%m-%d ).tar.
 # https://github.com/Izheil/Quantum-Nox-Firefox-Dark-Full-Theme/tree/master/Multirow%20and%20other%20functions/JS%20Loader
 git clone 'https://github.com/Izheil/Quantum-Nox-Firefox-Dark-Full-Theme.git'
 cd 'Quantum-Nox-Firefox-Dark-Full-Theme/Multirow and other functions'
-sudo cp -r 'JS Loader/root/'* /opt/firefox/
+cp -r 'JS Loader/root/'* /opt/firefox/
 cp -r 'JS Loader/utils' ~/.mozilla/firefox/ff-84-personal/chrome/
 cp 'Multirow tabs/MultiRowTab-scrollable.uc.js' ~/.mozilla/firefox/ff-84-personal/chrome/
     "The files inside the "utils" folder will enable both *.uc.js and *.as.css files inside your chrome folder."

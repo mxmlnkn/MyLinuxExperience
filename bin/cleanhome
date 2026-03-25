@@ -6,7 +6,9 @@ rm -rf -- "$HOME/.debug"   # binaries from coredumps, I think
 rm -rf -- "$HOME/.local/share/cargo/registry/"
 
 # Folder thumbnails and such
+rm -rf -- "$HOME/.cache/huggingface"
 rm -rf -- "$HOME/.cache/thumbnails"
+rm -rf -- "$HOME/.cache/pip"
 rm -rf -- "$HOME/.thumbnails"
 rm -rf -- "$HOME/.debug"
 rm -f -- "$HOME/.xnviewmmp/Thumb.db"

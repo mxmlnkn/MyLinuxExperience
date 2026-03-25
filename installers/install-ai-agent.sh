@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "$( readlink -f -- "${BASH_SOURCE[0]}" )" )" && pwd )
+APPDIR="$PWD/VSCodium.AppDir"
 
-wget 'https://github.com/VSCodium/vscodium/releases/download/1.103.05312/VSCodium-1.103.05312.glibc2.29-x86_64.AppImage'
-./VSCodium*.AppImage --appimage-extract
-APPDIR=VSCodium.AppDir
-mv squashfs-root "$APPDIR"
+wget --continue 'https://github.com/VSCodium/vscodium/releases/download/1.112.01907/VSCodium-1.112.01907.glibc2.30-x86_64.AppImage' &&
+chmod u+x ./VSCodium*.AppImage &&
+./VSCodium*.AppImage --appimage-extract &&
+mv squashfs-root "$APPDIR" || exit 1
 
 # Fix libselinux.so.1 AppImage problem:
 #     sed: /opt/app/lib/x86_64-linux-gnu/libselinux.so.1: no version information available (required by sed)
@@ -33,9 +34,12 @@ mkdir -p -- "$APPDIR/home" &&
             ln -s "MyLinuxExperience/$name" "$name"
         fi
     done
+    if [[ ! -e '.roo' ]]; then
+        ln -s 'MyLinuxExperience/.config/roo' '.roo'
+    fi
 )
 
-cp -- "$SCRIPT_DIR/VSCodium-AppRun-Sandboxed.sh" "$APPDIR/AppRun-Sandboxed"
+'cp' -- "$SCRIPT_DIR/VSCodium-AppRun-Sandboxed.sh" "$APPDIR/AppRun-Sandboxed"
 chmod u+x "$APPDIR/AppRun-Sandboxed"
 # Remove x permissions to avoid accidental non-sandboxed starts.
 chmod u-x "$APPDIR/AppRun"
@@ -45,3 +49,9 @@ ln -s -- "$APPDIR/AppRun-Sandboxed" ~/bin/vscodium
 #  - https://github.com/RooCodeInc/Roo-Code/
 #  - ms-python
 #  - Bookmarks: https://github.com/alefragnani/vscode-bookmarks.git
+
+if [[ ! -e /etc/apparmor.d/bwrap ]]; then
+    sudo apt install apparmor-profiles bubblewrap
+    sudo ln -s /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap
+    sudo apparmor_parser /etc/apparmor.d/bwrap
+fi

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT_DIR="$( cd -- "$( dirname -- "$( readlink -f -- "${BASH_SOURCE[0]}" )" )" && pwd )"
+. "$SCRIPT_DIR/complete-alias/complete_alias"
+
 export XDG_DATA_HOME=$HOME/.local/share
 export XDG_CONFIG_HOME=$HOME/.config
 export XDG_STATE_HOME=$HOME/.local/state
@@ -1725,7 +1728,7 @@ alias n=ninja
 alias m=build
 alias nb='build beautify'
 
-alias c='CXX=clang++-19 CC=clang-19 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON ..'
+alias c='CXX=clang++-20 CC=clang-20 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON ..'
 #function c()
 #{
 #    local gitRoot
@@ -1910,5 +1913,18 @@ function prec() {
     echo "== $fname =="
     'grep' -A 20 -F '...........' "$fname" | tail -19
 }
+
+function duso()
+{
+    # du (disk usage) for .so files
+    nm -B -l -r --size-sort --print-size -t d "$@" | c++filt
+}
+
+
+# https://stackoverflow.com/questions/10980575/how-can-i-unbind-and-remap-c-w-in-bash
+if [[ -f "$HOME/.inputrc" ]]; then
+    stty werase undef
+    bind -f "$HOME/.inputrc"
+fi
 
 export PATH=$HOME/.local/bin:$PATH

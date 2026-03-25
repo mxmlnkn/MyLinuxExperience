@@ -39,6 +39,7 @@ robinds=(
   # Fonts and GUI / GTK, ...
   #/usr/share
   /etc/fonts
+  /etc/scite
   # Internet access requires:
   /etc/resolv.conf
   /sys/class/net

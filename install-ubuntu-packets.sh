@@ -134,6 +134,8 @@ packagelistsid=(
     texlive-latex-recommended-doc texlive-science-doc texlive-pictures-doc texlive-pstricks-doc texlive-fonts-recommended-doc texlive-latex-extra-doc texlive-fonts-extra-doc
     # nice GUI editor
     texmaker hunspell-en-gb myspell-de-de hunspell-de-de-frami
+    # usability tool for building PDF in one command: rubber --pdf main.tex
+    rubber
 
     # LibreOffice
     libreoffice-common libreoffice-core libreoffice-pdfimport libreoffice-l10n-de libreoffice-help-de hyphen-de myspell-de-de mythes-de libreoffice-help-en-us libreoffice-writer libreoffice-impress
@@ -153,6 +155,8 @@ packagelistsid=(
 
     # For setfattr used in my setIcons script
     attr
+
+    opensnitch python3-opensnitch-ui
 )
 
 for package in "${packagelistsid[@]}"; do

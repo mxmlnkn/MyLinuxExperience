@@ -76,10 +76,15 @@
         "terminal.ansiBrightWhite": "#ffffff",
         "terminal.foreground": "#ffffff",
         "terminal.selectionBackground": "#c1deff",
+        "scrollbarSlider.background": "#555",
+        "scrollbarSlider.hoverBackground": "#777",
+        "scrollbarSlider.activeBackground": "#70B",
     },
     "editor.hideCursorInOverviewRuler": true,
     "editor.overviewRulerBorder": false,
     "editor.lightbulb.enabled": "off",
+    /* Check out:
+     * .vscode-oss/extensions/rooveterinaryinc.roo-cline-3.51.1/integrations/theme/default-themes/dark_plus.json */
     "editor.tokenColorCustomizations": {
         "functions": "#FFF",
         "variables": "#FFF",
@@ -95,6 +100,8 @@
                     "meta.function-call.generic.python",
                     "support.type.property-name",
                     "support.type.property-name.json",
+                    "entity.name.scope-resolution",
+                    "entity.other.inherited-class",
                     "entity.other.inherited-class.python",
                     "support.type.python",
                     "variable.parameter.function.language.python",
@@ -143,25 +150,30 @@
             },
             {
                 "scope": [
+                    "constant.language",
+                    "entity.other.attribute",
                     "storage",
                     "storage.type",
                     "storage.modifier",
-                    "keyword",
                     "variable.language",
-                    "keyword.operator.expression",
-                    "keyword.operator.new",
+                    "keyword",
                     "keyword.control",
                     "keyword.control.import.python",
                     "keyword.control.flow.python",
-                    "constant.language",
                     "keyword.operator",
+                    "keyword.operator.cast",
+                    "keyword.operator.expression",
+                    "keyword.operator.new",
+                    "keyword.operator.delete",
                     "keyword.operator.logical.python",
                     "keyword.operator.arithmetic.python",
-                    "punctuation",
-                    "punctuation.separator.period.python",
                     "keyword.operator.quantifier.regexp",
                     "keyword.other.using",
-                    "keyword.operator.cast"
+                    "keyword.other.directive.using",
+                    "keyword.other.operator",
+                    "punctuation",
+                    "punctuation.separator.period.python",
+                    "source.cpp keyword.operator.new",
                 ],
                 "settings": {
                     "foreground": "#777777",
@@ -171,9 +183,11 @@
             {
                 "scope": [
                     "constant.numeric",
+                    "keyword.other.unit",
                 ],
                 "settings": {
-                    "foreground": "#A75E07"
+                    "foreground": "#A75E07",
+                    "fontStyle": ""
                 }
             },
             {
@@ -205,6 +219,10 @@
     "editor.renderWhitespace": "none",
     "editor.stickyScroll.enabled": false,
     "editor.useTabStops": false,
+    "editor.scrollbar.vertical": "visible",
+    "editor.scrollbar.horizontal": "visible",
+    "editor.scrollbar.verticalScrollbarSize": 10,
+    "editor.scrollbar.horizontalScrollbarSize": 10,
     "files.autoSave": "onFocusChange",
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
@@ -225,10 +243,11 @@
         "jupyter-notebook": "left"
     },
     "security.workspace.trust.untrustedFiles": "open",
-    "cSpell.enabled": false,
     "dictCompletion.collectWordsFromCurrentFile": true,
     "window.commandCenter": true,
     "terminal.integrated.allowChords": false,
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.scrollback": 100000,
     "terminal.integrated.shellIntegration.decorationsEnabled": "never",
     "terminal.integrated.shellIntegration.enabled": false,
     "workbench.colorTheme": "Default Dark+",
@@ -238,13 +257,20 @@
     "workbench.editor.focusRecentEditorAfterClose": false,
     "workbench.startupEditor": "none",
     "workbench.sideBar.location": "right",
+    "cSpell.enabled": true,
+    "cSpell.userWords": [
+        "qsizetype"
+    ],
     "cursor.chat.terminalShowHoverHint": false,
-    "terminal.integrated.defaultProfile.linux": "bash",
+    "diffEditor.ignoreTrimWhitespace": false,
     "continue.enableTabAutocomplete": false,
     "roo-cline.allowedCommands": [
         "git log",
         "git diff",
         "git show",
+        "git rev-parse",
+        "git branch",
+        "git fetch",
         "cd",
         "echo",
         "git status",
@@ -260,12 +286,18 @@
         "tail",
         "jq",
         "cmake",
+        "make",
+        "ninja",
         "ctest",
         "pwd",
         "sed",
         "nl",
         "rg",
-        "pylint"
+        "pylint",
+        "yamllint",
+        "man",
+        "xargs",
+        "timeout"
     ],
     "roo-cline.deniedCommands": [],
 }
