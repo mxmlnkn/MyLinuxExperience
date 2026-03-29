@@ -1,2 +1,16 @@
 # This is the gitignore for this repo. The the global gitignore config see .config/git/ignore.
 !.config
+*.lock
+*.vscdb*
+machineid
+*History*
+*Dictionar*
+*.cache
+*Cache*
+*Cookies*
+*Token*
+*Storage*
+*-wal
+*-shm
+*Crashpad
+*State

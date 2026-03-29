@@ -24,6 +24,7 @@
     "update.mode": "none",
     "editor.bracketPairColorization.enabled": true,
     "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+    "editor.showFoldingControls": "always",
     "editor.hover.enabled": false,
     "workbench.colorCustomizations": {
         "workspace.background": "#000000",
@@ -241,11 +242,11 @@
     "terminal.integrated.defaultProfile.linux": "bash",
     "continue.enableTabAutocomplete": false,
     "roo-cline.allowedCommands": [
-        "cd",
-        "echo",
         "git log",
         "git diff",
         "git show",
+        "cd",
+        "echo",
         "git status",
         "git add",
         "git commit",
@@ -260,5 +261,11 @@
         "jq",
         "cmake",
         "ctest",
+        "pwd",
+        "sed",
+        "nl",
+        "rg",
+        "pylint"
     ],
+    "roo-cline.deniedCommands": [],
 }
